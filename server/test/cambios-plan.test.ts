@@ -2,9 +2,16 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { suscripciones } from "../src/db/schema.js";
 import { aplicarCambioPagado, cotizarCambio, sumarDias } from "../src/lib/suscripcion.js";
+import { PLANES, PRECIO_USUARIO_ADICIONAL_USD } from "../src/lib/precios.js";
 import { auth, crearApp, emailUnico, registrarEmpresa, type TestApp } from "./helpers.js";
 
 const hoy = () => new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10);
+// Precios actuales (las cuentas se hacen con ellos: cambiar los precios no rompe las pruebas)
+const BAS = PLANES.basico.precioUsd;
+const PRO = PLANES.profesional.precioUsd;
+const EMP = PLANES.empresa.precioUsd;
+const USU = PRECIO_USUARIO_ADICIONAL_USD;
+const r2 = (n: number) => Math.round(n * 100) / 100;
 
 describe("cuánto cuesta cambiar de plan", () => {
   const h = "2026-09-27";
@@ -16,17 +23,17 @@ describe("cuánto cuesta cambiar de plan", () => {
   });
 
   it("subir con período pago: la diferencia por los días que faltan (incluido hoy)", () => {
-    // Básico USD 35 → Profesional USD 75: USD 40 por mes; faltan 20 días (27/09 al 16/10)
-    expect(cotizarCambio(pago, "profesional", 0, h)).toEqual({ tipo: "pagar", importeUsd: 26.67, dias: 20, hasta: "2026-10-16" });
-    // Un usuario adicional (USD 12 por mes) por 20 días
-    expect(cotizarCambio(pago, "basico", 1, h)).toMatchObject({ tipo: "pagar", importeUsd: 8 });
+    // Básico → Profesional: la diferencia de precio por los 20 días que faltan (27/09 al 16/10)
+    expect(cotizarCambio(pago, "profesional", 0, h)).toEqual({ tipo: "pagar", importeUsd: r2(((PRO - BAS) * 20) / 30), dias: 20, hasta: "2026-10-16" });
+    // Un usuario adicional por 20 días
+    expect(cotizarCambio(pago, "basico", 1, h)).toMatchObject({ tipo: "pagar", importeUsd: r2((USU * 20) / 30) });
     // Pagando anual, cada mes sale 10/12
-    expect(cotizarCambio({ ...pago, periodo: "anual" }, "profesional", 0, h)).toMatchObject({ tipo: "pagar", importeUsd: 22.22 });
+    expect(cotizarCambio({ ...pago, periodo: "anual" }, "profesional", 0, h)).toMatchObject({ tipo: "pagar", importeUsd: r2((((PRO - BAS) * 10) / 12) * (20 / 30)) });
   });
 
   it("si pagó durante la prueba, los días que todavía son gratis no se cobran", () => {
     // Prueba hasta el 05/10, pagó hasta el 04/11: se cobran los días del 06/10 al 04/11 (30)
-    expect(cotizarCambio({ ...pago, pruebaHasta: "2026-10-05", pagoHasta: "2026-11-04" }, "profesional", 0, h)).toMatchObject({ tipo: "pagar", importeUsd: 40, dias: 30 });
+    expect(cotizarCambio({ ...pago, pruebaHasta: "2026-10-05", pagoHasta: "2026-11-04" }, "profesional", 0, h)).toMatchObject({ tipo: "pagar", importeUsd: PRO - BAS, dias: 30 });
   });
 
   it("bajar con período pago: queda para la próxima renovación", () => {
@@ -47,28 +54,35 @@ describe("qué compra un pago de cambio al acreditarse", () => {
   it("meses de 31 días: se cobra el día 31 y el vencimiento tampoco se mueve", () => {
     const largo = { ...s, pagoHasta: "2026-10-27" }; // 31 días desde hoy
     const q = cotizarCambio(largo, "profesional", 0, h) as { importeUsd: number; dias: number };
-    expect(q).toMatchObject({ dias: 31, importeUsd: 41.33 });
+    expect(q).toMatchObject({ dias: 31, importeUsd: r2(((PRO - BAS) * 31) / 30) });
     expect(aplicarCambioPagado(largo, { plan: "profesional", usuariosAdicionales: 0, importeUsd: q.importeUsd }, h).pagoHasta).toBe("2026-10-27");
   });
 
   it("pagó dos veces lo mismo: el segundo no cambia el plan y se acredita como días", () => {
-    const yaAplicado = { ...s, usuariosAdicionales: 1 }; // USD 47/mes = 1,57 por día
-    const r = aplicarCambioPagado(yaAplicado, { plan: "basico", usuariosAdicionales: 1, importeUsd: 8 }, h);
+    const yaAplicado = { ...s, usuariosAdicionales: 1 };
+    const importe = r2((USU * 20) / 30);
+    const r = aplicarCambioPagado(yaAplicado, { plan: "basico", usuariosAdicionales: 1, importeUsd: importe }, h);
     expect(r).toMatchObject({ plan: "basico", usuariosAdicionales: 1, aplicado: false });
-    expect(r.pagoHasta).toBe("2026-10-21"); // 20 días + 8/1,57 ≈ 5 días más
+    // Los 20 días que tenía, más lo pagado de nuevo convertido en días al precio del plan con el adicional
+    expect(r.pagoHasta).toBe(sumarDias(h, 20 + Math.round(importe / ((BAS + USU) / 30)) - 1));
   });
 
   it("renovó al precio viejo antes de pagar la diferencia: los días de más se recalculan al precio nuevo", () => {
-    const renovado = { ...s, pagoHasta: "2026-11-15" }; // 20 días + 30 de la renovación, a USD 35
-    const r = aplicarCambioPagado(renovado, { plan: "profesional", usuariosAdicionales: 0, importeUsd: 26.67 }, h);
-    // 50 días a 35 + 26,67 USD = 85 USD → a 75 por mes son 34 días
-    expect(r).toMatchObject({ plan: "profesional", pagoHasta: "2026-10-30", aplicado: true });
+    const renovado = { ...s, pagoHasta: "2026-11-15" }; // 20 días + 30 de la renovación, al precio del Básico
+    const importe = r2(((PRO - BAS) * 20) / 30);
+    const r = aplicarCambioPagado(renovado, { plan: "profesional", usuariosAdicionales: 0, importeUsd: importe }, h);
+    // Lo que valían los 50 días al precio viejo, más lo pagado, al precio nuevo: menos días que 50
+    const dias = Math.round((50 * (BAS / 30) + importe) / (PRO / 30));
+    expect(dias).toBeLessThan(50);
+    expect(r).toMatchObject({ plan: "profesional", pagoHasta: sumarDias(h, dias - 1), aplicado: true });
   });
 
   it("lo paga con el período vencido: el plan nuevo y los días que alcance, desde hoy", () => {
     const vencido = { ...s, pagoHasta: "2026-09-20" };
-    const r = aplicarCambioPagado(vencido, { plan: "profesional", usuariosAdicionales: 0, importeUsd: 26.67 }, h);
-    expect(r).toMatchObject({ plan: "profesional", pagoHasta: "2026-10-07", aplicado: true }); // 26,67 / (75/30) ≈ 11 días
+    const importe = r2(((PRO - BAS) * 20) / 30);
+    const r = aplicarCambioPagado(vencido, { plan: "profesional", usuariosAdicionales: 0, importeUsd: importe }, h);
+    // Los días que alcanza lo pagado, al precio nuevo, contando desde hoy
+    expect(r).toMatchObject({ plan: "profesional", pagoHasta: sumarDias(h, Math.round(importe / (PRO / 30)) - 1), aplicado: true });
   });
 });
 
@@ -103,8 +117,8 @@ describe("cambios de plan por la API", () => {
     expect((await nuevoUsuario(a)).json().code).toBe("LIMITE_PLAN");
 
     const cambio = (await a.put("/suscripcion", { plan: "basico", usuariosAdicionales: 1 })).json();
-    // USD 12 × 20/30 = 8 → $ 8.000 a $ 1.000
-    expect(cambio).toMatchObject({ aplicado: "pagar", dias: 20, importeUsd: 8, importeArs: 8000 });
+    // Un adicional por 20 días, en pesos a $ 1.000 el dólar
+    expect(cambio).toMatchObject({ aplicado: "pagar", dias: 20, importeUsd: r2((USU * 20) / 30), importeArs: r2(r2((USU * 20) / 30) * 1000) });
     expect(cambio.titulo).toContain("por los 20 días que faltan");
     // Todavía no pagó: sigue el límite de antes
     expect((await a.get("/suscripcion")).json()).toMatchObject({ usuariosAdicionales: 0, limites: { usuarios: 2 } });
@@ -120,7 +134,7 @@ describe("cambios de plan por la API", () => {
   it("subir de plan a mitad de período: paga la diferencia; si se rechaza, no cambia nada", async () => {
     const { a } = await basicoPaga();
     const rechazado = (await a.put("/suscripcion", { plan: "empresa", usuariosAdicionales: 0 })).json();
-    expect(rechazado).toMatchObject({ aplicado: "pagar", importeUsd: 70 }); // (140 − 35) × 20/30
+    expect(rechazado).toMatchObject({ aplicado: "pagar", importeUsd: r2(((EMP - BAS) * 20) / 30) });
     await a.post(`/suscripcion/pagos/${rechazado.referencia}/simular`, { resultado: "Rechazado" });
     expect((await a.get("/suscripcion")).json()).toMatchObject({ plan: "basico" });
 
@@ -138,7 +152,7 @@ describe("cambios de plan por la API", () => {
     expect((await a.get("/suscripcion")).json()).toMatchObject({ plan: "empresa", planProximo: "profesional", limites: { usuarios: 10 } });
 
     const renov = (await a.post("/suscripcion/pagar", { periodo: "mensual" })).json();
-    expect(renov).toMatchObject({ importeUsd: 75, titulo: "Prexacode plan Profesional (1 mes)" });
+    expect(renov).toMatchObject({ importeUsd: PRO, titulo: "Prexacode plan Profesional (1 mes)" });
     const ok = (await a.post(`/suscripcion/pagos/${renov.referencia}/simular`, { resultado: "Aprobado" })).json();
     expect(ok.desde).toBe(sumarDias(hoy(), 20));
     expect((await a.get("/suscripcion")).json()).toMatchObject({ plan: "profesional", planProximo: null, limites: { usuarios: 5 } });
@@ -170,7 +184,7 @@ describe("cambios de plan por la API", () => {
     const segundo = (await a.post(`/suscripcion/pagos/${dos.referencia}/simular`, { resultado: "Aprobado" })).json();
     const s = (await a.get("/suscripcion")).json();
     expect(s).toMatchObject({ usuariosAdicionales: 1, limites: { usuarios: 3 } });
-    expect(s.pagoHasta).toBe(sumarDias(hoy(), 24)); // 8 USD a 1,57 por día = 5 días más
+    expect(s.pagoHasta).toBe(sumarDias(hoy(), 19 + Math.round(r2((USU * 20) / 30) / ((BAS + USU) / 30)))); // lo pagado de más, en días
     expect(segundo.hasta).toBe(s.pagoHasta);
   });
 });

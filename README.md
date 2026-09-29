@@ -20,7 +20,8 @@ Sistema de gestión enlatado (CRM + ERP liviano) para PyMEs argentinas: clientes
 | Cambios de plan a mitad de período: subir o sumar usuarios cobra lo proporcional; bajar queda para la renovación | ✅ Con pruebas |
 | Responsive: celular y tablet (todas las pantallas verificadas) | ✅ Con pruebas |
 | Un usuario, una sesión: entrar en otro dispositivo cierra la anterior (y el panel lo marca como posible usuario compartido); suspender o cambiar el rol vale en el momento | ✅ Con pruebas |
-| Ayuda y soporte: la empresa abre pedidos, se responden desde el panel (aviso en la campanita y por email) | ✅ Con pruebas |
+| Centro de ayuda: botón ? (o F1) con buscador de "cómo se hace", según la pantalla y el rol | ✅ Con pruebas |
+| Soporte: la empresa abre pedidos, se responden desde el panel (aviso en la campanita y por email) | ✅ Con pruebas |
 | Roles personalizados: casillas de permisos por sección, roles pre armados editables, varios administradores (siempre queda al menos uno); el menú y los botones siguen los permisos | ✅ Con pruebas |
 | Empleados y sueldos (simple): legajo, sueldo con extras y descuentos, adelantos que se descuentan solos, aguinaldo, vacaciones según la LCT, comprobante interno imprimible | ✅ Con pruebas |
 | Empresas de demostración: `npm --prefix server run demos` (con el servidor apagado) crea demo1 (ferretería, facturas A/B) y demo2 (servicio técnico monotributista, facturas C) con 5 meses de historia · contraseña Demo12345 | ✅ |
@@ -117,14 +118,14 @@ Lo que ve cada usuario depende de su rol (Administrador, Ventas, Operaciones). E
 
 ## Modelo comercial
 
-Precio por empresa con usuarios incluidos + cargo por usuario adicional (catálogo en `server/src/lib/suscripcion.ts`). Todos los planes incluyen todos los módulos.
+Precio por empresa con usuarios incluidos + cargo por usuario adicional (los precios están en un solo lugar: `server/src/lib/precios.ts`; las pruebas se calculan con ellos). Todos los planes incluyen todos los módulos.
 
 | Plan | USD/mes | Usuarios incluidos | Puntos de venta |
 |---|---|---|---|
-| Básico | 35 | 2 | 1 |
-| Profesional | 75 | 5 | 3 |
-| Empresa | 140 | 10 | ilimitados |
-| Usuario adicional | 12 | — | — |
+| Básico | 45 | 2 | 1 |
+| Profesional | 89 | 5 | 3 |
+| Empresa | 169 | 10 | ilimitados |
+| Usuario adicional | 15 | — | — |
 
 Pagando anual se pagan 10 meses (2 gratis). Se cobra en pesos al dólar oficial del Banco Central del día (API del BCRA; si no responde, el oficial de venta de dolarapi.com).
 

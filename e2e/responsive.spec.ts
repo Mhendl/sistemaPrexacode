@@ -79,6 +79,7 @@ for (const { nombre, viewport } of PANTALLAS) {
         "/configuracion?tab=plan",
         "/cuenta/notificaciones",
         "/soporte",
+        "/ayuda",
         "/empleados",
         "/configuracion?tab=roles",
       ]) {

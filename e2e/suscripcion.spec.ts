@@ -1,5 +1,9 @@
 import { expect, test } from "@playwright/test";
-import { crearCuenta, emailUnico, entrarCon, PASSWORD } from "./helpers";
+import { crearCuenta, DOLAR_PRUEBA, emailUnico, entrarCon, PASSWORD, PLANES, PRECIO_USUARIO_ADICIONAL_USD, pesos } from "./helpers";
+
+const BAS = PLANES.basico.precioUsd;
+const PRO = PLANES.profesional.precioUsd;
+const USU = PRECIO_USUARIO_ADICIONAL_USD;
 
 test.describe("Suscripción", () => {
   test("prueba gratis, cambio de plan, límite de usuarios, adicionales y pago", async ({ page, request }) => {
@@ -11,7 +15,7 @@ test.describe("Suscripción", () => {
     await expect(page).toHaveURL(/tab=plan/);
     await expect(page.getByTestId("estado-suscripcion")).toContainText("14 días de prueba gratis");
     await expect(page.getByTestId("uso-usuarios")).toContainText("1 de 5");
-    await expect(page.getByTestId("precio-mensual")).toHaveText("USD 75 / mes");
+    await expect(page.getByTestId("precio-mensual")).toHaveText(`USD ${PRO} / mes`);
 
     // Bajar a Básico
     await page.getByTestId("plan-basico").getByRole("button", { name: "Cambiar a Básico" }).click();
@@ -43,9 +47,9 @@ test.describe("Suscripción", () => {
     await page.goto("/configuracion?tab=plan");
     await page.getByRole("button", { name: "Sumar un usuario adicional" }).click();
     await expect(page.getByTestId("cantidad-adicionales")).toHaveText("1");
-    await page.getByRole("button", { name: /Guardar \(\+USD 12\/mes\)/ }).click();
+    await page.getByRole("button", { name: `Guardar (+USD ${USU}/mes)` }).click();
     await expect(page.getByTestId("uso-usuarios")).toContainText("2 de 3");
-    await expect(page.getByTestId("precio-mensual")).toHaveText("USD 47 / mes");
+    await expect(page.getByTestId("precio-mensual")).toHaveText(`USD ${BAS + USU} / mes`);
     await page.goto("/configuracion?tab=usuarios");
     await crear("Valeria Tercera");
     await expect(page.getByText("Usuario creado")).toBeVisible();
@@ -55,13 +59,13 @@ test.describe("Suscripción", () => {
     await page.getByRole("button", { name: "Pagar 1 mes" }).click();
     await expect(page).toHaveURL(/\/suscripcion\/pago\/PXC-/);
     await expect(page.getByTestId("pago-simulado")).toContainText("Plan Básico + 1 usuario · 1 mes");
-    await expect(page.getByTestId("importe-pago")).toHaveText("$ 47.000,00");
+    await expect(page.getByTestId("importe-pago")).toHaveText(pesos((BAS + USU) * DOLAR_PRUEBA));
     await page.getByRole("button", { name: "Aprobar pago de prueba" }).click();
     await expect(page.getByText("Pago de prueba aprobado")).toBeVisible();
     await expect(page).toHaveURL(/tab=plan/);
     await expect(page.getByTestId("estado-suscripcion")).toContainText("Pago hasta el");
     await expect(page.getByTestId("pagos-suscripcion")).toContainText("Aprobado");
-    await expect(page.getByTestId("pagos-suscripcion")).toContainText("$ 47.000,00");
+    await expect(page.getByTestId("pagos-suscripcion")).toContainText(pesos((BAS + USU) * DOLAR_PRUEBA));
     // Con más de una semana por delante, ya no hay aviso
     await expect(page.getByTestId("aviso-suscripcion")).toHaveCount(0);
   });
@@ -81,10 +85,10 @@ test.describe("Suscripción", () => {
     const aviso = page.getByTestId("aviso-limite-usuarios");
     await expect(aviso).toContainText("Ya usás los 2 usuarios de tu plan");
     await aviso.getByRole("button", { name: /Sumar 1 usuario/ }).click();
-    // USD 12 × 20/30 = USD 8 → $ 8.000 al dólar de prueba
+    // Un adicional por los 20 días que faltan, al dólar de prueba
     await expect(page).toHaveURL(/\/suscripcion\/pago\/PXC-/);
     await expect(page.getByTestId("pago-simulado")).toContainText("Diferencia proporcional");
-    await expect(page.getByTestId("importe-pago")).toHaveText("$ 8.000,00");
+    await expect(page.getByTestId("importe-pago")).toHaveText(pesos(Math.round(((USU * 20) / 30) * 100) / 100 * DOLAR_PRUEBA));
     await page.getByRole("button", { name: "Aprobar pago de prueba" }).click();
     await expect(page.getByText("El cambio ya está aplicado")).toBeVisible();
     await expect(page.getByTestId("uso-usuarios")).toContainText("2 de 3");

@@ -19,7 +19,7 @@ import { Conversacion, Responder } from "./Conversacion";
 const fecha = (iso: string) => new Date(iso).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 const mensaje = (e: unknown, def: string) => (e instanceof ApiError ? e.message : def);
 
-/** Ayuda y soporte: pedidos de la empresa al equipo de Prexacode */
+/** Soporte: pedidos de la empresa al equipo de Prexacode */
 export function SoportePage() {
   const { data = [], isLoading, error, refetch } = useTickets();
   const [nuevo, setNuevo] = useState(false);
@@ -27,7 +27,7 @@ export function SoportePage() {
   return (
     <>
       <PageHeader
-        title="Ayuda y soporte"
+        title="Soporte"
         description="¿Algo no anda o tenés una duda? Escribinos y te respondemos por acá (y por email)."
         actions={
           <Button onClick={() => setNuevo(true)}>
@@ -151,7 +151,7 @@ export function TicketPage() {
     <>
       <Button variant="ghost" size="sm" asChild className="mb-3 -ml-2 text-muted-foreground">
         <Link to="/soporte">
-          <ArrowLeft className="size-4" /> Ayuda y soporte
+          <ArrowLeft className="size-4" /> Soporte
         </Link>
       </Button>
       <QueryState isLoading={isLoading} error={error} onRetry={refetch}>

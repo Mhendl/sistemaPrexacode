@@ -12,6 +12,7 @@ import { canAccess } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 import { NoAccess } from "@/components/shared/NoAccess";
 import { EmpresaLogo } from "@/components/shared/EmpresaLogo";
+import { BotonAyuda } from "@/modules/ayuda/Ayuda";
 import { GlobalSearch } from "./GlobalSearch";
 import { Logo } from "./Logo";
 import { NotificationsBell } from "./NotificationsBell";
@@ -114,6 +115,7 @@ export function AppLayout() {
           </Button>
           <GlobalSearch />
           <div className="ml-auto flex items-center gap-1">
+            <BotonAyuda />
             <NotificationsBell />
             <UserMenu />
           </div>

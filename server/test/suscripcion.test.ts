@@ -5,6 +5,11 @@ import { suscripciones } from "../src/db/schema.js";
 import { cotizacionDolar, firmaMercadoPagoValida, mercadoPago, type HttpJson } from "../src/lib/pagos.js";
 import { estadoDe, periodoCubierto, sumarDias, sumarMeses } from "../src/lib/suscripcion.js";
 import { auth, crearApp, cuitValido, emailUnico, registrarEmpresa, type TestApp } from "./helpers.js";
+import { PLAN_IDS, PLANES, PRECIO_USUARIO_ADICIONAL_USD } from "../src/lib/precios.js";
+
+// Precios actuales: las cuentas se hacen con ellos, así cambiar los precios no rompe las pruebas
+const PRO = PLANES.profesional.precioUsd;
+const USU = PRECIO_USUARIO_ADICIONAL_USD;
 
 const hoy = () => new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10);
 
@@ -137,8 +142,8 @@ describe("suscripción por la API", () => {
     const s = (await api(token).get("/suscripcion")).json();
     expect(s).toMatchObject({ plan: "profesional", planNombre: "Profesional", estado: "Prueba", vence: sumarDias(hoy(), 14), diasRestantes: 14, pagoHasta: null, limites: { usuarios: 5, puntosVenta: 3 }, usos: { usuarios: 1, puntosVenta: 0 }, proveedor: "simulado", pagos: [] });
     const planes = (await api(token).get("/suscripcion/planes")).json();
-    expect(planes.planes.map((p: { id: string; precioUsd: number }) => [p.id, p.precioUsd])).toEqual([["basico", 35], ["profesional", 75], ["empresa", 140]]);
-    expect(planes).toMatchObject({ precioUsuarioAdicionalUsd: 12, mesesCobradosAnual: 10, dolar: 1000 });
+    expect(planes.planes.map((p: { id: string; precioUsd: number }) => [p.id, p.precioUsd])).toEqual(PLAN_IDS.map((id) => [id, PLANES[id].precioUsd]));
+    expect(planes).toMatchObject({ precioUsuarioAdicionalUsd: USU, mesesCobradosAnual: 10, dolar: 1000 });
 
     // Un vendedor ve el estado (para el aviso) pero no los pagos ni puede cambiar el plan
     const v = (await app.inject({ method: "POST", url: "/api/auth/login", payload: { email: (await nuevoUsuario(api(token))).json().email, password: "clave-segura-123" } })).json().token;
@@ -197,9 +202,9 @@ describe("suscripción por la API", () => {
     const a = api(token);
     await a.put("/suscripcion", { plan: "profesional", usuariosAdicionales: 2 });
     const p = (await a.post("/suscripcion/pagar", { periodo: "mensual" })).json();
-    expect(p).toMatchObject({ importeUsd: 99, dolar: 1000, importeArs: 99000, titulo: "Prexacode plan Profesional (1 mes) + 2 usuarios" });
+    expect(p).toMatchObject({ importeUsd: PRO + 2 * USU, dolar: 1000, importeArs: (PRO + 2 * USU) * 1000, titulo: "Prexacode plan Profesional (1 mes) + 2 usuarios" });
     expect(p.url).toBe(`http://localhost:5173/suscripcion/pago/${p.referencia}`);
-    expect((await a.get(`/suscripcion/pagos/${p.referencia}`)).json()).toMatchObject({ estado: "Pendiente", importeArs: 99000, proveedor: "simulado" });
+    expect((await a.get(`/suscripcion/pagos/${p.referencia}`)).json()).toMatchObject({ estado: "Pendiente", importeArs: (PRO + 2 * USU) * 1000, proveedor: "simulado" });
 
     const ok = (await a.post(`/suscripcion/pagos/${p.referencia}/simular`, { resultado: "Aprobado" })).json();
     const desde = sumarDias(hoy(), 15);
@@ -214,7 +219,7 @@ describe("suscripción por la API", () => {
 
     // Anual: 10 meses de precio, 12 de uso, sigue desde lo pagado
     const anual = (await a.post("/suscripcion/pagar", { periodo: "anual" })).json();
-    expect(anual.importeUsd).toBe(990);
+    expect(anual.importeUsd).toBe((PRO + 2 * USU) * 10);
     const ap = (await a.post(`/suscripcion/pagos/${anual.referencia}/simular`, { resultado: "Aprobado" })).json();
     expect(ap.desde).toBe(sumarDias(ok.hasta, 1));
     expect((await a.get("/suscripcion")).json()).toMatchObject({ periodo: "anual", pagoHasta: ap.hasta });
@@ -265,7 +270,7 @@ describe("suscripción por la API", () => {
     const pref = mp.preferencias.at(-1)!;
     expect(pref).toMatchObject({
       external_reference: p.referencia,
-      items: [{ unit_price: 75000, currency_id: "ARS", quantity: 1, title: "Prexacode plan Profesional (1 mes)" }],
+      items: [{ unit_price: PRO * 1000, currency_id: "ARS", quantity: 1, title: "Prexacode plan Profesional (1 mes)" }],
       notification_url: "https://api.prexacode.test/api/suscripcion/webhook/mercadopago",
       back_urls: { success: `https://app.prexacode.test/configuracion?tab=plan&pago=${p.referencia}` },
       auto_return: "approved",
@@ -284,7 +289,7 @@ describe("suscripción por la API", () => {
     };
 
     // Sin firma o con firma falsa: se rechaza
-    mp.pagos.set("9001", { status: "approved", external_reference: p.referencia, transaction_amount: 75000 });
+    mp.pagos.set("9001", { status: "approved", external_reference: p.referencia, transaction_amount: PRO * 1000 });
     expect((await aviso("9001")).statusCode).toBe(401);
     expect((await aviso("9001", "ts=1,v1=abc")).statusCode).toBe(401);
     expect((await a.get("/suscripcion")).json().estado).toBe("Prueba");
@@ -295,10 +300,10 @@ describe("suscripción por la API", () => {
     expect((await a.get(`/suscripcion/pagos/${p.referencia}`)).json().estado).toBe("Pendiente");
 
     // Pendiente y después aprobado
-    mp.pagos.set("9003", { status: "in_process", external_reference: p.referencia, transaction_amount: 75000 });
+    mp.pagos.set("9003", { status: "in_process", external_reference: p.referencia, transaction_amount: PRO * 1000 });
     expect((await aviso("9003", firmar("9003"))).statusCode).toBe(200);
     expect((await a.get(`/suscripcion/pagos/${p.referencia}`)).json().estado).toBe("Pendiente");
-    mp.pagos.set("9003", { status: "approved", external_reference: p.referencia, transaction_amount: 75000 });
+    mp.pagos.set("9003", { status: "approved", external_reference: p.referencia, transaction_amount: PRO * 1000 });
     expect((await aviso("9003", firmar("9003"))).json()).toMatchObject({ ok: true });
     const s = (await a.get("/suscripcion")).json();
     expect(s).toMatchObject({ estado: "Activa" });
@@ -317,8 +322,8 @@ describe("suscripción por la API", () => {
     const { token } = await registrarEmpresa(appMp);
     const a = api(token, appMp);
     const p = (await a.post("/suscripcion/pagar", { periodo: "anual" })).json();
-    expect(p.importeArs).toBe(750000);
-    mp.pagos.set("9101", { status: "approved", external_reference: p.referencia, transaction_amount: 750000 });
+    expect(p.importeArs).toBe(PRO * 10 * 1000);
+    mp.pagos.set("9101", { status: "approved", external_reference: p.referencia, transaction_amount: PRO * 10 * 1000 });
     const v = (await a.post(`/suscripcion/pagos/${p.referencia}/verificar`, { pagoId: "9101" })).json();
     expect(v).toMatchObject({ estado: "Aprobado", proveedorPagoId: "9101" });
     expect((await a.get("/suscripcion")).json()).toMatchObject({ estado: "Activa", periodo: "anual" });

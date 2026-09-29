@@ -4,6 +4,10 @@ import { aceptacionesTerminos, suscripciones } from "../src/db/schema.js";
 import { TERMINOS_VERSION } from "../src/lib/legal.js";
 import { sumarDias } from "../src/lib/suscripcion.js";
 import { auth, crearApp, cuitValido, emailUnico, registrarEmpresa, type TestApp } from "./helpers.js";
+import { PLANES } from "../src/lib/precios.js";
+
+// Precios actuales: las cuentas se hacen con ellos, así cambiar los precios no rompe las pruebas
+const PRO = PLANES.profesional.precioUsd;
 
 const hoy = () => new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10);
 
@@ -179,8 +183,8 @@ describe("panel de la plataforma", () => {
     await api(cliente.token).post(`/suscripcion/pagos/${p.referencia}/simular`, { resultado: "Aprobado" });
     const despues = (await api(t).get("/plataforma/resumen")).json();
     expect(despues.porEstado.Activa).toBe(antes.porEstado.Activa + 1);
-    expect(despues.mrrUsd).toBeCloseTo(antes.mrrUsd + 750 / 12, 2); // anual: 10 meses de USD 75, repartido en 12
-    expect(despues.cobrado30Dias.ars).toBe(antes.cobrado30Dias.ars + 750000);
+    expect(despues.mrrUsd).toBeCloseTo(antes.mrrUsd + (PRO * 10) / 12, 2); // anual: 10 meses de precio, repartido en 12
+    expect(despues.cobrado30Dias.ars).toBe(antes.cobrado30Dias.ars + PRO * 10 * 1000);
   });
 
   it("extender, registrar un pago por transferencia y cambiar el plan quedan en la auditoría", async () => {

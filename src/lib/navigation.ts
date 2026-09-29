@@ -14,6 +14,7 @@ import {
   Truck,
   LifeBuoy,
   IdCard,
+  BookOpen,
 } from "lucide-react";
 import type { Acceso, NavItem, NavSection, Role } from "@/types";
 
@@ -65,7 +66,8 @@ export const navSections: NavSection[] = [
     items: [
       { path: "/importar-exportar", label: "Importar y exportar", icon: FileSpreadsheet, permisos: ["clientes.ver", "productos.ver"], description: "Planillas de Excel y CSV" },
       { path: "/configuracion", label: "Configuración", icon: Settings, permisos: ["configuracion"], description: "Empresa, usuarios e integraciones" },
-      { path: "/soporte", label: "Ayuda y soporte", icon: LifeBuoy, permisos: [], description: "Pedidos de ayuda al equipo de Prexacode" },
+      { path: "/ayuda", label: "Centro de ayuda", icon: BookOpen, permisos: [], description: "Qué hace cada cosa y cómo se hace" },
+      { path: "/soporte", label: "Soporte", icon: LifeBuoy, permisos: [], description: "Pedidos de ayuda al equipo de Prexacode" },
     ],
   },
 ];

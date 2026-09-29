@@ -16,7 +16,7 @@
 import { readFileSync } from "node:fs";
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import * as XLSX from "xlsx";
-import { cuitValido, elegir, emailUnico, formatear, loginUI, PASSWORD, entrarAlPanel } from "./helpers";
+import { cuitValido, DOLAR_PRUEBA, elegir, emailUnico, formatear, loginUI, PASSWORD, entrarAlPanel, PLANES, pesos } from "./helpers";
 
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
 
@@ -371,7 +371,7 @@ test("una empresa real de punta a punta: todo cierra en todos los módulos", asy
     await page.goto("/configuracion?tab=plan");
     await expect(page.getByTestId("uso-usuarios")).toContainText("3 de 5");
     await page.getByRole("button", { name: "Pagar 1 mes" }).click();
-    await expect(page.getByTestId("importe-pago")).toHaveText("$ 75.000,00");
+    await expect(page.getByTestId("importe-pago")).toHaveText(pesos(PLANES.profesional.precioUsd * DOLAR_PRUEBA));
     await page.getByRole("button", { name: "Aprobar pago de prueba" }).click();
     await expect(page.getByText("Pago de prueba aprobado")).toBeVisible();
     await expect(page.getByTestId("aviso-suscripcion")).toHaveCount(0);

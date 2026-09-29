@@ -1,3 +1,4 @@
+import { AyudaPage } from "@/modules/ayuda/Ayuda";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -136,6 +137,7 @@ export default function App() {
                   <Route path="empleados" element={<EmpleadosPage />} />
                   <Route path="empleados/pagos/:id" element={<PagoEmpleadoPage />} />
                   <Route path="empleados/:id" element={<EmpleadoDetallePage />} />
+                  <Route path="ayuda" element={<AyudaPage />} />
                   <Route path="soporte" element={<SoportePage />} />
                   <Route path="soporte/:id" element={<TicketPage />} />
                   <Route path="importar-exportar" element={<ImportarExportarPage />} />

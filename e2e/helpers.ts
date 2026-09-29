@@ -77,3 +77,8 @@ export async function entrarAlPanel(page: Page) {
   await page.getByRole("button", { name: "Entrar al panel" }).click();
   await expect(page.getByTestId("resumen-admin")).toBeVisible();
 }
+
+/** Precios actuales (del mismo archivo que usa el sistema) y montos como los muestra la pantalla, al dólar de prueba ($ 1.000) */
+export { PLANES, PRECIO_USUARIO_ADICIONAL_USD } from "../server/src/lib/precios";
+export const DOLAR_PRUEBA = 1000;
+export const pesos = (n: number) => `$ ${n.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;

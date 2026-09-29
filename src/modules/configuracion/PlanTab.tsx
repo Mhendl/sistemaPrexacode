@@ -145,7 +145,7 @@ export function PlanTab() {
               {s.proveedor === "simulado" && <span className="self-center text-xs text-muted-foreground">Mercado Pago todavía no está configurado: el pago es de prueba.</span>}
               {s.proveedor === "deshabilitado" && (
                 <span className="self-center text-xs text-muted-foreground" data-testid="pago-por-transferencia">
-                  Por ahora el pago se coordina por transferencia: escribinos desde <a href="/soporte" className="underline">Ayuda y soporte</a> y te pasamos los datos.
+                  Por ahora el pago se coordina por transferencia: escribinos desde <a href="/soporte" className="underline">Soporte</a> y te pasamos los datos.
                 </span>
               )}
             </div>

@@ -5,10 +5,10 @@ test("el cliente pide ayuda, lo respondo desde el panel y le llega el aviso", as
   const cuenta = await crearCuenta(request, `Librería Soporte ${Date.now()}`);
   const asunto = `No me imprime el remito ${Date.now()}`;
 
-  // Cliente: Ayuda y soporte → nuevo pedido
+  // Cliente: Soporte → nuevo pedido
   await entrarCon(page, cuenta);
   await page.goto("/");
-  await page.getByRole("link", { name: "Ayuda y soporte" }).first().click();
+  await page.getByRole("link", { name: "Soporte", exact: true }).first().click();
   await page.getByRole("button", { name: "Nuevo pedido" }).click();
   await page.getByRole("button", { name: "Enviar pedido" }).click();
   await expect(page.getByText("Contá en pocas palabras qué pasa")).toBeVisible();

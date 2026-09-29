@@ -24,6 +24,12 @@ import { usuarios } from "../src/db/schema.js";
 import { hoyAr } from "../src/lib/cuentas.js";
 import { precioUsd, sumarDias, type PlanId } from "../src/lib/suscripcion.js";
 import { auth, crearApp, cuitValido, emailUnico, type TestApp } from "./helpers.js";
+import { PLANES, PRECIO_USUARIO_ADICIONAL_USD } from "../src/lib/precios.js";
+
+// Precios actuales: las cuentas se hacen con ellos, así cambiar los precios no rompe las pruebas
+const PRO = PLANES.profesional.precioUsd;
+const EMP = PLANES.empresa.precioUsd;
+const USU = PRECIO_USUARIO_ADICIONAL_USD;
 
 const INICIO = Date.UTC(2026, 2, 2, 13, 0); // lunes 02/03/2026, 10:00 en Argentina
 const DIA = 86_400_000;
@@ -434,7 +440,7 @@ describe("prueba final: 3 empresas, una por plan, trabajando 6 meses", () => {
       if (d === 40) {
         const s = await suscripcion(kiosco);
         const dias = Math.round((Date.parse(s.pagoHasta) - Date.parse(hoy)) / DIA) + 1;
-        await cambiarPagando(kiosco, "basico", 1, r2((12 * dias) / 30));
+        await cambiarPagando(kiosco, "basico", 1, r2((USU * dias) / 30));
         await llenarUsuarios(kiosco, 3);
         eventos.push(`${hoy} Kiosco compra 1 usuario por ${dias} días`);
       }
@@ -442,7 +448,7 @@ describe("prueba final: 3 empresas, una por plan, trabajando 6 meses", () => {
       if (d === 45) {
         const s = await suscripcion(distri);
         const dias = Math.round((Date.parse(s.pagoHasta) - Date.parse(hoy)) / DIA) + 1;
-        await cambiarPagando(distri, "empresa", 2, r2(((24 * 10) / 12) * (dias / 30)));
+        await cambiarPagando(distri, "empresa", 2, r2((((2 * USU) * 10) / 12) * (dias / 30)));
         await llenarUsuarios(distri, 12);
         eventos.push(`${hoy} Distribuidora compra 2 usuarios por ${dias} días`);
       }
@@ -450,7 +456,7 @@ describe("prueba final: 3 empresas, una por plan, trabajando 6 meses", () => {
       if (d === 60) {
         const s = await suscripcion(estudio);
         const dias = Math.round((Date.parse(s.pagoHasta) - Date.parse(hoy)) / DIA) + 1;
-        await cambiarPagando(estudio, "empresa", 0, r2((65 * dias) / 30));
+        await cambiarPagando(estudio, "empresa", 0, r2(((EMP - PRO) * dias) / 30));
         await llenarUsuarios(estudio, 10);
         eventos.push(`${hoy} Estudio sube a Empresa por ${dias} días`);
       }

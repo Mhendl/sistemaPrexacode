@@ -136,7 +136,14 @@ Versión simple, para ordenar los pagos al personal. No reemplaza la liquidació
 
 > **Para mostrar:** dar un adelanto y después pagar el sueldo: el adelanto aparece descontado solo.
 
-### Ayuda y soporte
+### Centro de ayuda
+- Botón **?** arriba de todo (o la tecla **F1**): abre la ayuda sin salir de la pantalla, con las preguntas de esa pantalla primero.
+- **Buscador en palabras simples:** "anular una factura", "subir precios", "cheque rechazado", "cómo pago el sueldo"… Encuentra aunque se escriba sin tildes o en plural.
+- Cada respuesta tiene los pasos con los nombres de los botones que se ven en pantalla, y un botón para ir directo a esa pantalla.
+- Cada persona ve solo las ayudas de lo que su rol le permite hacer.
+- Página completa en **Centro de ayuda** (menú Sistema), con todas las preguntas por sección.
+
+### Soporte
 - El cliente abre un **pedido de ayuda** (problema, consulta, facturación y pagos, sugerencia) y sigue la conversación con el equipo de Prexacode.
 - Cuando se le responde, le llega un aviso en la campanita y por email.
 
@@ -171,10 +178,10 @@ Usuarios, roles y plan: solo administradores. El resto (empresa, ARCA, email, Wh
 
 | Plan | Precio | Usuarios | Puntos de venta |
 |---|---|---|---|
-| Básico | USD 35 / mes | 2 | 1 |
-| Profesional | USD 75 / mes | 5 | 3 |
-| Empresa | USD 140 / mes | 10 | ilimitados |
-| Usuario adicional | USD 12 / mes | +1 | — |
+| Básico | USD 45 / mes | 2 | 1 |
+| Profesional | USD 89 / mes | 5 | 3 |
+| Empresa | USD 169 / mes | 10 | ilimitados |
+| Usuario adicional | USD 15 / mes | +1 | — |
 
 - **Todos los planes incluyen todos los módulos.** Lo que cambia es la cantidad de usuarios y de puntos de venta.
 - Se cobra **en pesos, al dólar oficial del Banco Central del día**, con Mercado Pago.
