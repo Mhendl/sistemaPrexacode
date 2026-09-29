@@ -34,6 +34,7 @@ import { clienteExtrasRoutes } from "./routes/clienteExtras.js";
 import { suscripcionRoutes } from "./routes/suscripcion.js";
 import { legalRoutes } from "./routes/legal.js";
 import { plataformaRoutes } from "./routes/plataforma.js";
+import { tareasAutomaticas } from "./lib/tareas.js";
 import { soporteRoutes } from "./routes/soporte.js";
 import { empleadosRoutes } from "./routes/empleados.js";
 import { adminRoutes, crearAdminInicial } from "./routes/admin.js";
@@ -93,9 +94,11 @@ export interface AppOptions {
   web?: string;
   /** Detrás de un proxy (nginx, Caddy, la plataforma de hosting): toma la IP real del cliente */
   trustProxy?: boolean;
+  /** Correr las tareas automáticas (avisos y recordatorios por email) cada hora. En las pruebas no. */
+  tareas?: boolean;
 }
 
-export async function buildApp({ db, jwtSecret, logger = false, conectorArca, cartero, appUrl = "http://localhost:5173", smtpUrl, emailRemitente = "notificaciones@prexacode.com.ar", secretsKey, arca = {}, pagos, cotizacion, mpWebhookSecret, urlApi, modoPruebas = false, adminInicial, limitarIntentos = true, produccion = false, web, trustProxy = false }: AppOptions) {
+export async function buildApp({ db, jwtSecret, logger = false, conectorArca, cartero, appUrl = "http://localhost:5173", smtpUrl, emailRemitente = "notificaciones@prexacode.com.ar", secretsKey, arca = {}, pagos, cotizacion, mpWebhookSecret, urlApi, modoPruebas = false, adminInicial, limitarIntentos = true, produccion = false, web, trustProxy = false, tareas = false }: AppOptions) {
   // Al apagar, cortar también las conexiones keep-alive activas (si no, close() puede esperar indefinidamente)
   const app = Fastify({ logger, forceCloseConnections: true, trustProxy, bodyLimit: 5 * 1024 * 1024 });
 
@@ -237,6 +240,18 @@ export async function buildApp({ db, jwtSecret, logger = false, conectorArca, ca
 
   // La web compilada, en la misma pieza que la API
   if (web) await servirWeb(app, web);
+
+  if (tareas) {
+    const correr = () => tareasAutomaticas(app).catch((e) => app.log.error(e, "Falló una tarea automática"));
+    const primera = setTimeout(correr, 60_000);
+    const cadaHora = setInterval(correr, 60 * 60_000);
+    primera.unref();
+    cadaHora.unref();
+    app.addHook("onClose", async () => {
+      clearTimeout(primera);
+      clearInterval(cadaHora);
+    });
+  }
 
   return app;
 }

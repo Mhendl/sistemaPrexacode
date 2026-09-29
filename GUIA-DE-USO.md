@@ -140,6 +140,14 @@ Versión simple, para ordenar los pagos al personal. No reemplaza la liquidació
 - El cliente abre un **pedido de ayuda** (problema, consulta, facturación y pagos, sugerencia) y sigue la conversación con el equipo de Prexacode.
 - Cuando se le responde, le llega un aviso en la campanita y por email.
 
+### Emails automáticos
+- **Bienvenida:** al registrarse, con los primeros pasos.
+- **"¿Olvidaste tu contraseña?":** desde el login llega un link para elegir una nueva. Sirve una sola vez, vence en 1 hora y cierra las sesiones abiertas.
+- **Avisos de la suscripción** a los administradores: la prueba gratis termina en 3 días, la suscripción vence en 5 días, venció, o quedó en solo lectura. Cada aviso llega una sola vez.
+- **Factura al emitirla** (opcional, en Configuración → Email): sale sola al email del cliente.
+- **Recordatorio de facturas** (opcional, en Configuración → Email): un email al cliente 3 días antes del vencimiento y otro cuando vence, con la factura y el saldo.
+- Las respuestas de los clientes le llegan a la empresa, no a Prexacode.
+
 ### Campanita de avisos
 Stock bajo o agotado, facturas por vencer o vencidas, cosas de la agenda, oportunidades asignadas y respuestas de soporte. Cada usuario elige qué avisos recibir en **Mis notificaciones**.
 

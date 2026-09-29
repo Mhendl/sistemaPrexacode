@@ -74,7 +74,7 @@ export function datosWhatsapp(r: Resumen) {
 
 export async function enviarDocumentoPorEmail(
   app: FastifyInstance,
-  o: { empresaId: string; tipo: TipoDocumento; id: string; para: string; mensaje?: string | null; usuarioId?: string | null; automatico?: boolean; resumen?: Resumen },
+  o: { empresaId: string; tipo: TipoDocumento; id: string; para: string; mensaje?: string | null; usuarioId?: string | null; automatico?: boolean; resumen?: Resumen; asuntoPrefijo?: string },
 ) {
   const r = o.resumen ?? (await resumenDocumento(app, o.empresaId, o.tipo, o.id));
   if (!r) return null;
@@ -85,5 +85,5 @@ export async function enviarDocumentoPorEmail(
     boton: { texto: r.boton, url: r.url },
     pie: `${r.empresa} · Enviado con Prexacode. Podés ver, imprimir o guardar el documento en PDF desde el link.`,
   });
-  return enviarEmail(app, { empresaId: o.empresaId, para: o.para, asunto: `${r.titulo} · ${r.empresa}`, html, texto, tipo: o.tipo, refId: o.id, usuarioId: o.usuarioId, automatico: o.automatico });
+  return enviarEmail(app, { empresaId: o.empresaId, para: o.para, asunto: `${o.asuntoPrefijo ? `${o.asuntoPrefijo}: ` : ""}${r.titulo} · ${r.empresa}`, html, texto, tipo: o.tipo, refId: o.id, usuarioId: o.usuarioId, automatico: o.automatico });
 }

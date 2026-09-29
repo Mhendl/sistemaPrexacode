@@ -35,6 +35,7 @@ const configSchema = z
       .optional()
       .transform((v) => v || null),
     enviarFacturaAlEmitir: z.boolean().default(false),
+    recordarFacturas: z.boolean().default(false),
     version: z.number().int().positive().max(2_000_000_000).optional(),
   })
   .superRefine((c, ctx) => {
@@ -75,6 +76,7 @@ export const emailRoutes: FastifyPluginAsync = async (app) => {
         remitenteNombre: d.remitenteNombre,
         responderA: d.responderA,
         enviarFacturaAlEmitir: d.enviarFacturaAlEmitir,
+        recordarFacturas: d.recordarFacturas,
         // Si cambió cómo se conecta, hay que volver a probarlo
         ...(cambioConexion ? { verificado: false, ultimoError: null } : {}),
         version: sql`${configEmail.version} + 1`,

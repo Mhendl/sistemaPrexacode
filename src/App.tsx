@@ -15,6 +15,7 @@ import { LegalPage } from "@/modules/legal/LegalPage";
 import { SolicitudLegalPage } from "@/modules/legal/SolicitudLegalPage";
 import { DocumentoPublicoPage } from "@/modules/documentos/DocumentoPublicoPage";
 import { RegistroPage } from "@/modules/auth/RegistroPage";
+import { OlvideClavePage, RestablecerClavePage } from "@/modules/auth/RecuperarClavePages";
 import { ClienteDetallePage } from "@/modules/clientes/ClienteDetallePage";
 import { ClientesPage } from "@/modules/clientes/ClientesPage";
 import { ImportarExportarPage } from "@/modules/datos/ImportarExportarPage";
@@ -97,6 +98,8 @@ export default function App() {
               <Routes>
                 <Route path="login" element={<SoloAnonimo><LoginPage /></SoloAnonimo>} />
                 <Route path="registro" element={<SoloAnonimo><RegistroPage /></SoloAnonimo>} />
+                <Route path="olvide" element={<SoloAnonimo><OlvideClavePage /></SoloAnonimo>} />
+                <Route path="restablecer" element={<RestablecerClavePage />} />
                 <Route path="terminos" element={<LegalPage tipo="terminos" />} />
                 <Route path="privacidad" element={<LegalPage tipo="privacidad" />} />
                 <Route path="baja" element={<SolicitudLegalPage tipo="baja" />} />

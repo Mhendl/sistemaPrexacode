@@ -62,6 +62,7 @@ function Configuracion({ config }: { config: ConfigEmailApi }) {
         remitenteNombre: d.remitenteNombre,
         responderA: d.responderA,
         enviarFacturaAlEmitir: d.enviarFacturaAlEmitir,
+        recordarFacturas: d.recordarFacturas,
         version: config.version,
       });
       setPassword("");
@@ -185,6 +186,16 @@ function Configuracion({ config }: { config: ConfigEmailApi }) {
           <span className="block text-xs text-muted-foreground">Solo a clientes con email cargado. Si falla, queda anotado en el historial.</span>
         </span>
         <Switch checked={d.enviarFacturaAlEmitir} onCheckedChange={(v) => set("enviarFacturaAlEmitir", v)} aria-label="Mandar la factura por email al emitirla" />
+      </label>
+
+      <label className="mt-3 flex items-center justify-between gap-4 rounded-lg border px-3 py-3 text-sm">
+        <span>
+          <span className="font-medium">Recordarles a los clientes las facturas por vencer y vencidas</span>
+          <span className="block text-xs text-muted-foreground">
+            Un email 3 días antes del vencimiento y otro cuando vence, con la factura y el saldo. Solo facturas a cuenta corriente con saldo, y una sola vez cada aviso.
+          </span>
+        </span>
+        <Switch checked={d.recordarFacturas} onCheckedChange={(v) => set("recordarFacturas", v)} aria-label="Recordar las facturas por vencer y vencidas" />
       </label>
 
       {config.ultimoError && (

@@ -571,6 +571,7 @@ export interface ConfigEmailApi {
   verificado: boolean;
   ultimoError: string | null;
   enviarFacturaAlEmitir: boolean;
+  recordarFacturas: boolean;
   correoPlataforma: boolean;
   version: number;
 }
@@ -585,6 +586,7 @@ export interface ConfigEmailInput {
   remitenteNombre?: string | null;
   responderA?: string | null;
   enviarFacturaAlEmitir: boolean;
+  recordarFacturas: boolean;
   version?: number;
 }
 

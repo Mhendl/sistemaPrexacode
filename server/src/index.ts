@@ -32,6 +32,7 @@ const app = await buildApp({
   // En el servidor de pruebas automáticas se hacen cientos de logins seguidos desde la misma IP
   limitarIntentos: !config.modoPruebas,
   produccion: config.isProduction,
+  tareas: true,
   trustProxy: config.trustProxy,
   // Si está compilada la web (npm run build), la API la sirve: una sola pieza para desplegar
   web: config.web && existsSync(join(config.web, "index.html")) ? config.web : undefined,

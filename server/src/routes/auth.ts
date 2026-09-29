@@ -1,14 +1,15 @@
-import { randomUUID } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { and, eq, gt, isNull } from "drizzle-orm";
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
-import { aceptacionesTerminos, empresas, suscripciones, usuarios } from "../db/schema.js";
+import { aceptacionesTerminos, empresas, recuperacionesClave, suscripciones, usuarios } from "../db/schema.js";
+import { enviarDePlataforma } from "../lib/email/plataforma.js";
 import { hoyAr } from "../lib/cuentas.js";
 import { crearRolesPrearmados, perfilDe } from "../lib/roles.js";
 import { DIAS_PRUEBA, PLAN_IDS, sumarDias } from "../lib/suscripcion.js";
 import { TERMINOS_VERSION } from "../lib/legal.js";
 import { requireAuth, type SessionUser } from "../lib/auth.js";
-import { conflict, HttpError, notFound, parse, unauthorized } from "../lib/errors.js";
+import { badRequest, conflict, HttpError, notFound, parse, unauthorized } from "../lib/errors.js";
 import { hashPassword, verifyPassword } from "../lib/password.js";
 import { condicionIvaSchema, cuitSchema, emailSchema, passwordSchema } from "../lib/validation.js";
 
@@ -77,8 +78,71 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       return { empresa, usuario };
     });
 
+    // Bienvenida (no frena el registro si el correo falla)
+    void enviarDePlataforma(app, {
+      para: usuario.email,
+      asunto: `¡Bienvenido a Prexacode, ${usuario.nombre.split(" ")[0]}!`,
+      saludo: `Hola ${usuario.nombre.split(" ")[0]},`,
+      parrafos: [
+        `Ya está creada la cuenta de ${empresa.razonSocial}. Tenés 14 días de prueba gratis con todo habilitado, sin tarjeta.`,
+        "Para arrancar en pocos minutos:\n1. Completá los datos de la empresa y subí el logo (Configuración → Empresa).\n2. Cargá o importá tus clientes y productos desde Excel.\n3. Sumá a tu equipo como usuarios, cada uno con su rol.\n4. Conectá ARCA para facturar (mientras tanto podés practicar en modo pruebas).",
+        "Cualquier duda, escribinos desde Ayuda y soporte dentro del sistema.",
+      ],
+      boton: { texto: "Entrar a Prexacode", url: app.appUrl },
+    });
+
     return reply.status(201).send(await sesion(usuario, empresa));
   });
+
+  /* ---------- Olvidé mi contraseña ---------- */
+
+  const huella = (token: string) => createHash("sha256").update(token).digest("hex");
+  /** Solo en el servidor de pruebas: el último link enviado a cada email (las pruebas no leen correo) */
+  const ultimosLinks = new Map<string, string>();
+
+  // Siempre responde lo mismo: no revela si el email tiene cuenta
+  app.post("/olvide", { config: { rateLimit: { max: 5, timeWindow: "15 minutes" } } }, async (req) => {
+    const { email } = parse(z.object({ email: emailSchema }), req.body);
+    const [u] = await app.db.select().from(usuarios).where(eq(usuarios.email, email));
+    if (u && u.estado === "Activo") {
+      const token = randomBytes(32).toString("base64url");
+      await app.db.insert(recuperacionesClave).values({ usuarioId: u.id, tokenHash: huella(token), expira: new Date(Date.now() + 60 * 60_000) });
+      const link = `${app.appUrl}/restablecer?token=${token}`;
+      if (app.modoPruebas) ultimosLinks.set(email, link);
+      void enviarDePlataforma(app, {
+        para: u.email,
+        asunto: "Elegí una contraseña nueva para Prexacode",
+        saludo: `Hola ${u.nombre.split(" ")[0]},`,
+        parrafos: ["Pediste elegir una contraseña nueva. Tocá el botón: el link sirve una sola vez y vence en 1 hora.", "Si no lo pediste vos, ignorá este email: tu contraseña sigue igual."],
+        boton: { texto: "Elegir contraseña nueva", url: link },
+      });
+    }
+    return { ok: true };
+  });
+
+  app.post("/restablecer", { config: { rateLimit: { max: 10, timeWindow: "15 minutes" } } }, async (req, reply) => {
+    const d = parse(z.object({ token: z.string().min(20, "El link no es válido").max(200), password: passwordSchema }), req.body);
+    const [r] = await app.db
+      .select()
+      .from(recuperacionesClave)
+      .where(and(eq(recuperacionesClave.tokenHash, huella(d.token)), isNull(recuperacionesClave.usadoEn), gt(recuperacionesClave.expira, new Date())));
+    if (!r) throw badRequest("El link venció o ya se usó. Pedí uno nuevo desde \"¿Olvidaste tu contraseña?\".", { token: "Vencido" });
+    const [u] = await app.db.select().from(usuarios).where(eq(usuarios.id, r.usuarioId));
+    if (!u || u.estado !== "Activo") throw badRequest("Tu usuario está suspendido. Hablá con el administrador.");
+    await app.db.transaction(async (tx) => {
+      // La contraseña nueva cierra las sesiones abiertas, y el link (y cualquier otro pedido) deja de servir
+      await tx.update(usuarios).set({ passwordHash: await hashPassword(d.password), sesionId: null }).where(eq(usuarios.id, u.id));
+      await tx.update(recuperacionesClave).set({ usadoEn: new Date() }).where(and(eq(recuperacionesClave.usuarioId, u.id), isNull(recuperacionesClave.usadoEn)));
+    });
+    return reply.status(204).send();
+  });
+
+  if (app.modoPruebas) {
+    app.get("/pruebas/ultimo-link", async (req) => {
+      const { email } = parse(z.object({ email: emailSchema }), req.query);
+      return { link: ultimosLinks.get(email) ?? null };
+    });
+  }
 
   // Límite de intentos por IP: evita que se prueben contraseñas por fuerza bruta
   app.post("/login", { config: { rateLimit: { max: 10, timeWindow: "5 minutes" } } }, async (req) => {

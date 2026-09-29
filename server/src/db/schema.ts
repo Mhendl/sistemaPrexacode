@@ -587,6 +587,8 @@ export const configEmail = pgTable("config_email", {
   verificado: boolean("verificado").notNull().default(false),
   ultimoError: text("ultimo_error"),
   enviarFacturaAlEmitir: boolean("enviar_factura_al_emitir").notNull().default(false),
+  /** Recordar a los clientes las facturas por vencer (3 días antes) y vencidas */
+  recordarFacturas: boolean("recordar_facturas").notNull().default(false),
   version: version(),
 });
 
@@ -901,4 +903,35 @@ export const empleadoNovedades = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("empleado_novedades_empleado_idx").on(t.empleadoId, t.desde)],
+);
+
+/** Links para elegir una contraseña nueva ("olvidé mi contraseña"): de un solo uso y con vencimiento */
+export const recuperacionesClave = pgTable(
+  "recuperaciones_clave",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    usuarioId: uuid("usuario_id")
+      .notNull()
+      .references(() => usuarios.id, { onDelete: "cascade" }),
+    /** Solo la huella (SHA-256): el link en sí no se guarda */
+    tokenHash: text("token_hash").notNull().unique(),
+    expira: timestamp("expira", { withTimezone: true }).notNull(),
+    usadoEn: timestamp("usado_en", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("recuperaciones_usuario_idx").on(t.usuarioId)],
+);
+
+/** Avisos automáticos ya mandados (para no repetirlos): "prueba-termina|2026-10-05", "factura-vencida|<id>" */
+export const avisosEnviados = pgTable(
+  "avisos_enviados",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    empresaId: uuid("empresa_id")
+      .notNull()
+      .references(() => empresas.id, { onDelete: "cascade" }),
+    clave: text("clave").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("avisos_enviados_uq").on(t.empresaId, t.clave)],
 );

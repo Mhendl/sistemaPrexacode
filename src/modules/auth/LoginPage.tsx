@@ -43,7 +43,12 @@ export function LoginPage() {
           <Input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
         </div>
         <div className="grid gap-1.5">
-          <Label htmlFor="password">Contraseña</Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="password">Contraseña</Label>
+            <Link to="/olvide" className="text-xs text-primary hover:underline">
+              ¿Olvidaste tu contraseña?
+            </Link>
+          </div>
           <Input id="password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
         </div>
         {aviso && !error && (
