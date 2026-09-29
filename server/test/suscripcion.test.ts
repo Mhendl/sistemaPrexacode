@@ -329,3 +329,21 @@ describe("suscripción por la API", () => {
     expect((await a.post(`/suscripcion/pagos/${p2.referencia}/simular`, { resultado: "Aprobado" })).statusCode).toBe(400);
   });
 });
+
+describe("producción sin Mercado Pago", () => {
+  it("no se puede pagar en línea ni aprobarse un pago simulado: se coordina por transferencia", async () => {
+    const { pagosDeshabilitados } = await import("../src/lib/pagos.js");
+    const { app, cerrar } = await crearApp({ pagos: pagosDeshabilitados(), cotizacion: async () => 1000 });
+    try {
+      const { token } = await registrarEmpresa(app);
+      const r = await app.inject({ method: "POST", url: "/api/suscripcion/pagar", headers: auth(token), payload: { periodo: "mensual" } });
+      expect(r.statusCode).toBe(502);
+      expect(r.json().error).toContain("transferencia");
+      const s = (await app.inject({ method: "GET", url: "/api/suscripcion", headers: auth(token) })).json();
+      expect(s).toMatchObject({ proveedor: "deshabilitado", estado: "Prueba" });
+      expect(s.pagos).toHaveLength(0);
+    } finally {
+      await cerrar();
+    }
+  });
+});

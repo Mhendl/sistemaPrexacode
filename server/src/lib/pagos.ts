@@ -32,7 +32,7 @@ export interface Cobro {
 
 /** Quien cobra: Mercado Pago en producción; un simulador cuando no hay credenciales */
 export interface ProveedorPagos {
-  nombre: "mercadopago" | "simulado";
+  nombre: "mercadopago" | "simulado" | "deshabilitado";
   crearCobro(c: Cobro): Promise<{ id: string; url: string }>;
   /** Estado real del pago consultado al proveedor (nunca se confía en lo que manda el navegador) */
   consultarPago(pagoId: string): Promise<{ referencia: string; estado: EstadoPago; importe: number }>;
@@ -90,6 +90,23 @@ export function firmaMercadoPagoValida(o: { firma: string | undefined; requestId
 }
 
 /** Para desarrollo y demos: el "checkout" es una página propia donde se aprueba o rechaza */
+/**
+ * Producción sin credenciales de Mercado Pago: no se cobra en línea (y nunca se simula, porque cualquiera
+ * podría aprobarse su propio pago). El pago se coordina por transferencia y se registra desde el panel.
+ */
+export function pagosDeshabilitados(): ProveedorPagos {
+  const aviso = "Por ahora el pago se coordina por transferencia: escribinos desde Ayuda y soporte y te pasamos los datos. Apenas lo recibimos, queda acreditado.";
+  return {
+    nombre: "deshabilitado",
+    async crearCobro() {
+      throw new ErrorPagos(aviso);
+    },
+    async consultarPago() {
+      throw new ErrorPagos(aviso);
+    },
+  };
+}
+
 export function pagosSimulados(appUrl: string): ProveedorPagos & { resultados: Map<string, EstadoPago> } {
   const resultados = new Map<string, EstadoPago>();
   return {

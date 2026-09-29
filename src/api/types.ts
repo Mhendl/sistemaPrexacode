@@ -693,7 +693,7 @@ export interface SuscripcionApi {
   version?: number;
   limites?: { usuarios: number; puntosVenta: number | null };
   usos?: { usuarios: number; puntosVenta: number };
-  proveedor?: "mercadopago" | "simulado";
+  proveedor?: "mercadopago" | "simulado" | "deshabilitado";
   pagos?: PagoSuscripcionApi[];
   bajaSolicitadaEn?: string | null;
   bajaCodigo?: string | null;

@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { sql } from "drizzle-orm";
 import { openDatabase } from "./db/client.js";
-import { cotizacionDolar, mercadoPago } from "./lib/pagos.js";
+import { cotizacionDolar, mercadoPago, pagosDeshabilitados } from "./lib/pagos.js";
 
 const { db, close } = await openDatabase(config.databaseUrl);
 // La base tiene que estar en UTF-8: si no, un emoji o ciertos caracteres en cualquier texto darían error
@@ -22,7 +22,8 @@ const app = await buildApp({
   smtpUrl: config.smtpUrl,
   emailRemitente: config.emailRemitente,
   secretsKey: config.secretsKey,
-  pagos: config.mpAccessToken ? mercadoPago(config.mpAccessToken) : undefined,
+  // Sin Mercado Pago: en desarrollo, pago simulado; en producción, deshabilitado (se cobra por transferencia)
+  pagos: config.mpAccessToken ? mercadoPago(config.mpAccessToken) : config.isProduction ? pagosDeshabilitados() : undefined,
   cotizacion: cotizacionDolar(config.tipoCambioUsd),
   mpWebhookSecret: config.mpWebhookSecret,
   urlApi: config.urlApi,
