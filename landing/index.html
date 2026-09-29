@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Prexacode · Software de gestión listo para usar</title>
+  <meta name="description" content="Prexacode para empresas y CoreDental para consultorios odontológicos: sistemas de gestión en la nube, con facturación ARCA, pensados para Argentina. 14 días de prueba gratis." />
+  <meta property="og:title" content="Prexacode · Software de gestión listo para usar" />
+  <meta property="og:description" content="Dos sistemas en la nube para PyMEs y consultorios odontológicos de Argentina. Facturación ARCA, cobros y reportes. Probalos 14 días gratis." />
+  <meta property="og:type" content="website" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%235b3df5'/%3E%3Cpath d='M11 23V9h6a4.5 4.5 0 0 1 0 9h-6' fill='none' stroke='white' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #f7f7fb;
+      --card: #ffffff;
+      --text: #171a2c;
+      --muted: #5d6275;
+      --line: #e6e7ef;
+      --prexa: #5b3df5;
+      --prexa-soft: #efebff;
+      --dental: #0e8fae;
+      --dental-soft: #e3f5f8;
+      --dental-2: #19b394;
+      --ink: #0f1226;
+      --radius: 18px;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--text); background: var(--bg); line-height: 1.55; -webkit-font-smoothing: antialiased; }
+    a { color: inherit; }
+    .wrap { width: min(1160px, 100% - 32px); margin-inline: auto; }
+
+    /* Barra superior */
+    header { position: sticky; top: 0; z-index: 20; background: rgba(247, 247, 251, 0.85); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+    .nav { display: flex; align-items: center; justify-content: space-between; height: 64px; gap: 16px; }
+    .marca { display: flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: -0.02em; font-size: 18px; text-decoration: none; }
+    .nav-links { display: flex; gap: 26px; font-size: 14px; color: var(--muted); }
+    .nav-links a { text-decoration: none; }
+    .nav-links a:hover { color: var(--text); }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 44px; padding: 0 20px; border-radius: 11px; font-weight: 600; font-size: 15px; text-decoration: none; border: 1px solid transparent; transition: transform .15s, box-shadow .15s, background .15s; white-space: nowrap; }
+    .btn:hover { transform: translateY(-1px); }
+    .btn-dark { background: var(--ink); color: #fff; }
+    .btn-dark:hover { box-shadow: 0 8px 24px rgba(15, 18, 38, .25); }
+    .btn-prexa { background: var(--prexa); color: #fff; }
+    .btn-prexa:hover { box-shadow: 0 8px 24px rgba(91, 61, 245, .35); }
+    .btn-dental { background: var(--dental); color: #fff; }
+    .btn-dental:hover { box-shadow: 0 8px 24px rgba(14, 143, 174, .35); }
+    .btn-line { background: transparent; border-color: var(--line); color: var(--text); }
+    .btn-line:hover { background: #fff; }
+
+    /* Portada */
+    .hero { padding: 84px 0 56px; text-align: center; }
+    .etiqueta { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px; background: #fff; border: 1px solid var(--line); font-size: 13px; color: var(--muted); font-weight: 500; }
+    .punto { width: 8px; height: 8px; border-radius: 50%; background: var(--dental-2); box-shadow: 0 0 0 4px rgba(25, 179, 148, .15); }
+    h1 { font-size: clamp(34px, 5.4vw, 60px); line-height: 1.06; letter-spacing: -0.035em; margin: 22px auto 18px; max-width: 880px; font-weight: 800; }
+    h1 .grad { background: linear-gradient(90deg, var(--prexa), var(--dental) 70%, var(--dental-2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .bajada { font-size: clamp(16px, 2vw, 19px); color: var(--muted); max-width: 680px; margin: 0 auto 30px; }
+    .hero-ctas { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .sellos { display: flex; gap: 22px; justify-content: center; flex-wrap: wrap; margin-top: 30px; font-size: 14px; color: var(--muted); }
+    .sellos span { display: inline-flex; align-items: center; gap: 7px; }
+    .tilde { width: 18px; height: 18px; flex: none; }
+
+    /* Productos */
+    section { padding: 56px 0; }
+    .titulo-seccion { text-align: center; margin-bottom: 36px; }
+    .titulo-seccion h2 { font-size: clamp(26px, 3.4vw, 38px); letter-spacing: -0.03em; margin: 0 0 10px; line-height: 1.15; }
+    .titulo-seccion p { color: var(--muted); margin: 0 auto; max-width: 620px; }
+    .productos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; }
+    .producto { position: relative; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 32px; display: flex; flex-direction: column; overflow: hidden; }
+    .producto::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 5px; }
+    .producto.prexa::before { background: linear-gradient(90deg, var(--prexa), #8f7bff); }
+    .producto.dental::before { background: linear-gradient(90deg, var(--dental), var(--dental-2)); }
+    .producto-cab { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+    .producto h3 { margin: 0; font-size: 24px; letter-spacing: -0.02em; }
+    .producto .para { font-size: 14px; color: var(--muted); margin: 2px 0 0; }
+    .producto > p { color: var(--muted); margin: 0 0 22px; }
+    .lista { list-style: none; padding: 0; margin: 0 0 28px; display: grid; gap: 11px; }
+    .lista li { display: flex; gap: 11px; align-items: flex-start; font-size: 15px; }
+    .producto .acciones { margin-top: auto; display: flex; gap: 10px; flex-wrap: wrap; }
+    .pronto { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--dental); background: var(--dental-soft); padding: 4px 10px; border-radius: 999px; margin-left: auto; }
+
+    /* Todo incluido */
+    .comun { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+    .comun div { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+    .comun h4 { margin: 12px 0 6px; font-size: 16px; }
+    .comun p { margin: 0; font-size: 14px; color: var(--muted); }
+    .icono { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; background: var(--prexa-soft); color: var(--prexa); }
+
+    /* Precios */
+    .precios { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+    .plan { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 28px; display: flex; flex-direction: column; }
+    .plan.destacado { border: 2px solid var(--ink); box-shadow: 0 18px 40px rgba(15, 18, 38, .08); position: relative; }
+    .plan.destacado .insignia { position: absolute; top: -13px; left: 50%; transform: translateX(-50%); background: var(--ink); color: #fff; font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 999px; }
+    .plan h3 { margin: 0 0 4px; font-size: 19px; }
+    .plan .nombres { font-size: 13px; color: var(--muted); margin: 0 0 18px; }
+    .monto { font-size: 44px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
+    .monto small { font-size: 15px; font-weight: 500; color: var(--muted); letter-spacing: 0; }
+    .plan ul { list-style: none; padding: 0; margin: 22px 0 0; display: grid; gap: 10px; font-size: 14px; }
+    .plan li { display: flex; gap: 10px; }
+    .nota-precios { text-align: center; color: var(--muted); font-size: 14px; margin-top: 22px; }
+
+    /* Preguntas */
+    .preguntas { max-width: 780px; margin: 0 auto; display: grid; gap: 12px; }
+    details { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px 22px; }
+    summary { cursor: pointer; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 16px; }
+    summary::-webkit-details-marker { display: none; }
+    summary::after { content: "+"; font-size: 22px; line-height: 1; color: var(--muted); }
+    details[open] summary::after { content: "−"; }
+    details p { margin: 12px 0 0; color: var(--muted); }
+
+    /* Cierre */
+    .cierre { background: var(--ink); color: #fff; border-radius: 26px; padding: 56px 32px; text-align: center; position: relative; overflow: hidden; }
+    .cierre::before { content: ""; position: absolute; width: 520px; height: 520px; right: -160px; top: -260px; background: radial-gradient(circle, rgba(91, 61, 245, .55), transparent 65%); }
+    .cierre::after { content: ""; position: absolute; width: 480px; height: 480px; left: -160px; bottom: -280px; background: radial-gradient(circle, rgba(25, 179, 148, .4), transparent 65%); }
+    .cierre > * { position: relative; }
+    .cierre h2 { font-size: clamp(26px, 3.6vw, 40px); margin: 0 0 12px; letter-spacing: -0.03em; }
+    .cierre p { color: #c8cbe0; margin: 0 auto 28px; max-width: 560px; }
+    .cierre .btn-line { color: #fff; border-color: rgba(255, 255, 255, .25); }
+    .cierre .btn-line:hover { background: rgba(255, 255, 255, .08); }
+
+    footer { padding: 36px 0 44px; color: var(--muted); font-size: 14px; }
+    .pie { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 24px; }
+    .pie a { text-decoration: none; }
+    .pie a:hover { color: var(--text); }
+    .pie nav { display: flex; gap: 18px; flex-wrap: wrap; }
+
+    @media (max-width: 900px) {
+      .productos, .precios { grid-template-columns: 1fr; }
+      .comun { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .nav-links { display: none; }
+    }
+    @media (max-width: 520px) {
+      .comun { grid-template-columns: 1fr; }
+      .producto, .plan { padding: 24px; }
+      .hero { padding-top: 56px; }
+      .nav .btn { height: 38px; padding: 0 14px; font-size: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Íconos reutilizables -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="tilde" viewBox="0 0 20 20"><circle cx="10" cy="10" r="10" fill="currentColor" opacity=".14" /><path d="M6 10.3 8.6 13 14 7.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></symbol>
+    <symbol id="logo-prexa" viewBox="0 0 32 32"><defs><linearGradient id="gp" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5b3df5" /><stop offset="1" stop-color="#27b3d6" /></linearGradient></defs><rect width="32" height="32" rx="8" fill="url(#gp)" /><path d="M11 23V9h6a4.5 4.5 0 0 1 0 9h-6" fill="none" stroke="white" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" /><path d="M21.5 20.5 24 23l-2.5 2.5" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity=".85" /></symbol>
+    <symbol id="logo-dental" viewBox="0 0 32 32"><defs><linearGradient id="gd" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0e8fae" /><stop offset="1" stop-color="#19b394" /></linearGradient></defs><rect width="32" height="32" rx="8" fill="url(#gd)" /><path d="M16 10.2c-1.6-1.3-3.4-1.9-5-1.4-2.4.8-3.2 3.6-2.6 6.4.4 1.9 1.3 3.3 1.8 5.1.5 1.8.6 3.9 1.9 3.9 1.5 0 1.4-2.7 2-4.4.3-.9.9-1.4 1.9-1.4s1.6.5 1.9 1.4c.6 1.7.5 4.4 2 4.4 1.3 0 1.4-2.1 1.9-3.9.5-1.8 1.4-3.2 1.8-5.1.6-2.8-.2-5.6-2.6-6.4-1.6-.5-3.4.1-5 1.4Z" fill="none" stroke="white" stroke-width="2" stroke-linejoin="round" /></symbol>
+  </svg>
+
+  <header>
+    <div class="wrap nav">
+      <a class="marca" href="#"><svg width="32" height="32"><use href="#logo-prexa" /></svg> Prexacode</a>
+      <nav class="nav-links" aria-label="Secciones">
+        <a href="#productos">Productos</a>
+        <a href="#incluido">Qué incluye</a>
+        <a href="#precios">Precios</a>
+        <a href="#preguntas">Preguntas</a>
+      </nav>
+      <a class="btn btn-dark" href="#productos">Probar gratis</a>
+    </div>
+  </header>
+
+  <main>
+    <div class="wrap hero">
+      <span class="etiqueta"><span class="punto"></span> Hecho en Argentina, para empresas argentinas</span>
+      <h1>Software de gestión <span class="grad">listo para usar</span>, sin instalar nada</h1>
+      <p class="bajada">Dos sistemas en la nube, uno para tu empresa y otro para tu consultorio odontológico. Facturación electrónica ARCA, cobros, agenda y reportes en un solo lugar.</p>
+      <div class="hero-ctas">
+        <a class="btn btn-prexa" href="https://sistema.prexacode.com/registro">Probar Prexacode 14 días gratis</a>
+        <a class="btn btn-line" href="#coredental">Conocer CoreDental</a>
+      </div>
+      <div class="sellos">
+        <span><svg class="tilde" style="color:var(--dental-2)"><use href="#tilde" /></svg> 14 días gratis, sin tarjeta</span>
+        <span><svg class="tilde" style="color:var(--dental-2)"><use href="#tilde" /></svg> Facturación electrónica ARCA</span>
+        <span><svg class="tilde" style="color:var(--dental-2)"><use href="#tilde" /></svg> Compu, tablet y celular</span>
+      </div>
+    </div>
+
+    <section id="productos">
+      <div class="wrap">
+        <div class="titulo-seccion">
+          <h2>Elegí el sistema para tu negocio</h2>
+          <p>Los dos comparten la misma base: seguros, con copias de seguridad diarias, usuarios con permisos y soporte en español.</p>
+        </div>
+        <div class="productos">
+          <article class="producto prexa">
+            <div class="producto-cab">
+              <svg width="48" height="48"><use href="#logo-prexa" /></svg>
+              <div>
+                <h3>Prexacode</h3>
+                <p class="para">Para comercios, distribuidoras, servicios y PyMEs</p>
+              </div>
+            </div>
+            <p>Clientes, ventas, stock y facturación en un solo sistema. Sabés en segundos cuánto vendiste, quién te debe y qué hay que reponer.</p>
+            <ul class="lista" style="color:var(--prexa)">
+              <li><svg class="tilde"><use href="#tilde" /></svg><span style="color:var(--text)">Facturas A, B y C y notas de crédito con CAE de ARCA</span></li>
+              <li><svg class="tilde"><use href="#tilde" /></svg><span style="color:var(--text)">Clientes con cuenta corriente, notas e historial</span></li>
+              <li><svg class="tilde"><use href="#tilde" /></svg><span style="color:var(--text)">Productos y stock con alertas, remitos y aumento de precios por porcentaje</span></li>
+              <li><svg class="tilde"><use href="#tilde" /></svg><span style="color:var(--text)">Presupuestos, cobranzas con varios medios de pago y embudo de ventas</span></li>
+              <li><svg class="tilde"><use href="#tilde" /></svg><span style="color:var(--text)">Agenda, empleados y sueldos, reportes y Libro IVA para el contador</span></li>
+              <li><svg class="tilde"><use href="#tilde" /></svg><span style="color:var(--text)">Importá tus datos desde Excel en minutos</span></li>
+            </ul>
+            <div class="acciones">
+              <a class="btn btn-prexa" href="https://sistema.prexacode.com/registro">Probar 14 días gratis</a>
+              <a class="btn btn-line" href="https://sistema.prexacode.com/login">Ya tengo cuenta</a>
+            </div>
+          </article>
+
+          <article class="producto dental" id="coredental">
+            <div class="producto-cab">
+              <svg width="48" height="48"><use href="#logo-dental" /></svg>
+              <div>
+                <h3>CoreDental</h3>
+                <p class="para">Para consultorios y clínicas odontológicas</p>
+              </div>
+              <span class="pronto">Nueva versión</span>
+            </div>
+            <p>La historia clínica, la agenda y los cobros de tu consultorio, ordenados. Menos papel, menos ausencias y las cuentas claras con cada obra social.</p>
+            <ul class="lista" style="color:var(--dental)">
+              <li><svg class="tilde"><use href="#tilde" /></svg><span style="color:var(--text)">Historia clínica digital con odontograma interactivo</span></li>
+              <li><svg class="tilde"><use href="#tilde" /></svg><span style="color:var(--text)">Turnos por profesional, con recordatorios para evitar ausencias</span></li>
+              <li><svg class="tilde"><use href="#tilde" /></svg><span style="color:var(--text)">Obras sociales, prestaciones y precios por cobertura</span></li>
+              <li><svg class="tilde"><use href="#tilde" /></svg><span style="color:var(--text)">Presupuestos por pieza, cobros, caja diaria y deuda de pacientes</span></li>
+              <li><svg class="tilde"><use href="#tilde" /></svg><span style="color:var(--text)">Laboratorios, gastos y sueldos o porcentajes de cada profesional</span></li>
+              <li><svg class="tilde"><use href="#tilde" /></svg><span style="color:var(--text)">Consentimientos informados firmados en pantalla</span></li>
+            </ul>
+            <div class="acciones">
+              <a class="btn btn-dental" href="mailto:soporte@prexacode.com?subject=Quiero%20una%20demo%20de%20CoreDental">Pedir una demo</a>
+              <a class="btn btn-line" href="https://coredental.com.ar">Ver más de CoreDental</a>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="incluido">
+      <div class="wrap">
+        <div class="titulo-seccion">
+          <h2>Todo incluido, en todos los planes</h2>
+          <p>No hay módulos que se pagan aparte: lo que cambia entre planes es la cantidad de usuarios.</p>
+        </div>
+        <div class="comun">
+          <div>
+            <span class="icono"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z" /><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" /><path d="M12 17.5v-11" /></svg></span>
+            <h4>Facturación ARCA</h4>
+            <p>Conectás tu certificado paso a paso. Mientras tanto, practicás en modo prueba.</p>
+          </div>
+          <div>
+            <span class="icono"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg></span>
+            <h4>Usuarios y permisos</h4>
+            <p>Cada persona con su usuario y su rol: ve y hace solo lo que le corresponde.</p>
+          </div>
+          <div>
+            <span class="icono"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" /></svg></span>
+            <h4>Seguridad y copias diarias</h4>
+            <p>Conexión cifrada, datos separados por empresa y copias de seguridad todos los días.</p>
+          </div>
+          <div>
+            <span class="icono"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" /></svg></span>
+            <h4>Soporte y ayuda</h4>
+            <p>Centro de ayuda con buscador dentro del sistema y soporte en español.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="precios">
+      <div class="wrap">
+        <div class="titulo-seccion">
+          <h2>Precios simples, iguales para los dos sistemas</h2>
+          <p>En dólares, que se cobran en pesos al dólar oficial del día. Pagando el año, 12 meses por el precio de 10.</p>
+        </div>
+        <div class="precios">
+          <div class="plan">
+            <h3>Básico</h3>
+            <p class="nombres">En CoreDental: Consultorio</p>
+            <div class="monto">USD 45 <small>/ mes</small></div>
+            <ul>
+              <li><svg class="tilde" style="color:var(--dental-2)"><use href="#tilde" /></svg> 2 usuarios</li>
+              <li><svg class="tilde" style="color:var(--dental-2)"><use href="#tilde" /></svg> 1 punto de venta</li>
+              <li><svg class="tilde" style="color:var(--dental-2)"><use href="#tilde" /></svg> Todos los módulos</li>
+            </ul>
+          </div>
+          <div class="plan destacado">
+            <span class="insignia">El más elegido</span>
+            <h3>Profesional</h3>
+            <p class="nombres">En CoreDental: Clínica</p>
+            <div class="monto">USD 89 <small>/ mes</small></div>
+            <ul>
+              <li><svg class="tilde" style="color:var(--dental-2)"><use href="#tilde" /></svg> 5 usuarios</li>
+              <li><svg class="tilde" style="color:var(--dental-2)"><use href="#tilde" /></svg> 3 puntos de venta</li>
+              <li><svg class="tilde" style="color:var(--dental-2)"><use href="#tilde" /></svg> Todos los módulos</li>
+            </ul>
+          </div>
+          <div class="plan">
+            <h3>Empresa</h3>
+            <p class="nombres">En CoreDental: Centro odontológico</p>
+            <div class="monto">USD 169 <small>/ mes</small></div>
+            <ul>
+              <li><svg class="tilde" style="color:var(--dental-2)"><use href="#tilde" /></svg> 10 usuarios</li>
+              <li><svg class="tilde" style="color:var(--dental-2)"><use href="#tilde" /></svg> Puntos de venta ilimitados</li>
+              <li><svg class="tilde" style="color:var(--dental-2)"><use href="#tilde" /></svg> Todos los módulos</li>
+            </ul>
+          </div>
+        </div>
+        <p class="nota-precios">¿Necesitás más usuarios? Cada usuario adicional cuesta USD 15 por mes, en cualquier plan.</p>
+      </div>
+    </section>
+
+    <section id="preguntas">
+      <div class="wrap">
+        <div class="titulo-seccion">
+          <h2>Preguntas frecuentes</h2>
+        </div>
+        <div class="preguntas">
+          <details>
+            <summary>¿Tengo que poner la tarjeta para probar?</summary>
+            <p>No. Te registrás con tu email y tenés 14 días con todo habilitado. Si después querés seguir, elegís un plan y pagás con Mercado Pago.</p>
+          </details>
+          <details>
+            <summary>¿Cómo se paga?</summary>
+            <p>Mensual o anual, con Mercado Pago, en pesos al dólar oficial del día. Si pagás el año, pagás 10 meses. Podés cambiar de plan o sumar usuarios cuando quieras: solo se cobra la diferencia por los días que faltan.</p>
+          </details>
+          <details>
+            <summary>¿Qué pasa si no pago un mes?</summary>
+            <p>Tenés 7 días de gracia en los que todo sigue funcionando. Después el sistema queda en solo lectura: ves y exportás todos tus datos, pero no cargás nada nuevo hasta renovar. Tus datos no se pierden.</p>
+          </details>
+          <details>
+            <summary>¿Puedo facturar electrónicamente?</summary>
+            <p>Sí. Emitís facturas A, B y C y notas de crédito con CAE de ARCA, con tu propio CUIT y certificado. El sistema te guía para conectarlo, y mientras tanto podés practicar sin validez fiscal.</p>
+          </details>
+          <details>
+            <summary>¿Puedo traer mis datos de otro sistema?</summary>
+            <p>Sí. Importás clientes y productos desde Excel o CSV, y el sistema reconoce las columnas de otros programas. Antes de guardar, te muestra qué se crea, qué se actualiza y qué filas tienen errores.</p>
+          </details>
+          <details>
+            <summary>¿Mis datos están seguros?</summary>
+            <p>Sí. La conexión es cifrada, los datos de cada empresa están separados, cada usuario ve solo lo que su rol le permite y se hacen copias de seguridad todos los días. Podés exportar tu información cuando quieras.</p>
+          </details>
+          <details>
+            <summary>¿Me puedo dar de baja cuando quiera?</summary>
+            <p>Sí, sin costo, desde el sistema o con el botón de baja. El acceso sigue hasta el final del período pago y después tenés 60 días para exportar tus datos.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="cierre">
+          <h2>Probalo esta semana, sin compromiso</h2>
+          <p>En 5 minutos tenés tu cuenta andando. Si tenés dudas, te ayudamos a arrancar.</p>
+          <div class="hero-ctas">
+            <a class="btn btn-prexa" href="https://sistema.prexacode.com/registro">Probar Prexacode gratis</a>
+            <a class="btn btn-line" href="mailto:soporte@prexacode.com?subject=Quiero%20una%20demo%20de%20CoreDental">Pedir demo de CoreDental</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap pie">
+      <span>© <span id="anio">2026</span> Prexacode · soporte@prexacode.com</span>
+      <nav aria-label="Enlaces">
+        <a href="https://sistema.prexacode.com/terminos">Términos y condiciones</a>
+        <a href="https://sistema.prexacode.com/privacidad">Privacidad</a>
+        <a href="https://sistema.prexacode.com/arrepentimiento">Botón de arrepentimiento</a>
+        <a href="https://sistema.prexacode.com/baja">Botón de baja</a>
+      </nav>
+    </div>
+  </footer>
+  <script>
+    document.getElementById("anio").textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>
