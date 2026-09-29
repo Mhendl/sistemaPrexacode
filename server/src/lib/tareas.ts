@@ -10,6 +10,7 @@ import { avisosEnviados, clientes, configEmail, empresas, roles, usuarios } from
 import { hoyAr, saldosFacturas } from "./cuentas.js";
 import { enviarDocumentoPorEmail } from "./documentos.js";
 import { enviarDePlataforma } from "./email/plataforma.js";
+import { marcaDe } from "./productos.js";
 import { estadoDe, obtenerSuscripcion, sumarDias } from "./suscripcion.js";
 
 const fecha = (f: string) => f.split("-").reverse().join("/");
@@ -32,16 +33,17 @@ async function administradores(app: FastifyInstance, empresaId: string) {
 /** Avisos por email de la suscripción, a los administradores de cada empresa */
 export async function avisosDeSuscripcion(app: FastifyInstance, hoy = hoyAr()) {
   let enviados = 0;
-  const lista = await app.db.select({ id: empresas.id, razonSocial: empresas.razonSocial }).from(empresas).where(isNull(empresas.suspendidaEn));
-  const plan = `${app.appUrl}/configuracion?tab=plan`;
+  const lista = await app.db.select({ id: empresas.id, razonSocial: empresas.razonSocial, producto: empresas.producto }).from(empresas).where(isNull(empresas.suspendidaEn));
   for (const e of lista) {
+    const plan = `${app.urlDe(e.producto)}/configuracion?tab=plan`;
+    const nombre = marcaDe(e.producto).nombre;
     const s = await obtenerSuscripcion(app.db, e.id);
     const est = estadoDe(s, hoy);
     let aviso: { clave: string; asunto: string; parrafos: string[] } | null = null;
     if (est.estado === "Prueba" && est.diasRestantes <= 3) {
       aviso = {
         clave: `prueba-termina|${est.vence}`,
-        asunto: `Tu prueba gratis de Prexacode termina el ${fecha(est.vence)}`,
+        asunto: `Tu prueba gratis de ${nombre} termina el ${fecha(est.vence)}`,
         parrafos: [
           `La prueba gratis de ${e.razonSocial} termina el ${fecha(est.vence)}.`,
           "Si elegís un plan ahora no perdés ningún día: el pago empieza a correr cuando termina la prueba. Tus datos quedan tal cual.",
@@ -50,13 +52,13 @@ export async function avisosDeSuscripcion(app: FastifyInstance, hoy = hoyAr()) {
     } else if (est.estado === "Activa" && est.diasRestantes <= 5 && !s.bajaSolicitadaEn) {
       aviso = {
         clave: `pago-vence|${est.vence}`,
-        asunto: `Tu suscripción a Prexacode vence el ${fecha(est.vence)}`,
+        asunto: `Tu suscripción a ${nombre} vence el ${fecha(est.vence)}`,
         parrafos: [`La suscripción de ${e.razonSocial} vence el ${fecha(est.vence)}.`, "Renovala cuando quieras: el período nuevo empieza al día siguiente del vencimiento, así no perdés días."],
       };
     } else if (est.estado === "Gracia") {
       aviso = {
         clave: `vencida|${est.vence}`,
-        asunto: "Tu suscripción a Prexacode venció",
+        asunto: `Tu suscripción a ${nombre} venció`,
         parrafos: [
           `La suscripción de ${e.razonSocial} venció el ${fecha(est.vence)}.`,
           `Podés seguir usando todo normalmente hasta el ${fecha(est.graciaHasta)}. Después el sistema queda en solo lectura (podés ver y exportar, pero no cargar) hasta que se renueve.`,
@@ -65,7 +67,7 @@ export async function avisosDeSuscripcion(app: FastifyInstance, hoy = hoyAr()) {
     } else if (est.estado === "SoloLectura") {
       aviso = {
         clave: `solo-lectura|${est.vence}`,
-        asunto: "Prexacode quedó en modo solo lectura",
+        asunto: `${nombre} quedó en modo solo lectura`,
         parrafos: [
           `Como la suscripción de ${e.razonSocial} no se renovó, el sistema quedó en solo lectura: tus datos están completos y los podés ver y exportar, pero no cargar ni modificar.`,
           "En cuanto se renueva, vuelve todo en el momento.",
@@ -74,7 +76,7 @@ export async function avisosDeSuscripcion(app: FastifyInstance, hoy = hoyAr()) {
     }
     if (!aviso || !(await primeraVez(app, e.id, aviso.clave))) continue;
     for (const a of await administradores(app, e.id)) {
-      if (await enviarDePlataforma(app, { para: a.email, asunto: aviso.asunto, saludo: `Hola ${a.nombre.split(" ")[0]},`, parrafos: aviso.parrafos, boton: { texto: "Ver mi plan", url: plan } })) enviados++;
+      if (await enviarDePlataforma(app, { producto: e.producto, para: a.email, asunto: aviso.asunto, saludo: `Hola ${a.nombre.split(" ")[0]},`, parrafos: aviso.parrafos, boton: { texto: "Ver mi plan", url: plan } })) enviados++;
     }
   }
   return enviados;

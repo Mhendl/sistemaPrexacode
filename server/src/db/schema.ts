@@ -20,6 +20,8 @@ export const empresas = pgTable("empresas", {
   email: text("email"),
   telefono: text("telefono"),
   plan: text("plan").notNull().default("profesional"),
+  /** gestion (Prexacode) o dental (CoreDental): define la marca, el menú y la dirección web */
+  producto: text("producto").notNull().default("gestion"),
   ingresosBrutos: text("ingresos_brutos"),
   inicioActividades: text("inicio_actividades"), // aaaa-mm-dd
   codigoPostal: text("codigo_postal"),

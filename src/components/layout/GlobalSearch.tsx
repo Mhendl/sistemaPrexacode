@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { useClientes, useComprobantes, useProductos } from "@/api/hooks";
 import { useRole } from "@/context/AuthProvider";
 import { formatCuit } from "@/lib/format";
-import { allNavItems, canAccess, puede } from "@/lib/navigation";
+import { canAccess, itemsDe, puede } from "@/lib/navigation";
 import { numeroComprobante } from "@/lib/facturacion";
 
 const normalize = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
@@ -41,7 +41,7 @@ export function GlobalSearch() {
   const results = useMemo(() => {
     const q = normalize(query.trim());
     if (!q) return [];
-    const modulos = allNavItems
+    const modulos = itemsDe()
       .filter((i) => puede(acceso, ...i.permisos) && normalize(i.label).includes(q))
       .map((i) => ({ tipo: "Módulo", titulo: i.label, detalle: i.description, path: i.path }));
     const indice: Resultado[] = [

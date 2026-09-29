@@ -8,14 +8,22 @@ import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useRole } from "@/context/AuthProvider";
-import { puede } from "@/lib/navigation";
+import { itemsDe, puede } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 import { ARTICULOS, ayudasDePantalla, buscarAyuda, SECCIONES, type Articulo } from "./articulos";
 
 /** Las ayudas que corresponden a lo que puede hacer el usuario */
+/** Las ayudas que corresponden a lo que puede hacer el usuario, en las pantallas que tiene su producto */
 function useArticulos() {
-  const { acceso } = useRole();
-  return useMemo(() => ARTICULOS.filter((a) => puede(acceso, ...a.permisos)), [acceso]);
+  const { acceso, empresa } = useRole();
+  return useMemo(() => {
+    const modulos = new Set(itemsDe(empresa.producto).map((i) => i.path));
+    const existe = (path: string) => {
+      const base = `/${path.split(/[/?]/)[1] ?? ""}`;
+      return base === "/" || base === "/configuracion" || base === "/cuenta" || modulos.has(base);
+    };
+    return ARTICULOS.filter((a) => puede(acceso, ...a.permisos) && existe(a.path));
+  }, [acceso, empresa.producto]);
 }
 
 function ArticuloItem({ a, abierto, onToggle, onIr }: { a: Articulo; abierto: boolean; onToggle: () => void; onIr?: () => void }) {

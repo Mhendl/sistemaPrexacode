@@ -1,3 +1,4 @@
+import { productoDe } from "./lib/productos.js";
 import "./lib/zod-es.js";
 import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
@@ -53,6 +54,8 @@ declare module "fastify" {
     /** URL pública de la web, para los links que reciben los clientes */
     appUrl: string;
     emailRemitente: string;
+    /** Dirección web de cada producto (links de los emails, pagos y documentos) */
+    urlDe(producto: string | null | undefined): string;
     /** Hay servidor de correo de la plataforma (si no, esos envíos se simulan) */
     correoPlataforma: boolean;
     /** Para pruebas: ARCA falso (URLs o transporte HTTP) */
@@ -75,6 +78,8 @@ export interface AppOptions {
   conectorArca?: (empresa: { id: string; cuit: string }) => ConectorArca;
   cartero?: Cartero;
   appUrl?: string;
+  /** Dirección de CoreDental (si no, la misma que appUrl) */
+  appUrlDental?: string;
   smtpUrl?: string;
   emailRemitente?: string;
   secretsKey?: string;
@@ -98,7 +103,7 @@ export interface AppOptions {
   tareas?: boolean;
 }
 
-export async function buildApp({ db, jwtSecret, logger = false, conectorArca, cartero, appUrl = "http://localhost:5173", smtpUrl, emailRemitente = "notificaciones@prexacode.com.ar", secretsKey, arca = {}, pagos, cotizacion, mpWebhookSecret, urlApi, modoPruebas = false, adminInicial, limitarIntentos = true, produccion = false, web, trustProxy = false, tareas = false }: AppOptions) {
+export async function buildApp({ db, jwtSecret, logger = false, conectorArca, cartero, appUrl = "http://localhost:5173", appUrlDental, smtpUrl, emailRemitente = "notificaciones@prexacode.com.ar", secretsKey, arca = {}, pagos, cotizacion, mpWebhookSecret, urlApi, modoPruebas = false, adminInicial, limitarIntentos = true, produccion = false, web, trustProxy = false, tareas = false }: AppOptions) {
   // Al apagar, cortar también las conexiones keep-alive activas (si no, close() puede esperar indefinidamente)
   const app = Fastify({ logger, forceCloseConnections: true, trustProxy, bodyLimit: 5 * 1024 * 1024 });
 
@@ -107,6 +112,7 @@ export async function buildApp({ db, jwtSecret, logger = false, conectorArca, ca
   app.decorate("cartero", cartero ?? carteroSmtp(smtpUrl));
   app.decorate("cifrador", crearCifrador(secretsKey ?? `${jwtSecret}:secretos`));
   app.decorate("appUrl", appUrl);
+  app.decorate("urlDe", (producto: string | null | undefined) => (productoDe(producto) === "dental" ? (appUrlDental ?? appUrl) : appUrl));
   app.decorate("emailRemitente", emailRemitente);
   app.decorate("correoPlataforma", !!smtpUrl || !!cartero);
   app.decorate("arcaPruebas", arca);

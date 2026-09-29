@@ -1,3 +1,4 @@
+import { marcaDe } from "./productos.js";
 import { eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { clientes, empresas } from "../db/schema.js";
@@ -15,6 +16,8 @@ const fecha = (f: string) => `${f.slice(8, 10)}/${f.slice(5, 7)}/${f.slice(0, 4)
 export interface Resumen {
   titulo: string;
   empresa: string;
+  /** Producto con el que se envía (Prexacode o CoreDental) */
+  marca: string;
   cliente: { razonSocial: string; email: string | null; telefono: string | null; contacto: string | null };
   /** Frases con los datos del documento (se usan en email y WhatsApp) */
   detalle: string[];
@@ -28,9 +31,9 @@ export interface Resumen {
  * Devuelve null si no existe o no se puede compartir (ej. factura rechazada por ARCA).
  */
 export async function resumenDocumento(app: FastifyInstance, empresaId: string, tipo: TipoDocumento, id: string): Promise<Resumen | null> {
-  const [emp] = await app.db.select({ razonSocial: empresas.razonSocial, nombreFantasia: empresas.nombreFantasia }).from(empresas).where(eq(empresas.id, empresaId));
+  const [emp] = await app.db.select({ razonSocial: empresas.razonSocial, nombreFantasia: empresas.nombreFantasia, producto: empresas.producto }).from(empresas).where(eq(empresas.id, empresaId));
   const empresa = emp?.nombreFantasia || emp?.razonSocial || "";
-  let base: Omit<Resumen, "url" | "vistas" | "empresa">;
+  let base: Omit<Resumen, "url" | "vistas" | "empresa" | "marca">;
   if (tipo === "comprobante") {
     const c = await detalleComprobante(app.db, empresaId, id);
     if (!c || c.estado !== "Autorizado" || c.numero == null) return null;
@@ -51,7 +54,7 @@ export async function resumenDocumento(app: FastifyInstance, empresaId: string, 
     };
   }
   const enlace = await tokenPublico(app.db, empresaId, tipo, id);
-  return { ...base, empresa, url: urlPublica(app.appUrl, enlace.token), vistas: enlace.vistas };
+  return { ...base, empresa, marca: marcaDe(emp?.producto).nombre, url: urlPublica(app.urlDe(emp?.producto), enlace.token), vistas: enlace.vistas };
 }
 
 async function clienteDe(app: FastifyInstance, clienteId: string) {
@@ -83,7 +86,7 @@ export async function enviarDocumentoPorEmail(
     saludo: saludoPara(r),
     parrafos: [...r.detalle, ...(o.mensaje ? [o.mensaje] : [])],
     boton: { texto: r.boton, url: r.url },
-    pie: `${r.empresa} · Enviado con Prexacode. Podés ver, imprimir o guardar el documento en PDF desde el link.`,
+    pie: `${r.empresa} · Enviado con ${r.marca}. Podés ver, imprimir o guardar el documento en PDF desde el link.`,
   });
   return enviarEmail(app, { empresaId: o.empresaId, para: o.para, asunto: `${o.asuntoPrefijo ? `${o.asuntoPrefijo}: ` : ""}${r.titulo} · ${r.empresa}`, html, texto, tipo: o.tipo, refId: o.id, usuarioId: o.usuarioId, automatico: o.automatico });
 }

@@ -4,6 +4,7 @@ import type { FastifyInstance, FastifyPluginAsync, FastifyRequest } from "fastif
 import { z } from "zod";
 import { pagosSuscripcion, solicitudesLegales, suscripciones, usuarios } from "../db/schema.js";
 import { codigoConstancia, ipDe } from "./legal.js";
+import { marcaDe, nombrePlan, productoDeEmpresa } from "../lib/productos.js";
 import { requireAdmin, requireAuth } from "../lib/auth.js";
 import { hoyAr } from "../lib/cuentas.js";
 import { badRequest, conflict, edicionConcurrente, HttpError, notFound, parse, unauthorized } from "../lib/errors.js";
@@ -103,7 +104,8 @@ export const suscripcionRoutes: FastifyPluginAsync = async (app) => {
   app.get("/", { preHandler: requireAuth }, async (req) => {
     const s = await obtenerSuscripcion(app.db, req.user.empresaId);
     const est = estadoDe(s);
-    const base = { plan: s.plan, planNombre: PLANES[s.plan as PlanId]?.nombre ?? s.plan, ...est, diasGracia: DIAS_GRACIA };
+    const producto = await productoDeEmpresa(app.db, req.user.empresaId);
+    const base = { plan: s.plan, planNombre: nombrePlan(producto, s.plan), ...est, diasGracia: DIAS_GRACIA };
     if (!req.user.esAdmin) return base;
     const pagos = await app.db.select().from(pagosSuscripcion).where(eq(pagosSuscripcion.empresaId, req.user.empresaId)).orderBy(desc(pagosSuscripcion.createdAt)).limit(24);
     return {
@@ -124,7 +126,8 @@ export const suscripcionRoutes: FastifyPluginAsync = async (app) => {
     };
   });
 
-  app.get("/planes", { preHandler: requireAuth }, async () => {
+  app.get("/planes", { preHandler: requireAuth }, async (req) => {
+    const producto = await productoDeEmpresa(app.db, req.user.empresaId);
     let dolar: number | null = null;
     try {
       dolar = await app.cotizacion();
@@ -132,7 +135,7 @@ export const suscripcionRoutes: FastifyPluginAsync = async (app) => {
       dolar = null;
     }
     return {
-      planes: PLAN_IDS.map((id) => ({ id, ...PLANES[id] })),
+      planes: PLAN_IDS.map((id) => ({ id, ...PLANES[id], nombre: nombrePlan(producto, id) })),
       precioUsuarioAdicionalUsd: PRECIO_USUARIO_ADICIONAL_USD,
       mesesCobradosAnual: MESES_COBRADOS_ANUAL,
       dolar,
@@ -150,6 +153,7 @@ export const suscripcionRoutes: FastifyPluginAsync = async (app) => {
     const ars = r2(d.usd * dolar);
     const referencia = `PXC-${randomBytes(9).toString("base64url")}`;
     const [u] = await app.db.select({ email: usuarios.email }).from(usuarios).where(eq(usuarios.id, req.user.sub));
+    const producto = await productoDeEmpresa(app.db, req.user.empresaId);
     let cobro;
     try {
       cobro = await app.pagos.crearCobro({
@@ -157,7 +161,7 @@ export const suscripcionRoutes: FastifyPluginAsync = async (app) => {
         titulo: d.titulo,
         importeArs: ars,
         email: u!.email,
-        urlVolver: `${app.appUrl}/configuracion?tab=plan&pago=${referencia}`,
+        urlVolver: `${app.urlDe(producto)}/configuracion?tab=plan&pago=${referencia}`,
         urlNotificacion: `${app.urlApi}/api/suscripcion/webhook/mercadopago`,
       });
     } catch (e) {
@@ -202,6 +206,7 @@ export const suscripcionRoutes: FastifyPluginAsync = async (app) => {
       throw badRequest(`Tenés ${usos.puntosVenta} puntos de venta activos y este plan permite ${lim.puntosVenta}. Desactivá los que no uses.`, { plan: "Puntos de venta" });
     }
     const cambio = cotizarCambio(s, d.plan, d.usuariosAdicionales);
+    const producto = await productoDeEmpresa(app.db, req.user.empresaId);
     if (cambio.tipo === "pagar") {
       const cobro = await iniciarCobro(req, {
         tipo: "cambio",
@@ -209,7 +214,7 @@ export const suscripcionRoutes: FastifyPluginAsync = async (app) => {
         adicionales: d.usuariosAdicionales,
         periodo: s.periodo as Periodo,
         usd: cambio.importeUsd,
-        titulo: `Prexacode: cambio a plan ${PLANES[d.plan].nombre}${detalleUsuarios(d.usuariosAdicionales)} por los ${cambio.dias} días que faltan`,
+        titulo: `${marcaDe(producto).nombre}: cambio a plan ${nombrePlan(producto, d.plan)}${detalleUsuarios(d.usuariosAdicionales)} por los ${cambio.dias} días que faltan`,
       });
       return { aplicado: "pagar", dias: cambio.dias, ...cobro };
     }
@@ -239,13 +244,14 @@ export const suscripcionRoutes: FastifyPluginAsync = async (app) => {
     const s = await obtenerSuscripcion(app.db, req.user.empresaId);
     const plan = (s.planProximo ?? s.plan) as PlanId;
     const adicionales = s.adicionalesProximos ?? s.usuariosAdicionales;
+    const producto = await productoDeEmpresa(app.db, req.user.empresaId);
     return iniciarCobro(req, {
       tipo: "periodo",
       plan,
       adicionales,
       periodo,
       usd: precioUsd(plan, adicionales, periodo),
-      titulo: `Prexacode plan ${PLANES[plan].nombre} ${periodo === "anual" ? "(12 meses)" : "(1 mes)"}${detalleUsuarios(adicionales)}`,
+      titulo: `${marcaDe(producto).nombre} plan ${nombrePlan(producto, plan)} ${periodo === "anual" ? "(12 meses)" : "(1 mes)"}${detalleUsuarios(adicionales)}`,
     });
   });
 

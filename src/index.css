@@ -75,6 +75,40 @@
   --chart-2: oklch(0.78 0.13 205);
 }
 
+/* CoreDental: turquesa (el color de su versión original) + verde agua */
+[data-producto="dental"] {
+  --primary: oklch(0.55 0.12 222);
+  --secondary: oklch(0.955 0.02 215);
+  --secondary-foreground: oklch(0.36 0.09 222);
+  --accent: oklch(0.955 0.02 215);
+  --accent-foreground: oklch(0.36 0.09 222);
+  --brand: oklch(0.55 0.12 222);
+  --highlight: oklch(0.72 0.13 172);
+  --ring: oklch(0.62 0.11 222);
+  --sidebar: oklch(0.22 0.045 228);
+  --sidebar-foreground: oklch(0.88 0.025 220);
+  --sidebar-muted: oklch(0.67 0.04 222);
+  --sidebar-accent: oklch(0.3 0.06 225);
+  --sidebar-border: oklch(0.31 0.05 225);
+  --chart-1: oklch(0.55 0.12 222);
+  --chart-2: oklch(0.72 0.13 172);
+}
+
+.dark[data-producto="dental"] {
+  --primary: oklch(0.68 0.12 218);
+  --secondary: oklch(0.27 0.04 225);
+  --secondary-foreground: oklch(0.9 0.04 215);
+  --accent: oklch(0.28 0.045 225);
+  --brand: oklch(0.66 0.12 218);
+  --highlight: oklch(0.78 0.12 172);
+  --ring: oklch(0.68 0.12 218);
+  --sidebar: oklch(0.14 0.03 228);
+  --sidebar-accent: oklch(0.23 0.05 225);
+  --sidebar-border: oklch(0.24 0.04 225);
+  --chart-1: oklch(0.68 0.12 218);
+  --chart-2: oklch(0.78 0.12 172);
+}
+
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);

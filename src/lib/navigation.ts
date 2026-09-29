@@ -15,9 +15,16 @@ import {
   LifeBuoy,
   IdCard,
   BookOpen,
+  Contact,
+  Stethoscope,
+  FlaskConical,
+  Landmark,
+  ReceiptText,
 } from "lucide-react";
+import { productoActivo, type ProductoId } from "@/config/brand";
 import type { Acceso, NavItem, NavSection, Role } from "@/types";
 
+/** Menú de Prexacode (gestión para empresas) */
 export const navSections: NavSection[] = [
   {
     title: "General",
@@ -72,19 +79,105 @@ export const navSections: NavSection[] = [
   },
 ];
 
-export const allNavItems: NavItem[] = navSections.flatMap((s) => s.items);
+const sistema = navSections.find((s) => s.title === "Sistema")!;
+const item = (path: string) => navSections.flatMap((s) => s.items).find((i) => i.path === path)!;
+
+/**
+ * Menú de CoreDental (consultorios odontológicos). Reusa los módulos comunes (agenda, presupuestos, facturación,
+ * cobranzas, sueldos); los propios de odontología se van construyendo por etapas.
+ */
+const seccionesDental: NavSection[] = [
+  { title: "General", items: [item("/")] },
+  {
+    title: "Pacientes",
+    items: [
+      {
+        path: "/pacientes",
+        label: "Pacientes",
+        icon: Contact,
+        permisos: [],
+        description: "Ficha, historia clínica y odontograma de cada paciente",
+        features: [
+          "Ficha del paciente con DNI, obra social, plan y número de afiliado",
+          "Antecedentes, alergias y medicación habitual",
+          "Historia clínica con notas de evolución por consulta, radiografías e imágenes",
+          "Odontograma interactivo por pieza y cara, con lo realizado y lo que falta",
+          "Periodontograma",
+          "Consentimientos informados firmados en pantalla",
+        ],
+      },
+      { ...item("/agenda"), label: "Turnos", description: "Agenda de turnos por profesional" },
+    ],
+  },
+  {
+    title: "Clínica",
+    items: [
+      {
+        path: "/prestaciones",
+        label: "Prestaciones y obras sociales",
+        icon: Stethoscope,
+        permisos: [],
+        description: "Nomenclador de prácticas y precios por obra social",
+        features: ["Prácticas con código, por cara, por pieza o por consulta", "Obras sociales y planes", "Precio para la obra social y para el paciente en cada práctica", "Los presupuestos y los cobros toman el precio solo"],
+      },
+      {
+        path: "/laboratorios",
+        label: "Laboratorios",
+        icon: FlaskConical,
+        permisos: [],
+        description: "Trabajos enviados y cuenta corriente con cada laboratorio",
+        features: ["Trabajos por paciente y profesional", "Pagos al laboratorio, parciales o totales", "Saldo con cada laboratorio"],
+      },
+    ],
+  },
+  {
+    title: "Cobros",
+    items: [
+      item("/presupuestos"),
+      item("/facturacion"),
+      item("/cobranzas"),
+      {
+        path: "/caja",
+        label: "Caja diaria",
+        icon: Landmark,
+        permisos: [],
+        description: "Apertura, ingresos, egresos y cierre de caja",
+        features: ["Apertura con efectivo y banco", "Ingresos por medio de pago", "Gastos del día", "Cierre con diferencia de caja"],
+      },
+      {
+        path: "/gastos",
+        label: "Gastos",
+        icon: ReceiptText,
+        permisos: [],
+        description: "Gastos y proveedores del consultorio",
+        features: ["Gastos por categoría: proveedores, laboratorio, alquiler, servicios", "Informe financiero: cobrado, gastado y resultado"],
+      },
+    ],
+  },
+  { title: "Equipo", items: [{ ...item("/empleados"), label: "Equipo y sueldos", description: "Profesionales, secretaría, sueldos y porcentajes" }] },
+  { title: "Análisis", items: [item("/reportes")] },
+  sistema,
+];
+
+const SECCIONES: Record<ProductoId, NavSection[]> = { gestion: navSections, dental: seccionesDental };
+
+export const seccionesDe = (p: ProductoId = productoActivo()) => SECCIONES[p];
+export const itemsDe = (p: ProductoId = productoActivo()) => SECCIONES[p].flatMap((s) => s.items);
+
+/** Todos los módulos de todos los productos (sin repetir): para armar las rutas */
+export const allNavItems: NavItem[] = [...new Map([...itemsDe("gestion"), ...itemsDe("dental")].map((i) => [i.path, i])).values()];
 
 /** ¿Tiene alguno de estos permisos? (el administrador, todos; lista vacía: cualquiera) */
 export const puede = (a: Acceso, ...alguno: string[]) => a.esAdmin || alguno.length === 0 || alguno.some((p) => a.permisos.includes(p));
 
-export function sectionsFor(a: Acceso): NavSection[] {
-  return navSections
+export function sectionsFor(a: Acceso, p: ProductoId = productoActivo()): NavSection[] {
+  return seccionesDe(p)
     .map((s) => ({ ...s, items: s.items.filter((i) => puede(a, ...i.permisos)) }))
     .filter((s) => s.items.length > 0);
 }
 
 export function navItemForPath(pathname: string): NavItem | undefined {
-  return allNavItems.find((i) => (i.path === "/" ? pathname === "/" : pathname.startsWith(i.path)));
+  return itemsDe().find((i) => (i.path === "/" ? pathname === "/" : pathname.startsWith(i.path)));
 }
 
 /** Pantallas de carga: además de ver el módulo, piden el permiso de cargar */

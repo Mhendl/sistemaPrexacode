@@ -8,7 +8,7 @@
  * Los datos del proveedor y los plazos están en src/config/legal.ts.
  * Al modificar estos textos, actualizar TERMINOS_VERSION en server/src/lib/legal.ts.
  */
-import { brand } from "@/config/brand";
+import { MARCAS, type ProductoId } from "@/config/brand";
 import { condiciones as c, proveedor as pr } from "@/config/legal";
 
 export interface Seccion {
@@ -16,9 +16,11 @@ export interface Seccion {
   parrafos: string[];
 }
 
-const P = brand.nombre;
-
-export const terminos: Seccion[] = [
+/** Términos de cada producto: la base es la misma; CoreDental suma lo propio de los datos de salud */
+export function terminosDe(producto: ProductoId): Seccion[] {
+  const P = MARCAS[producto].nombre;
+  const dental = producto === "dental";
+  const secciones: Seccion[] = [
   {
     titulo: "1. Partes y aceptación",
     parrafos: [
@@ -31,9 +33,13 @@ export const terminos: Seccion[] = [
   {
     titulo: "2. Qué es el Servicio",
     parrafos: [
-      `El Servicio permite, entre otras funciones, gestionar clientes, oportunidades, agenda, productos y stock, presupuestos, remitos, cobranzas, reportes, envío de documentos y emisión de comprobantes electrónicos a través de los servicios web de ARCA. Las funciones disponibles son las que se ven en el sistema en cada momento.`,
+      dental
+        ? `El Servicio permite, entre otras funciones, gestionar pacientes, historia clínica, odontograma, turnos, obras sociales y prestaciones, presupuestos, cobros, caja, sueldos del equipo, reportes, envío de documentos y emisión de comprobantes electrónicos a través de los servicios web de ARCA. Las funciones disponibles son las que se ven en el sistema en cada momento.`
+        : `El Servicio permite, entre otras funciones, gestionar clientes, oportunidades, agenda, productos y stock, presupuestos, remitos, cobranzas, reportes, envío de documentos y emisión de comprobantes electrónicos a través de los servicios web de ARCA. Las funciones disponibles son las que se ven en el sistema en cada momento.`,
       `El Proveedor puede mejorar, modificar o discontinuar funciones. Si un cambio elimina una función esencial de lo contratado, lo avisará con ${c.diasAvisoCambios} días de anticipación y el Cliente podrá dar de baja el Servicio sin cargo por el período no utilizado.`,
-      `El Servicio es una herramienta tecnológica. El Proveedor no presta servicios contables, impositivos, legales ni de asesoramiento de ningún tipo.`,
+      dental
+        ? `El Servicio es una herramienta tecnológica de registro y organización. No es un dispositivo médico, no realiza diagnósticos ni indica tratamientos, y no reemplaza el criterio clínico del profesional. El Proveedor no presta servicios odontológicos, médicos, contables, impositivos, legales ni de asesoramiento de ningún tipo.`
+        : `El Servicio es una herramienta tecnológica. El Proveedor no presta servicios contables, impositivos, legales ni de asesoramiento de ningún tipo.`,
     ],
   },
   {
@@ -83,6 +89,19 @@ export const terminos: Seccion[] = [
       `El Cliente es responsable de contar con autorización para cargar los datos personales de sus propios clientes, proveedores y contactos, y de usarlos conforme a la Ley 25.326 de Protección de Datos Personales. También es responsable de los mensajes que envía a través del Servicio (email, WhatsApp u otros) y de contar con el consentimiento de los destinatarios cuando corresponda.`,
     ],
   },
+  ...(dental
+    ? [
+        {
+          titulo: "8 bis. Datos de salud e historia clínica",
+          parrafos: [
+            `Los datos de salud de los pacientes (historia clínica, odontograma, antecedentes, imágenes, consentimientos) son datos sensibles según la Ley 25.326. El Cliente (consultorio, clínica o profesional) es el responsable de esos datos y de su tratamiento: debe contar con las autorizaciones y consentimientos que la ley exige, informar a sus pacientes y usarlos solo para la atención y la administración del consultorio.`,
+            `La historia clínica es del paciente y su custodia corresponde al Cliente, conforme a la Ley 26.529 de Derechos del Paciente. En particular, el Cliente es responsable de su contenido, de identificar a los profesionales que hacen cada registro, de no alterar registros ya hechos y de conservarla por el plazo mínimo que fija la ley (diez años desde la última atención), aun después de dar de baja el Servicio: para eso debe exportarla antes de que venza el plazo de conservación del Proveedor.`,
+            `El Cliente es responsable de que cada usuario acceda solo a la información que necesita para su tarea (por ejemplo, la secretaría a turnos y cobros; los profesionales a la historia clínica), usando los roles y permisos del Servicio.`,
+            `El Proveedor trata esos datos solo como encargado, para prestar el Servicio, con confidencialidad y medidas de seguridad reforzadas, y no los usa para ningún otro fin.`,
+          ],
+        },
+      ]
+    : []),
   {
     titulo: "9. Facturación electrónica y certificado digital",
     parrafos: [
@@ -151,7 +170,7 @@ export const terminos: Seccion[] = [
     parrafos: [
       `El Cliente puede dar de baja el Servicio en cualquier momento, sin costo, desde Configuración → Plan o usando el "Botón de baja" disponible en el sitio. Se le entregará un código de constancia de la solicitud.`,
       `La baja tiene efecto al finalizar el período ya pagado (salvo el supuesto de arrepentimiento). No se reintegran importes de períodos en curso.`,
-      `Después de la baja, el Proveedor conservará la información durante ${c.diasConservacionTrasBaja} días para que el Cliente pueda exportarla, y luego podrá eliminarla definitivamente, salvo que una ley exija conservarla por más tiempo.`,
+      `Después de la baja, el Proveedor conservará la información durante ${c.diasConservacionTrasBaja} días para que el Cliente pueda exportarla, y luego podrá eliminarla definitivamente, salvo que una ley exija conservarla por más tiempo.${dental ? " La obligación de conservar la historia clínica es del Cliente: debe exportarla dentro de ese plazo." : ""}`,
       `El Proveedor puede dar de baja el Servicio con ${c.diasAvisoCambios} días de aviso, reintegrando la parte no utilizada del período pago, o de inmediato en los casos de uso indebido de la cláusula 11 o de falta de pago de la cláusula 7.`,
     ],
   },
@@ -187,14 +206,21 @@ export const terminos: Seccion[] = [
       `Antes de iniciar cualquier reclamo, las partes se comprometen a intentar resolverlo de buena fe escribiendo a ${pr.email}.`,
     ],
   },
-];
+  ];
+  return secciones;
+}
 
-export const privacidad: Seccion[] = [
+export function privacidadDe(producto: ProductoId): Seccion[] {
+  const P = MARCAS[producto].nombre;
+  const dental = producto === "dental";
+  return [
   {
     titulo: "1. Responsable y alcance",
     parrafos: [
       `${pr.razonSocial}, CUIT ${pr.cuit}, con domicilio en ${pr.domicilio} (el "Proveedor"), es responsable del tratamiento de los datos de las personas que se registran y usan ${P} (usuarios) y de los datos de las empresas clientes necesarios para prestar y cobrar el servicio.`,
-      `Respecto de los datos que cada empresa cliente carga sobre sus propios clientes, proveedores y contactos, el responsable es esa empresa, y el Proveedor actúa como encargado del tratamiento: los procesa solo para prestar el Servicio, según sus instrucciones, con confidencialidad y sin usarlos para otros fines.`,
+      dental
+        ? `Respecto de los datos que cada consultorio carga sobre sus pacientes (incluidos los datos de salud, que son datos sensibles), el responsable es ese consultorio, y el Proveedor actúa como encargado del tratamiento: los procesa solo para prestar el Servicio, según sus instrucciones, con confidencialidad y sin usarlos para otros fines.`
+        : `Respecto de los datos que cada empresa cliente carga sobre sus propios clientes, proveedores y contactos, el responsable es esa empresa, y el Proveedor actúa como encargado del tratamiento: los procesa solo para prestar el Servicio, según sus instrucciones, con confidencialidad y sin usarlos para otros fines.`,
     ],
   },
   {
@@ -239,7 +265,9 @@ export const privacidad: Seccion[] = [
     titulo: "8. Tus derechos",
     parrafos: [
       `El titular de los datos personales tiene la facultad de ejercer el derecho de acceso a los mismos en forma gratuita a intervalos no inferiores a seis meses, salvo que se acredite un interés legítimo al efecto, conforme lo establecido en el artículo 14, inciso 3 de la Ley N° 25.326. También puede solicitar su rectificación, actualización o supresión escribiendo a ${pr.email}.`,
-      `Si los datos fueron cargados por una empresa cliente (por ejemplo, sos cliente de una empresa que usa ${P}), te recomendamos dirigirte primero a esa empresa, que es la responsable de esos datos.`,
+      dental
+        ? `Si sos paciente de un consultorio que usa ${P}, los datos de tu historia clínica los administra ese consultorio: para acceder a ellos, pedir una copia o rectificarlos, dirigite al consultorio, que es el responsable (Ley 26.529).`
+        : `Si los datos fueron cargados por una empresa cliente (por ejemplo, sos cliente de una empresa que usa ${P}), te recomendamos dirigirte primero a esa empresa, que es la responsable de esos datos.`,
       `La AGENCIA DE ACCESO A LA INFORMACIÓN PÚBLICA, en su carácter de Órgano de Control de la Ley N° 25.326, tiene la atribución de atender las denuncias y reclamos que interpongan quienes resulten afectados en sus derechos por incumplimiento de las normas vigentes en materia de protección de datos personales.`,
     ],
   },
@@ -247,4 +275,5 @@ export const privacidad: Seccion[] = [
     titulo: "9. Cambios",
     parrafos: [`Podemos actualizar esta política. Los cambios importantes se informarán con anticipación por email o dentro del Servicio.`],
   },
-];
+  ];
+}

@@ -4,6 +4,8 @@ import type { CondicionIva, Role } from "@/types";
 
 export interface EmpresaApi {
   id: string;
+  /** gestion (Prexacode) o dental (CoreDental) */
+  producto: "gestion" | "dental";
   razonSocial: string;
   nombreFantasia: string | null;
   cuit: string;

@@ -90,6 +90,8 @@ export interface EmpresaAdmin {
   alta: string;
   plan: string;
   planNombre: string;
+  /** gestion (Prexacode) o dental (CoreDental) */
+  producto: "gestion" | "dental";
   planProximo: string | null;
   periodo: string;
   usuariosAdicionales: number;
@@ -117,6 +119,8 @@ export interface EmpresaAdminDetalle {
   suscripcion: {
     plan: PlanId;
     planNombre: string;
+  /** gestion (Prexacode) o dental (CoreDental) */
+  producto: "gestion" | "dental";
     usuariosAdicionales: number;
     periodo: string;
     pruebaHasta: string;

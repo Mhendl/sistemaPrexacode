@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { useRole } from "@/context/AuthProvider";
 import { canAccess } from "@/lib/navigation";
+import { nombrePlan } from "@/config/brand";
 
 import { cn } from "@/lib/utils";
 import { NoAccess } from "@/components/shared/NoAccess";
@@ -68,7 +69,7 @@ export function AppLayout() {
             <EmpresaLogo empresa={empresa} />
             <div className="min-w-0">
               <div className="truncate text-xs font-medium text-white">{empresa.razonSocial}</div>
-              <div className="text-[11px] text-sidebar-muted capitalize">Plan {empresa.plan}</div>
+              <div className="text-[11px] text-sidebar-muted">Plan {nombrePlan(empresa.plan, empresa.producto)}</div>
             </div>
           </div>
         )}

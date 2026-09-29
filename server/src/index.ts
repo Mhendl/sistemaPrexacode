@@ -19,6 +19,7 @@ const app = await buildApp({
   jwtSecret: config.jwtSecret,
   logger: true,
   appUrl: config.appUrl,
+  appUrlDental: config.appUrlDental,
   smtpUrl: config.smtpUrl,
   emailRemitente: config.emailRemitente,
   secretsKey: config.secretsKey,

@@ -7,6 +7,7 @@ import { enviarDePlataforma } from "../lib/email/plataforma.js";
 import { hoyAr } from "../lib/cuentas.js";
 import { crearRolesPrearmados, perfilDe } from "../lib/roles.js";
 import { DIAS_PRUEBA, PLAN_IDS, sumarDias } from "../lib/suscripcion.js";
+import { marcaDe, PRODUCTO_IDS, productoDeEmpresa } from "../lib/productos.js";
 import { TERMINOS_VERSION } from "../lib/legal.js";
 import { requireAuth, type SessionUser } from "../lib/auth.js";
 import { badRequest, conflict, HttpError, notFound, parse, unauthorized } from "../lib/errors.js";
@@ -24,6 +25,8 @@ const registroSchema = z.object({
     email: emailSchema,
     password: passwordSchema,
   }),
+  /** Qué producto contrata (lo define la dirección web desde la que se registra) */
+  producto: z.enum(PRODUCTO_IDS).default("gestion"),
   aceptaTerminos: z.literal(true, { errorMap: () => ({ message: "Tenés que aceptar los Términos y Condiciones y la Política de Privacidad" }) }),
 });
 
@@ -60,7 +63,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     const { empresa, usuario } = await app.db.transaction(async (tx) => {
       // Fechas con el reloj de la aplicación (el mismo con el que se calculan vencimientos)
       const ahora = new Date();
-      const [empresa] = await tx.insert(empresas).values({ ...body.empresa, createdAt: ahora }).returning();
+      const [empresa] = await tx.insert(empresas).values({ ...body.empresa, producto: body.producto, createdAt: ahora }).returning();
       await tx.insert(suscripciones).values({ empresaId: empresa.id, plan: (PLAN_IDS as string[]).includes(empresa.plan) ? empresa.plan : "profesional", pruebaHasta: sumarDias(hoyAr(), DIAS_PRUEBA) });
       const rolesEmpresa = await crearRolesPrearmados(tx, empresa.id);
       const [usuario] = await tx
@@ -79,16 +82,18 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     });
 
     // Bienvenida (no frena el registro si el correo falla)
+    const marca = marcaDe(empresa.producto);
+    const pasos =
+      empresa.producto === "dental"
+        ? "Para arrancar en pocos minutos:\n1. Completá los datos del consultorio y subí el logo (Configuración → Empresa).\n2. Cargá a los profesionales y sus horarios de atención.\n3. Cargá o importá tus pacientes.\n4. Sumá a tu equipo (secretaría, profesionales) como usuarios, cada uno con su rol."
+        : "Para arrancar en pocos minutos:\n1. Completá los datos de la empresa y subí el logo (Configuración → Empresa).\n2. Cargá o importá tus clientes y productos desde Excel.\n3. Sumá a tu equipo como usuarios, cada uno con su rol.\n4. Conectá ARCA para facturar (mientras tanto podés practicar en modo pruebas).";
     void enviarDePlataforma(app, {
+      producto: empresa.producto,
       para: usuario.email,
-      asunto: `¡Bienvenido a Prexacode, ${usuario.nombre.split(" ")[0]}!`,
+      asunto: `¡Bienvenido a ${marca.nombre}, ${usuario.nombre.split(" ")[0]}!`,
       saludo: `Hola ${usuario.nombre.split(" ")[0]},`,
-      parrafos: [
-        `Ya está creada la cuenta de ${empresa.razonSocial}. Tenés 14 días de prueba gratis con todo habilitado, sin tarjeta.`,
-        "Para arrancar en pocos minutos:\n1. Completá los datos de la empresa y subí el logo (Configuración → Empresa).\n2. Cargá o importá tus clientes y productos desde Excel.\n3. Sumá a tu equipo como usuarios, cada uno con su rol.\n4. Conectá ARCA para facturar (mientras tanto podés practicar en modo pruebas).",
-        "Cualquier duda, escribinos desde Ayuda y soporte dentro del sistema.",
-      ],
-      boton: { texto: "Entrar a Prexacode", url: app.appUrl },
+      parrafos: [`Ya está creada la cuenta de ${empresa.razonSocial}. Tenés 14 días de prueba gratis con todo habilitado, sin tarjeta.`, pasos, "Cualquier duda, escribinos desde Soporte dentro del sistema."],
+      boton: { texto: `Entrar a ${marca.nombre}`, url: app.urlDe(empresa.producto) },
     });
 
     return reply.status(201).send(await sesion(usuario, empresa));
@@ -107,11 +112,13 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     if (u && u.estado === "Activo") {
       const token = randomBytes(32).toString("base64url");
       await app.db.insert(recuperacionesClave).values({ usuarioId: u.id, tokenHash: huella(token), expira: new Date(Date.now() + 60 * 60_000) });
-      const link = `${app.appUrl}/restablecer?token=${token}`;
+      const producto = await productoDeEmpresa(app.db, u.empresaId);
+      const link = `${app.urlDe(producto)}/restablecer?token=${token}`;
       if (app.modoPruebas) ultimosLinks.set(email, link);
       void enviarDePlataforma(app, {
+        producto,
         para: u.email,
-        asunto: "Elegí una contraseña nueva para Prexacode",
+        asunto: `Elegí una contraseña nueva para ${marcaDe(producto).nombre}`,
         saludo: `Hola ${u.nombre.split(" ")[0]},`,
         parrafos: ["Pediste elegir una contraseña nueva. Tocá el botón: el link sirve una sola vez y vence en 1 hora.", "Si no lo pediste vos, ignorá este email: tu contraseña sigue igual."],
         boton: { texto: "Elegir contraseña nueva", url: link },

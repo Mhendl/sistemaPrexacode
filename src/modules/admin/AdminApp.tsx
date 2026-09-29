@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
-import { brand } from "@/config/brand";
+import { plataforma as brand } from "@/config/brand";
 import { cn } from "@/lib/utils";
 import { apiAdmin, getAdminToken, setAdminToken, useAdminYo, type AdminApi } from "./api";
 import { AdminAdministradores } from "./AdminAdministradores";

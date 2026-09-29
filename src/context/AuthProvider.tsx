@@ -4,6 +4,7 @@ import { api, ApiError, getToken, setToken, setUnauthorizedHandler } from "@/api
 import type { EmpresaApi, Sesion, UsuarioApi } from "@/api/types";
 import type { Acceso, Role } from "@/types";
 import { puede as puedeAcceso } from "@/lib/navigation";
+import { productoDelSitio, setProductoActivo } from "@/config/brand";
 
 interface AuthState {
   status: "cargando" | "anonimo" | "autenticado";
@@ -76,10 +77,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const registrar = async (datos: RegistroInput) => {
-    iniciar(await api<Sesion>("/auth/registro", { method: "POST", body: datos }));
+    iniciar(await api<Sesion>("/auth/registro", { method: "POST", body: { ...datos, producto: productoDelSitio() } }));
   };
 
   const actualizarEmpresa = useCallback((empresa: EmpresaApi) => setState((s) => ({ ...s, empresa })), []);
+
+  // La marca (nombre, colores, menú) es la del producto de la empresa; sin sesión, la de la dirección web.
+  // Se fija antes de dibujar a los hijos, así todo sale con la misma marca.
+  setProductoActivo(state.empresa?.producto ?? productoDelSitio());
 
   return <AuthContext.Provider value={{ ...state, login, registrar, logout, actualizarEmpresa }}>{children}</AuthContext.Provider>;
 }

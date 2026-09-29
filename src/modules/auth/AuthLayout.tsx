@@ -2,11 +2,21 @@ import { LinksLegales } from "@/modules/legal/SolicitudLegalPage";
 import type { ReactNode } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { LogoMark } from "@/components/layout/Logo";
-import { brand } from "@/config/brand";
+import { brand, productoActivo } from "@/config/brand";
 
-const beneficios = ["Facturación electrónica ARCA", "Clientes, stock y agenda en un solo lugar", "Avisos por email y WhatsApp", "Sin instalar nada: funciona en la compu y el celular"];
+const TEXTOS = {
+  gestion: {
+    titular: "La gestión de tu empresa, ordenada y en un solo lugar.",
+    beneficios: ["Facturación electrónica ARCA", "Clientes, stock y agenda en un solo lugar", "Avisos por email y WhatsApp", "Sin instalar nada: funciona en la compu y el celular"],
+  },
+  dental: {
+    titular: "Tu consultorio odontológico, ordenado y en un solo lugar.",
+    beneficios: ["Historia clínica y odontograma digital", "Turnos por profesional, con recordatorios", "Obras sociales, presupuestos y cobros", "Sin instalar nada: funciona en la compu y el celular"],
+  },
+};
 
 export function AuthLayout({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
+  const { titular, beneficios } = TEXTOS[productoActivo()];
   return (
     <div className="grid min-h-svh lg:grid-cols-[1fr_1.1fr]">
       <div className="relative hidden flex-col justify-between overflow-hidden bg-sidebar p-10 text-white lg:flex">
@@ -23,7 +33,7 @@ export function AuthLayout({ title, subtitle, children }: { title: string; subti
           <span className="text-xl font-bold tracking-tight">{brand.nombre}</span>
         </div>
         <div className="relative max-w-md">
-          <h2 className="text-3xl leading-tight font-semibold tracking-tight">La gestión de tu empresa, ordenada y en un solo lugar.</h2>
+          <h2 className="text-3xl leading-tight font-semibold tracking-tight">{titular}</h2>
           <ul className="mt-8 grid gap-3">
             {beneficios.map((b) => (
               <li key={b} className="flex items-center gap-3 text-sidebar-foreground">

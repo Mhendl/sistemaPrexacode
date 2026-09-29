@@ -13,7 +13,10 @@ const columnas: Column<EmpresaAdmin>[] = [
     sortValue: (e) => e.razonSocial,
     cell: (e) => (
       <div className="min-w-0">
-        <div className="font-medium">{e.razonSocial}</div>
+        <div className="flex items-center gap-2 font-medium">
+          {e.razonSocial}
+          {e.producto === "dental" && <span className="rounded bg-highlight/15 px-1.5 py-0.5 text-[10px] font-semibold text-highlight uppercase">CoreDental</span>}
+        </div>
         <div className="text-xs text-muted-foreground">
           {formatCuit(e.cuit)} · {e.admin?.email ?? "sin administrador"}
         </div>
@@ -73,7 +76,8 @@ export function AdminEmpresas() {
           searchPlaceholder="Buscar por nombre, CUIT o email…"
           filters={[
             { key: "estado", label: "Estado", options: ["Prueba gratis", "Activa", "Vencida (en gracia)", "Solo lectura", "Suspendido"], value: (e) => (e.suspendida ? "Suspendido" : nombreEstado[e.estado]) },
-            { key: "plan", label: "Plan", options: ["Básico", "Profesional", "Empresa"], value: (e) => e.planNombre },
+            { key: "producto", label: "Producto", options: ["Prexacode", "CoreDental"], value: (e) => (e.producto === "dental" ? "CoreDental" : "Prexacode") },
+            { key: "plan", label: "Plan", options: ["Básico", "Profesional", "Empresa"], value: (e) => nombrePlan[e.plan] ?? e.planNombre },
           ]}
           onRowClick={(e) => navigate(`/admin/empresas/${e.id}`)}
           pageSize={25}

@@ -6,11 +6,12 @@ import { brand } from "@/config/brand";
 import { formatDate } from "@/lib/format";
 import { faltanDatosProveedor } from "@/config/legal";
 import { LinksLegales } from "./SolicitudLegalPage";
-import { privacidad, terminos, type Seccion } from "./textos";
+import { productoActivo } from "@/config/brand";
+import { privacidadDe, terminosDe, type Seccion } from "./textos";
 
-const paginas: Record<"terminos" | "privacidad", { titulo: string; secciones: Seccion[] }> = {
-  terminos: { titulo: "Términos y Condiciones", secciones: terminos },
-  privacidad: { titulo: "Política de Privacidad", secciones: privacidad },
+const paginas: Record<"terminos" | "privacidad", { titulo: string; secciones: () => Seccion[] }> = {
+  terminos: { titulo: "Términos y Condiciones", secciones: () => terminosDe(productoActivo()) },
+  privacidad: { titulo: "Política de Privacidad", secciones: () => privacidadDe(productoActivo()) },
 };
 
 /** Páginas públicas: se pueden leer sin iniciar sesión (se enlazan desde el registro) */
@@ -51,7 +52,7 @@ export function LegalPage({ tipo }: { tipo: "terminos" | "privacidad" }) {
         )}
 
         <div className="mt-8 grid gap-8">
-          {secciones.map((s) => (
+          {secciones().map((s) => (
             <section key={s.titulo}>
               <h2 className="mb-2 text-lg font-semibold">{s.titulo}</h2>
               <div className="grid gap-3 text-[15px] leading-relaxed text-foreground/90">

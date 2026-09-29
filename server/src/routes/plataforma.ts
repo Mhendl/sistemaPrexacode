@@ -1,3 +1,4 @@
+import { nombrePlan, productoDe, productoDeEmpresa } from "../lib/productos.js";
 import { randomBytes } from "node:crypto";
 import { and, count, desc, eq, gte, inArray, max, sql } from "drizzle-orm";
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
@@ -8,7 +9,7 @@ import { avisarPorEmail, mensajesDe } from "./soporte.js";
 import { requirePlataforma } from "../lib/auth.js";
 import { hoyAr, TIPOS_NC } from "../lib/cuentas.js";
 import { notFound, parse } from "../lib/errors.js";
-import { DIAS_PRUEBA, estadoDe, limitesDe, obtenerSuscripcion, PLAN_IDS, PLANES, precioUsd, sumarDias, type Periodo, type PlanId } from "../lib/suscripcion.js";
+import { DIAS_PRUEBA, estadoDe, limitesDe, obtenerSuscripcion, PLAN_IDS, precioUsd, sumarDias, type Periodo, type PlanId } from "../lib/suscripcion.js";
 import { adminDe } from "./admin.js";
 import { aplicarPago } from "./suscripcion.js";
 
@@ -155,7 +156,8 @@ export const plataformaRoutes: FastifyPluginAsync = async (app) => {
       cuit: x.e.cuit,
       alta: x.e.createdAt,
       plan: x.s.plan,
-      planNombre: PLANES[x.s.plan as PlanId]?.nombre ?? x.s.plan,
+      producto: productoDe(x.e.producto),
+      planNombre: nombrePlan(x.e.producto, x.s.plan),
       planProximo: x.s.planProximo,
       periodo: x.s.periodo,
       usuariosAdicionales: x.s.usuariosAdicionales,
@@ -202,7 +204,7 @@ export const plataformaRoutes: FastifyPluginAsync = async (app) => {
     const aprobados = pagos.filter((p) => p.estado === "Aprobado");
     return {
       empresa: e,
-      suscripcion: { ...s, ...estadoDe(s), planNombre: PLANES[s.plan as PlanId]?.nombre ?? s.plan, limites: limitesDe(s) },
+      suscripcion: { ...s, ...estadoDe(s), planNombre: nombrePlan(e.producto, s.plan), limites: limitesDe(s) },
       uso: { usuariosActivos: us.filter((u) => u.estado === "Activo").length, clientes: Number(nCli?.n ?? 0), productos: Number(nProd?.n ?? 0), actividad },
       pagadoTotal: r2(aprobados.reduce((a, p) => a + p.importeArs, 0)),
       usuarios: us,
@@ -251,7 +253,7 @@ export const plataformaRoutes: FastifyPluginAsync = async (app) => {
     const d = parse(z.object({ texto: z.string().trim().min(2, "Escribí la respuesta").max(5000), cerrar: z.boolean().optional() }), req.body);
     const t = await ticketCompleto(id);
     const admin = await adminDe(app, req);
-    await app.db.insert(ticketMensajes).values({ ticketId: id, autor: "soporte", nombre: `${admin.nombre} (Prexacode)`, texto: d.texto });
+    await app.db.insert(ticketMensajes).values({ ticketId: id, autor: "soporte", nombre: `${admin.nombre} (soporte)`, texto: d.texto });
     await app.db
       .update(tickets)
       .set({ estado: d.cerrar ? "Cerrado" : "Respondido", sinLeerCliente: true, sinLeerSoporte: false, updatedAt: new Date() })
@@ -266,7 +268,7 @@ export const plataformaRoutes: FastifyPluginAsync = async (app) => {
         link: `/soporte/${id}`,
       });
     }
-    if (t.email) void avisarPorEmail(app, [t.email], `Respuesta a tu pedido #${t.numero}: ${t.asunto}`, d.texto, `${app.appUrl}/soporte/${id}`);
+    if (t.email) void avisarPorEmail(app, [t.email], `Respuesta a tu pedido #${t.numero}: ${t.asunto}`, d.texto, `${app.urlDe(await productoDeEmpresa(app.db, t.empresaId))}/soporte/${id}`);
     return reply.status(201).send(await ticketCompleto(id));
   });
 

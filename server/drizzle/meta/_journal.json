@@ -176,6 +176,13 @@
       "when": 1790703877744,
       "tag": "0024_consumidor_final",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1790723942523,
+      "tag": "0025_productos",
+      "breakpoints": true
     }
   ]
 }
