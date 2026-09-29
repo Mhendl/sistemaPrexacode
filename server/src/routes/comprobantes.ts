@@ -7,7 +7,8 @@ import { z } from "zod";
 import { clientes, comprobanteItems, comprobantes, empresas, movimientosStock, oportunidades, presupuestos, productos, puntosVenta } from "../db/schema.js";
 import { permisoPorMetodo, requirePermiso } from "../lib/auth.js";
 import { ErrorArca, type SolicitudCae } from "../lib/arca/cliente.js";
-import { CONDICION_IVA_RECEPTOR, DOC_TIPO, ID_ALICUOTA, TIPO_CBTE, describirTipo, letraSegun, type Concepto } from "../lib/arca/codigos.js";
+import { CONDICION_IVA_RECEPTOR, DOC_TIPO, ID_ALICUOTA, TIPO_CBTE, TOPE_CONSUMIDOR_SIN_IDENTIFICAR, describirTipo, letraSegun, type Concepto } from "../lib/arca/codigos.js";
+import { clienteConsumidorFinal } from "../lib/consumidorFinal.js";
 import { conectorPara, configuracionArca } from "../lib/arca/conector.js";
 import { calcularTotales, r2 } from "../lib/arca/montos.js";
 import { badRequest, conflict, HttpError, notFound, parse } from "../lib/errors.js";
@@ -30,7 +31,9 @@ const r3 = (n: number) => Math.round(n * 1000) / 1000;
 
 const emitirSchema = z.object({
   clase: z.enum(["factura", "nota_credito"]).default("factura"),
-  clienteId: z.string({ required_error: "Elegí un cliente" }).uuid("Elegí un cliente"),
+  clienteId: z.string().uuid("Elegí un cliente").optional(),
+  /** Venta de mostrador a un consumidor final sin identificar (en lugar de clienteId) */
+  consumidorFinal: z.boolean().optional(),
   puntoVenta: z.coerce.number().int().min(1).max(99998).default(1),
   fecha: fechaIso.optional(),
   condicionVenta: z.enum(["Contado", "Cuenta corriente"]).default("Contado"),
@@ -77,8 +80,8 @@ export function urlQr(c: Comprobante, cuitEmisor: string) {
     importe: c.total,
     moneda: "PES",
     ctz: 1,
-    tipoDocRec: DOC_TIPO.CUIT,
-    nroDocRec: Number(c.receptor.cuit),
+    tipoDocRec: c.receptor.cuit ? DOC_TIPO.CUIT : DOC_TIPO.SIN_IDENTIFICAR,
+    nroDocRec: Number(c.receptor.cuit || 0),
     tipoCodAut: "E",
     codAut: Number(c.cae),
   };
@@ -162,8 +165,10 @@ export const comprobantesRoutes: FastifyPluginAsync = async (app) => {
     const fecha = d.fecha ?? hoy;
 
     const [empresa] = await app.db.select().from(empresas).where(eq(empresas.id, empresaId));
-    const [cliente] = await app.db.select().from(clientes).where(and(eq(clientes.id, d.clienteId), eq(clientes.empresaId, empresaId)));
-    if (!cliente) throw badRequest("El cliente no existe", { clienteId: "Elegí un cliente" });
+    let cliente: typeof clientes.$inferSelect | undefined;
+    if (d.consumidorFinal) cliente = await clienteConsumidorFinal(app.db, empresaId);
+    else if (d.clienteId) [cliente] = await app.db.select().from(clientes).where(and(eq(clientes.id, d.clienteId), eq(clientes.empresaId, empresaId)));
+    if (!cliente) throw badRequest(d.clienteId ? "El cliente no existe" : "Elegí un cliente", { clienteId: "Elegí un cliente" });
 
     await configuracionArca(app.db, empresaId);
     const [pv] = await app.db.select().from(puntosVenta).where(and(eq(puntosVenta.empresaId, empresaId), eq(puntosVenta.numero, d.puntoVenta)));
@@ -198,6 +203,19 @@ export const comprobantesRoutes: FastifyPluginAsync = async (app) => {
 
     const totales = calcularTotales(renglones, letra);
     if (totales.total <= 0) throw badRequest("El total tiene que ser mayor a cero");
+
+    // Consumidor final sin identificar: venta de mostrador, se cobra en el momento y tiene un tope
+    if (cliente.sinIdentificar && d.clase === "factura") {
+      if (d.condicionVenta !== "Contado" || !d.cobro) {
+        throw badRequest("La venta a un consumidor final sin identificar tiene que ser de contado y cobrada en el momento. Para venderle en cuenta corriente, cargalo como cliente.", { clienteId: "Solo de contado" });
+      }
+      if (totales.total >= TOPE_CONSUMIDOR_SIN_IDENTIFICAR) {
+        throw badRequest(
+          `En ventas de $ ${TOPE_CONSUMIDOR_SIN_IDENTIFICAR.toLocaleString("es-AR")} o más ARCA pide identificar al comprador: cargalo como cliente con su CUIT o CUIL.`,
+          { clienteId: "Hay que identificar al comprador" },
+        );
+      }
+    }
 
     if (asociado) {
       const ncPrevias = await app.db
@@ -260,8 +278,8 @@ export const comprobantesRoutes: FastifyPluginAsync = async (app) => {
           tipoCbte,
           numero,
           concepto,
-          docTipo: DOC_TIPO.CUIT,
-          docNro: cliente.cuit,
+          docTipo: cliente.sinIdentificar ? DOC_TIPO.SIN_IDENTIFICAR : DOC_TIPO.CUIT,
+          docNro: cliente.sinIdentificar ? "0" : cliente.cuit,
           condicionIvaReceptor: CONDICION_IVA_RECEPTOR[cliente.condicionIva] ?? 5,
           fecha,
           importeTotal: totales.total,

@@ -239,6 +239,18 @@ export const ARTICULOS: Articulo[] = [
     ],
   },
   {
+    id: "consumidor-final",
+    titulo: "Venta de mostrador a consumidor final (sin CUIT)",
+    seccion: "Facturación",
+    path: "/facturacion",
+    permisos: ["facturacion.ver"],
+    palabras: "mostrador consumidor final anonimo sin cuit sin datos ticket venta rapida publico particular",
+    texto:
+      "Para vender a alguien sin cargarlo como cliente. Sale Factura B (o C si sos monotributista), de contado y cobrada en el momento. Desde $ 10.000.000 ARCA pide identificar al comprador: en ese caso cargalo como cliente.",
+    pasos: ["Tocá Nueva factura.", "En Cliente elegí Consumidor final (sin identificar), el primero de la lista.", "Agregá los productos, elegí el medio de cobro y emití."],
+    consejo: "Si devuelve algo, abrí la factura y hacé una Nota de crédito, como con cualquier cliente.",
+  },
+  {
     id: "factura-letra",
     titulo: "¿Factura A, B o C?",
     seccion: "Facturación",

@@ -26,6 +26,10 @@ const hoyLocal = () => {
 };
 const numPresupuesto = (n: number) => String(n).padStart(8, "0");
 
+/** Valor del selector de cliente para la venta de mostrador a un consumidor final sin identificar */
+export const CONSUMIDOR_FINAL = "consumidor-final";
+const TOPE_SIN_IDENTIFICAR = 10_000_000; // RG 5700/2025 (el servidor usa el mismo tope)
+
 export function NuevaFacturaPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -50,7 +54,10 @@ export function NuevaFacturaPage() {
   const [medioCobro, setMedioCobro] = useState<string>("Efectivo");
   const [errores, setErrores] = useState<Record<string, string>>({});
 
-  const cliente = clientes.find((c) => c.id === clienteId);
+  const anonimo = clienteId === CONSUMIDOR_FINAL;
+  const cliente = anonimo
+    ? { razonSocial: "Consumidor final", cuit: "", condicionIva: "Consumidor Final" as const, domicilio: "", localidad: "" }
+    : clientes.find((c) => c.id === clienteId);
   const letra = letraSegun(config?.condicionIvaEmisor ?? empresa.condicionIva, cliente?.condicionIva ?? "Consumidor Final");
   const editor = useRenglones(letra, productos);
   const { cargar } = editor;
@@ -60,7 +67,7 @@ export function NuevaFacturaPage() {
   // Nota de crédito: arranca con el cliente y los ítems de la factura
   useEffect(() => {
     if (!factura || productos.length === 0 && factura.items.some((i) => i.productoId)) return;
-    setClienteId(factura.clienteId);
+    setClienteId(factura.receptor.cuit ? factura.clienteId : CONSUMIDOR_FINAL);
     setPuntoVenta(String(factura.puntoVenta));
     setCondicionVenta(factura.condicionVenta);
     setMoverStock(factura.descontoStock);
@@ -91,13 +98,13 @@ export function NuevaFacturaPage() {
         clase: esNc ? "nota_credito" : "factura",
         asociadoId: ncDe,
         presupuestoId,
-        clienteId,
+        ...(anonimo ? { consumidorFinal: true } : { clienteId }),
         puntoVenta: Number(puntoVenta),
         fecha,
-        condicionVenta,
+        condicionVenta: anonimo ? "Contado" : condicionVenta,
         observaciones: observaciones || null,
         moverStock: editor.hayStock && moverStock,
-        cobro: !esNc && condicionVenta === "Contado" && cobrarAhora ? { medio: medioCobro } : undefined,
+        cobro: !esNc && (anonimo || (condicionVenta === "Contado" && cobrarAhora)) ? { medio: medioCobro } : undefined,
         items: editor.paraEnviar(),
       });
       if (c.estado === "Autorizado") toast.success(`${c.tipo} ${numeroComprobante(c.puntoVenta, c.numero)} autorizada · CAE ${c.cae}`);
@@ -151,6 +158,7 @@ export function NuevaFacturaPage() {
                     <SelectValue placeholder="Elegí un cliente" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value={CONSUMIDOR_FINAL}>Consumidor final (sin identificar)</SelectItem>
                     {clientes
                       .filter((c) => c.estado === "Activo" || c.id === clienteId)
                       .map((c) => (
@@ -161,6 +169,11 @@ export function NuevaFacturaPage() {
                   </SelectContent>
                 </Select>
                 {errores.clienteId && <p className="text-xs text-destructive">{errores.clienteId}</p>}
+                {anonimo && !esNc && (
+                  <p className="text-xs text-muted-foreground" data-testid="aviso-consumidor-final">
+                    Venta de mostrador: de contado y cobrada en el momento. Desde $ {TOPE_SIN_IDENTIFICAR.toLocaleString("es-AR")} ARCA pide identificar al comprador.
+                  </p>
+                )}
                 {errores.presupuestoId && <p className="text-xs text-destructive">{errores.presupuestoId}</p>}
               </div>
               <div className="grid gap-1.5">
@@ -192,7 +205,7 @@ export function NuevaFacturaPage() {
               </div>
               <div className="grid gap-1.5">
                 <Label htmlFor="fac-condicion">Condición de venta</Label>
-                <Select value={condicionVenta} onValueChange={(v) => setCondicionVenta(v as typeof condicionVenta)}>
+                <Select value={anonimo ? "Contado" : condicionVenta} onValueChange={(v) => setCondicionVenta(v as typeof condicionVenta)} disabled={anonimo}>
                   <SelectTrigger id="fac-condicion" className="w-full">
                     <SelectValue />
                   </SelectTrigger>
@@ -202,13 +215,13 @@ export function NuevaFacturaPage() {
                   </SelectContent>
                 </Select>
               </div>
-              {!esNc && condicionVenta === "Contado" && (
+              {!esNc && (anonimo || condicionVenta === "Contado") && (
                 <div className="flex flex-col gap-3 rounded-lg border bg-muted/30 p-3 sm:col-span-2 sm:flex-row sm:items-center">
                   <label className="flex flex-1 items-center gap-2 text-sm">
-                    <Checkbox checked={cobrarAhora} onCheckedChange={(v) => setCobrarAhora(v === true)} aria-label="Cobrada en el momento" />
+                    <Checkbox checked={anonimo || cobrarAhora} disabled={anonimo} onCheckedChange={(v) => setCobrarAhora(v === true)} aria-label="Cobrada en el momento" />
                     Cobrada en el momento (genera el recibo solo)
                   </label>
-                  {cobrarAhora && (
+                  {(anonimo || cobrarAhora) && (
                     <Select value={medioCobro} onValueChange={setMedioCobro}>
                       <SelectTrigger className="w-full sm:w-52" aria-label="Medio de cobro">
                         <SelectValue />
@@ -264,7 +277,7 @@ export function NuevaFacturaPage() {
                   numero: null,
                   fecha,
                   vencimiento: fecha,
-                  condicionVenta,
+                  condicionVenta: anonimo ? "Contado" : condicionVenta,
                   concepto: editor.renglones.every((r) => r.controlaStock) ? 1 : editor.hayStock ? 3 : 2,
                   fechaServicioDesde: fecha,
                   fechaServicioHasta: fecha,

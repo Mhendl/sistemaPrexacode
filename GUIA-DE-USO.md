@@ -73,6 +73,7 @@ El **embudo de ventas**, en columnas: *Nuevo → Contactado → Propuesta → Ne
 - **Facturas A, B y C, y notas de crédito**, electrónicas con CAE de ARCA.
   - La letra se elige sola según tu condición de IVA y la del cliente.
 - Contado (con el medio de cobro, y el recibo se genera solo) o **cuenta corriente**.
+- **Venta de mostrador:** "Consumidor final (sin identificar)" factura sin cargar al cliente ni pedir CUIT. Es de contado y cobrada en el momento; desde $ 10.000.000 ARCA pide identificar al comprador.
 - **Descuenta el stock** de los productos. Una nota de crédito puede reingresarlo o no.
 - La nota de crédito no puede superar el saldo de la factura: el sistema lo controla.
 - Comprobante listo para **imprimir o enviar** por email o WhatsApp.

@@ -61,7 +61,7 @@ function ReciboHoja({ r, empresa }: { r: ReciboApi; empresa: EmpresaApi }) {
       <div className="border-b border-neutral-300 py-1 text-center text-[10px] font-semibold tracking-wide text-neutral-600 uppercase">Documento no válido como factura</div>
 
       <div className="border-b border-neutral-300 px-5 py-4 text-[13px]">
-        Recibimos de <b>{r.cliente.razonSocial}</b> (CUIT {formatCuit(r.cliente.cuit)}) la suma de <b data-testid="recibo-total">{formatMoney(r.total)}</b> en concepto de pago
+        Recibimos de <b>{r.cliente.razonSocial}</b> {r.cliente.cuit && ` (CUIT ${formatCuit(r.cliente.cuit)})`} la suma de <b data-testid="recibo-total">{formatMoney(r.total)}</b> en concepto de pago
         {r.imputaciones.length > 0 ? " de los comprobantes detallados abajo" : " a cuenta"}.
       </div>
 

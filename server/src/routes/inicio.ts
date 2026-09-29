@@ -39,7 +39,7 @@ export const inicioRoutes: FastifyPluginAsync = async (app) => {
     const [{ n: remitosHoy }] = await app.db.select({ n: count() }).from(remitos).where(and(eq(remitos.empresaId, empresaId), eq(remitos.fecha, hoy), eq(remitos.estado, "Emitido")));
 
     // Primeros pasos (para guiar a una empresa nueva)
-    const [{ n: nClientes }] = await app.db.select({ n: count() }).from(clientes).where(eq(clientes.empresaId, empresaId));
+    const [{ n: nClientes }] = await app.db.select({ n: count() }).from(clientes).where(and(eq(clientes.empresaId, empresaId), eq(clientes.sinIdentificar, false)));
     const [{ n: nProductos }] = await app.db.select({ n: count() }).from(productos).where(eq(productos.empresaId, empresaId));
     const [{ n: nUsuarios }] = await app.db.select({ n: count() }).from(usuarios).where(eq(usuarios.empresaId, empresaId));
     const [{ n: nComprobantes }] = await app.db.select({ n: count() }).from(comprobantes).where(and(eq(comprobantes.empresaId, empresaId), eq(comprobantes.estado, "Autorizado")));

@@ -26,6 +26,12 @@ export const ID_ALICUOTA: Record<number, number> = { 0: 3, 10.5: 4, 21: 5, 27: 6
 /** Tipo de documento del receptor (FEParamGetTiposDoc) */
 export const DOC_TIPO = { CUIT: 80, CUIL: 86, DNI: 96, SIN_IDENTIFICAR: 99 } as const;
 
+/**
+ * Desde este total, una factura a consumidor final tiene que identificar al comprador (RG 5700/2025 de ARCA).
+ * Si ARCA lo cambia, se cambia acá.
+ */
+export const TOPE_CONSUMIDOR_SIN_IDENTIFICAR = 10_000_000;
+
 /** Condición frente al IVA del receptor (RG 5616, FEParamGetCondicionIvaReceptor) */
 export const CONDICION_IVA_RECEPTOR: Record<string, number> = {
   "Responsable Inscripto": 1,

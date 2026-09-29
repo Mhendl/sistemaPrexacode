@@ -35,6 +35,7 @@ export function formatDate(value: string | Date): string {
 
 /** 30-12345678-9 */
 export function formatCuit(value: string): string {
+  if (!value) return "—"; // consumidor final sin identificar
   const digits = value.replace(/\D/g, "");
   if (digits.length !== 11) return value;
   return `${digits.slice(0, 2)}-${digits.slice(2, 10)}-${digits.slice(10)}`;

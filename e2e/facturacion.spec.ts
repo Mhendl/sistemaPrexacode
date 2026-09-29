@@ -17,6 +17,39 @@ async function agregarProducto(page: Page, nombre: RegExp) {
 }
 
 test.describe("Facturación", () => {
+  test("venta de mostrador a consumidor final sin identificar: Factura B de contado, cobrada, y la devolución con nota de crédito", async ({ page, request }) => {
+    const cuenta = await crearCuenta(request);
+    await preparar(request, cuenta);
+    await entrarCon(page, cuenta);
+    await page.goto("/facturacion/nueva");
+
+    await elegir(page, "Cliente", "Consumidor final (sin identificar)");
+    await expect(page.getByTestId("tipo-comprobante")).toHaveText(/Factura B/);
+    await expect(page.getByTestId("aviso-consumidor-final")).toContainText("de contado y cobrada en el momento");
+    // Solo de contado y cobrada: no se puede cambiar
+    await expect(page.getByLabel("Condición de venta")).toBeDisabled();
+    await expect(page.getByRole("checkbox", { name: "Cobrada en el momento" })).toBeChecked();
+    await expect(page.getByRole("checkbox", { name: "Cobrada en el momento" })).toBeDisabled();
+
+    await agregarProducto(page, /Notebook 15,6/);
+    await page.getByRole("button", { name: "Emitir y obtener CAE" }).click();
+    await expect(page.getByRole("heading", { name: /Factura B 0001-00000001/ })).toBeVisible();
+    await expect(page.getByText("Consumidor final").first()).toBeVisible();
+    const factura = page.url();
+
+    // No aparece en la cartera de clientes
+    await page.goto("/clientes");
+    await expect(page.getByRole("heading", { name: "Clientes" })).toBeVisible();
+    await expect(page.getByText("Consumidor final", { exact: true })).toHaveCount(0);
+
+    // Devolución: la nota de crédito arranca con el mismo consumidor final
+    await page.goto(factura);
+    await page.getByRole("link", { name: /Nota de crédito/ }).click();
+    await expect(page.getByTestId("tipo-comprobante")).toHaveText(/Nota de crédito B/);
+    await page.getByRole("button", { name: "Emitir y obtener CAE" }).click();
+    await expect(page.getByRole("heading", { name: /Nota de crédito B 0001-00000001/ })).toBeVisible();
+  });
+
   test("Factura A con producto e ítem libre: CAE, QR, aviso de prueba y stock descontado", async ({ page, request }) => {
     const cuenta = await crearCuenta(request);
     const { notebook } = await preparar(request, cuenta);

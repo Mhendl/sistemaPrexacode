@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { QueryState } from "@/components/shared/QueryState";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { useRole, Si } from "@/context/AuthProvider";
+import { CONSUMIDOR_FINAL } from "@/modules/facturacion/NuevaFacturaPage";
 import { formatCuit, formatDate, formatMoney } from "@/lib/format";
 import { numeroComprobante } from "@/lib/facturacion";
 import { AgendaCliente } from "@/modules/agenda/AgendaCliente";
@@ -72,19 +73,19 @@ export function ClienteDetallePage() {
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
-                <Si permiso="clientes.editar">
-                  <Button variant="outline" onClick={() => setEditar(true)}>
-                    <Pencil className="size-4" /> Editar
-                  </Button>
-                </Si>
-                <Si permiso="clientes.editar">
-                  <Button variant="outline" onClick={() => setConfirmar(true)} aria-label="Eliminar cliente">
-                    <Trash2 className="size-4" />
-                  </Button>
-                </Si>
+                {!cliente.sinIdentificar && (
+                  <Si permiso="clientes.editar">
+                    <Button variant="outline" onClick={() => setEditar(true)}>
+                      <Pencil className="size-4" /> Editar
+                    </Button>
+                    <Button variant="outline" onClick={() => setConfirmar(true)} aria-label="Eliminar cliente">
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </Si>
+                )}
                 <Si permiso="facturacion.emitir">
                   <Button asChild>
-                    <Link to={`/facturacion/nueva?cliente=${cliente.id}`}>
+                    <Link to={`/facturacion/nueva?cliente=${cliente.sinIdentificar ? CONSUMIDOR_FINAL : cliente.id}`}>
                       <Plus className="size-4" /> Facturar
                     </Link>
                   </Button>

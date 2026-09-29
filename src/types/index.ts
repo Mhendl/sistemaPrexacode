@@ -42,6 +42,8 @@ export interface Cliente {
   id: string;
   razonSocial: string;
   cuit: string;
+  /** El "Consumidor final" sin identificar de las ventas de mostrador (sin CUIT, no se edita) */
+  sinIdentificar?: boolean;
   condicionIva: CondicionIva;
   contacto: string;
   email: string;

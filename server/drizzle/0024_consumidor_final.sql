@@ -1,0 +1,1 @@
+ALTER TABLE "clientes" ADD COLUMN "sin_identificar" boolean DEFAULT false NOT NULL;

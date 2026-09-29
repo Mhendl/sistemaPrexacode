@@ -62,6 +62,8 @@ export interface ClienteApi {
   id: string;
   razonSocial: string;
   cuit: string;
+  /** El "Consumidor final" sin identificar de las ventas de mostrador (sin CUIT, no se edita) */
+  sinIdentificar?: boolean;
   condicionIva: CondicionIva;
   contacto: string | null;
   email: string | null;
@@ -281,7 +283,9 @@ export interface ConfigFacturacionApi {
 
 export interface ComprobanteInput {
   clase: "factura" | "nota_credito";
-  clienteId: string;
+  clienteId?: string;
+  /** Venta de mostrador a un consumidor final sin identificar (en lugar de clienteId) */
+  consumidorFinal?: boolean;
   puntoVenta: number;
   fecha: string;
   condicionVenta: "Contado" | "Cuenta corriente";

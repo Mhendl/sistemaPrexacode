@@ -95,6 +95,8 @@ export const clientes = pgTable(
     rubro: text("rubro"),
     notas: text("notas"),
     estado: text("estado").notNull().default("Activo"),
+    /** El "Consumidor final" sin identificar de las ventas de mostrador: uno por empresa, sin CUIT, no se edita */
+    sinIdentificar: boolean("sin_identificar").notNull().default(false),
     version: version(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

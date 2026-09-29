@@ -6,8 +6,8 @@
  * de cada empresa tendrán que volver a aceptarlos, y queda registrado quién, cuándo y desde qué IP.
  */
 export const proveedor = {
-  razonSocial: "[RAZÓN SOCIAL DEL PROVEEDOR]",
-  cuit: "[CUIT]",
+  razonSocial: "HENDL MARTIN EZEQUIEL",
+  cuit: "24-35324876-2",
   domicilio: "[DOMICILIO LEGAL]",
   email: "[EMAIL DE CONTACTO]",
   /** Ciudad de los tribunales para cualquier reclamo (ej.: "la Ciudad Autónoma de Buenos Aires", "La Plata") */

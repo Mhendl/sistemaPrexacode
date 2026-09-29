@@ -169,6 +169,13 @@
       "when": 1790689550647,
       "tag": "0023_avisos_y_recuperacion",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1790703877744,
+      "tag": "0024_consumidor_final",
+      "breakpoints": true
     }
   ]
 }

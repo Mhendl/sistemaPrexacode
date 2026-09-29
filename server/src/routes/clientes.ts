@@ -3,7 +3,7 @@ import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { clientes } from "../db/schema.js";
 import { requireAuth, requirePermiso } from "../lib/auth.js";
-import { conflict, edicionConcurrente, esReferenciado, notFound, parse } from "../lib/errors.js";
+import { badRequest, conflict, edicionConcurrente, esReferenciado, notFound, parse } from "../lib/errors.js";
 import { clienteInputSchema, versionSchema } from "../lib/validation.js";
 
 const idSchema = z.object({ id: z.string().uuid("Id inválido") });
@@ -21,12 +21,20 @@ const esDuplicado = (e: unknown) => {
 // Consultar: todos los roles (Operaciones elige el cliente al hacer un remito). Modificar: admin y ventas.
 const soloEdicion = requirePermiso("clientes.editar");
 
+const NO_SE_EDITA = "El consumidor final sin identificar es el de las ventas de mostrador: no se modifica ni se elimina.";
+
 export const clientesRoutes: FastifyPluginAsync = async (app) => {
   app.addHook("preHandler", requireAuth);
 
+  const noEsConsumidorFinal = async (id: string) => {
+    const [c] = await app.db.select({ sinIdentificar: clientes.sinIdentificar }).from(clientes).where(eq(clientes.id, id));
+    if (c?.sinIdentificar) throw badRequest(NO_SE_EDITA);
+  };
+
   app.get("/", async (req) => {
     const { q, estado } = parse(listaSchema, req.query);
-    const filtros: SQL[] = [eq(clientes.empresaId, req.user.empresaId)];
+    // El consumidor final sin identificar no es un cliente de la cartera: no se lista
+    const filtros: SQL[] = [eq(clientes.empresaId, req.user.empresaId), eq(clientes.sinIdentificar, false)];
     if (estado) filtros.push(eq(clientes.estado, estado));
     if (q) {
       const like = `%${q}%`;
@@ -69,7 +77,7 @@ export const clientesRoutes: FastifyPluginAsync = async (app) => {
     const r = await app.db
       .update(clientes)
       .set({ ...cambios, version: sql`${clientes.version} + 1`, updatedAt: new Date() })
-      .where(and(eq(clientes.empresaId, req.user.empresaId), inArray(clientes.id, d.ids)))
+      .where(and(eq(clientes.empresaId, req.user.empresaId), inArray(clientes.id, d.ids), eq(clientes.sinIdentificar, false)))
       .returning({ id: clientes.id });
     return { actualizados: r.length };
   });
@@ -78,6 +86,7 @@ export const clientesRoutes: FastifyPluginAsync = async (app) => {
     const { id } = parse(idSchema, req.params);
     const body = parse(clienteInputSchema, req.body);
     const { version } = parse(versionSchema, req.body);
+    await noEsConsumidorFinal(id);
     try {
       const filtros = [eq(clientes.id, id), eq(clientes.empresaId, req.user.empresaId)];
       if (version) filtros.push(eq(clientes.version, version));
@@ -99,6 +108,7 @@ export const clientesRoutes: FastifyPluginAsync = async (app) => {
 
   app.delete("/:id", { preHandler: soloEdicion }, async (req, reply) => {
     const { id } = parse(idSchema, req.params);
+    await noEsConsumidorFinal(id);
     let c: { id: string } | undefined;
     try {
       [c] = await app.db.delete(clientes).where(and(eq(clientes.id, id), eq(clientes.empresaId, req.user.empresaId))).returning({ id: clientes.id });
