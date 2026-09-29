@@ -1,3 +1,4 @@
+import { proveedor } from "../src/config/legal";
 import { expect, test } from "@playwright/test";
 import { ADMIN_PANEL, crearCuenta, entrarAlPanel, entrarCon, loginUI } from "./helpers";
 
@@ -26,8 +27,9 @@ test.describe("Legal", () => {
     await page.goto("/terminos");
     await expect(page.getByRole("heading", { name: "7. Falta de pago" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "15. Limitación de responsabilidad" })).toBeVisible();
-    // Mientras falten los datos del proveedor, se avisa
-    await expect(page.getByTestId("aviso-borrador-legal")).toBeVisible();
+    // Los datos del proveedor están completos: figuran en los términos y no hay aviso de borrador
+    for (const dato of [proveedor.razonSocial, proveedor.cuit, proveedor.email]) await expect(page.getByText(dato).first()).toBeVisible();
+    await expect(page.getByTestId("aviso-borrador-legal")).toHaveCount(0);
   });
 
   test("términos nuevos: el administrador tiene que aceptarlos para seguir", async ({ page, request }) => {

@@ -8,10 +8,10 @@
 export const proveedor = {
   razonSocial: "HENDL MARTIN EZEQUIEL",
   cuit: "24-35324876-2",
-  domicilio: "[DOMICILIO LEGAL]",
-  email: "[EMAIL DE CONTACTO]",
+  domicilio: "Av. Rivadavia 4227, Ciudad Autónoma de Buenos Aires",
+  email: "soporte@prexacode.com",
   /** Ciudad de los tribunales para cualquier reclamo (ej.: "la Ciudad Autónoma de Buenos Aires", "La Plata") */
-  jurisdiccion: "[CIUDAD DE LOS TRIBUNALES]",
+  jurisdiccion: "la Ciudad Autónoma de Buenos Aires",
 };
 
 /** Plazos y topes que usan los textos (los mismos que aplica el sistema) */

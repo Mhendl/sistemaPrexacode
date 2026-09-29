@@ -1,3 +1,4 @@
+import { proveedor } from "../src/config/legal";
 import { expect, test } from "@playwright/test";
 import { cerrarSesion, crearCuenta, cuitValido, elegir, emailUnico, formatear, loginUI, PASSWORD } from "./helpers";
 
@@ -87,7 +88,9 @@ test.describe("Términos y condiciones", () => {
     // Los enlaces abren las páginas en otra pestaña, sin sesión
     const [terminos] = await Promise.all([page.context().waitForEvent("page"), page.locator("form").getByRole("link", { name: "Términos y Condiciones" }).click()]);
     await expect(terminos.getByRole("heading", { name: "Términos y Condiciones", level: 1 })).toBeVisible();
-    await expect(terminos.getByTestId("aviso-borrador-legal")).toContainText("pendiente de completar y de revisión legal");
+    // Con los datos del proveedor completos, ya no aparece el aviso de borrador
+    await expect(terminos.getByText(proveedor.cuit).first()).toBeVisible();
+    await expect(terminos.getByTestId("aviso-borrador-legal")).toHaveCount(0);
     await expect(terminos.getByText(/Versión vigente desde el \d{2}\/\d{2}\/\d{4}/)).toBeVisible();
 
     await page.goto("/privacidad");
