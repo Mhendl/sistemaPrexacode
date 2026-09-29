@@ -122,7 +122,13 @@ Probá restaurar una copia de vez en cuando: una copia que nunca se probó no es
 ## 9. Actualizar a una versión nueva
 
 ```bash
-cd prexacode
+sh /opt/prexacode/deploy/actualizar.sh
+```
+
+Hace una copia de seguridad, baja lo último de GitHub, reconstruye y espera a que la app responda. Es lo mismo que:
+
+```bash
+cd /opt/prexacode
 git pull
 docker compose up -d --build
 ```
