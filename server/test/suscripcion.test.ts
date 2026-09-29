@@ -80,7 +80,9 @@ describe("pagos y cotización", () => {
 function mercadoPagoFalso() {
   const preferencias: Record<string, unknown>[] = [];
   const pagos = new Map<string, { status: string; external_reference: string; transaction_amount: number }>();
+  const estado = { caido: false };
   const http: HttpJson = async (url, init) => {
+    if (estado.caido) return { status: 500, json: { message: "internal error" } };
     if (init.headers.Authorization !== "Bearer TEST-TOKEN") return { status: 401, json: { message: "invalid token" } };
     if (url.endsWith("/checkout/preferences") && init.method === "POST") {
       preferencias.push(init.body as Record<string, unknown>);
@@ -91,7 +93,17 @@ function mercadoPagoFalso() {
     if (m && pagos.has(decodeURIComponent(m[1]!))) return { status: 200, json: pagos.get(decodeURIComponent(m[1]!)) };
     return { status: 404, json: { message: "not found" } };
   };
-  return { http, preferencias, pagos };
+  return {
+    http,
+    preferencias,
+    pagos,
+    get caido() {
+      return estado.caido;
+    },
+    set caido(v: boolean) {
+      estado.caido = v;
+    },
+  };
 }
 
 describe("suscripción por la API", () => {
@@ -314,6 +326,14 @@ describe("suscripción por la API", () => {
     // Pago de otra cosa: se ignora sin error
     mp.pagos.set("9004", { status: "approved", external_reference: "OTRA-COSA", transaction_amount: 1 });
     expect((await aviso("9004", firmar("9004"))).json()).toMatchObject({ ignorado: true });
+    // La prueba del panel de Mercado Pago (pago inexistente) o una venta de la cuenta sin referencia: recibidos e ignorados
+    expect((await aviso("123456", firmar("123456"))).json()).toMatchObject({ ok: true, ignorado: true });
+    mp.pagos.set("9005", { status: "approved", external_reference: "", transaction_amount: 500 });
+    expect((await aviso("9005", firmar("9005"))).statusCode).toBe(200);
+    // Mercado Pago caído: 503 para que reintente
+    mp.caido = true;
+    expect((await aviso("9003", firmar("9003"))).statusCode).toBe(503);
+    mp.caido = false;
     // Avisos que no son de pagos: se ignoran
     expect((await appMp.inject({ method: "POST", url: "/api/suscripcion/webhook/mercadopago", payload: { type: "plan", data: { id: "1" } } })).json()).toMatchObject({ ignorado: true });
   });

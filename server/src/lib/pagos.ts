@@ -39,6 +39,8 @@ export interface ProveedorPagos {
 }
 
 export class ErrorPagos extends Error {}
+/** El pago no existe o no es un cobro de Prexacode (ej.: la prueba del panel de Mercado Pago, u otras ventas de la cuenta) */
+export class PagoAjeno extends ErrorPagos {}
 
 const MP = "https://api.mercadopago.com";
 
@@ -67,6 +69,7 @@ export function mercadoPago(accessToken: string, http: HttpJson = httpFetch): Pr
     async consultarPago(pagoId) {
       const r = await http(`${MP}/v1/payments/${encodeURIComponent(pagoId)}`, { method: "GET", headers: auth });
       const j = r.json as { status?: string; external_reference?: string; transaction_amount?: number } | null;
+      if (r.status === 404 || (r.status < 300 && !j?.external_reference)) throw new PagoAjeno("El pago no existe o no es de Prexacode");
       if (r.status >= 300 || !j?.external_reference) throw new ErrorPagos("No se pudo consultar el pago en Mercado Pago");
       const estado: EstadoPago = j.status === "approved" ? "Aprobado" : j.status === "rejected" || j.status === "cancelled" || j.status === "refunded" ? "Rechazado" : "Pendiente";
       return { referencia: j.external_reference, estado, importe: Number(j.transaction_amount ?? 0) };

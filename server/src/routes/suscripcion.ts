@@ -7,7 +7,7 @@ import { codigoConstancia, ipDe } from "./legal.js";
 import { requireAdmin, requireAuth } from "../lib/auth.js";
 import { hoyAr } from "../lib/cuentas.js";
 import { badRequest, conflict, edicionConcurrente, HttpError, notFound, parse, unauthorized } from "../lib/errors.js";
-import { ErrorPagos, firmaMercadoPagoValida, type EstadoPago } from "../lib/pagos.js";
+import { ErrorPagos, firmaMercadoPagoValida, PagoAjeno, type EstadoPago } from "../lib/pagos.js";
 import {
   DIAS_GRACIA,
   cotizarCambio,
@@ -327,8 +327,10 @@ export const suscripcionRoutes: FastifyPluginAsync = async (app) => {
     let info;
     try {
       info = await app.pagos.consultarPago(dataId);
-    } catch {
-      // Mercado Pago reintenta si no respondemos 200/201
+    } catch (e) {
+      // Un pago que no existe o no es nuestro (la prueba del panel de Mercado Pago): recibido, no hay nada que hacer
+      if (e instanceof PagoAjeno) return reply.status(200).send({ ok: true, ignorado: true });
+      // Otro error (Mercado Pago caído): respondiendo 503, Mercado Pago reintenta más tarde
       return reply.status(503).send({ ok: false });
     }
     const [p] = await app.db.select().from(pagosSuscripcion).where(eq(pagosSuscripcion.referencia, info.referencia));
