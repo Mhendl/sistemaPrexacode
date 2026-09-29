@@ -1,0 +1,112 @@
+import { randomUUID } from "node:crypto";
+import { eq } from "drizzle-orm";
+import type { FastifyPluginAsync } from "fastify";
+import { z } from "zod";
+import { aceptacionesTerminos, empresas, suscripciones, usuarios } from "../db/schema.js";
+import { hoyAr } from "../lib/cuentas.js";
+import { crearRolesPrearmados, perfilDe } from "../lib/roles.js";
+import { DIAS_PRUEBA, PLAN_IDS, sumarDias } from "../lib/suscripcion.js";
+import { TERMINOS_VERSION } from "../lib/legal.js";
+import { requireAuth, type SessionUser } from "../lib/auth.js";
+import { conflict, HttpError, notFound, parse, unauthorized } from "../lib/errors.js";
+import { hashPassword, verifyPassword } from "../lib/password.js";
+import { condicionIvaSchema, cuitSchema, emailSchema, passwordSchema } from "../lib/validation.js";
+
+const registroSchema = z.object({
+  empresa: z.object({
+    razonSocial: z.string().trim().min(2, "La razón social es obligatoria").max(200),
+    cuit: cuitSchema,
+    condicionIva: condicionIvaSchema,
+  }),
+  usuario: z.object({
+    nombre: z.string().trim().min(2, "El nombre es obligatorio").max(120),
+    email: emailSchema,
+    password: passwordSchema,
+  }),
+  aceptaTerminos: z.literal(true, { errorMap: () => ({ message: "Tenés que aceptar los Términos y Condiciones y la Política de Privacidad" }) }),
+});
+
+const loginSchema = z.object({
+  email: emailSchema,
+  password: z.string().min(1, "Ingresá tu contraseña"),
+});
+
+type UsuarioRow = typeof usuarios.$inferSelect;
+type EmpresaRow = typeof empresas.$inferSelect;
+
+/** Nunca devolvemos el hash de la contraseña */
+export const usuarioPublico = ({ passwordHash: _omit, sesionId: _s, ultimaSesionPisada: _p, ...u }: UsuarioRow) => u;
+
+export const authRoutes: FastifyPluginAsync = async (app) => {
+  const firmar = (u: UsuarioRow) => app.jwt.sign({ sub: u.id, empresaId: u.empresaId, rol: u.rol, sid: u.sesionId ?? undefined } as SessionUser);
+
+  /** El usuario con su rol y permisos: con eso la app arma el menú y muestra los botones que corresponden */
+  const conPerfil = async (u: UsuarioRow) => ({ ...usuarioPublico(u), ...(await perfilDe(app.db, u.rolId)) });
+  const sesion = async (u: UsuarioRow, e: EmpresaRow) => ({ token: firmar(u), usuario: await conPerfil(u), empresa: e });
+
+  /** Alta de una empresa nueva con su primer usuario administrador */
+  // Límite de intentos por IP: frena la creación masiva de cuentas
+  app.post("/registro", { config: { rateLimit: { max: 10, timeWindow: "1 hour" } } }, async (req, reply) => {
+    const body = parse(registroSchema, req.body);
+
+    const [cuitUsado] = await app.db.select({ id: empresas.id }).from(empresas).where(eq(empresas.cuit, body.empresa.cuit));
+    if (cuitUsado) throw conflict("Ya existe una cuenta para ese CUIT", { "empresa.cuit": "Ya registrado" });
+
+    const [emailUsado] = await app.db.select({ id: usuarios.id }).from(usuarios).where(eq(usuarios.email, body.usuario.email));
+    if (emailUsado) throw conflict("Ese email ya tiene una cuenta", { "usuario.email": "Ya registrado" });
+
+    const passwordHash = await hashPassword(body.usuario.password);
+    const { empresa, usuario } = await app.db.transaction(async (tx) => {
+      // Fechas con el reloj de la aplicación (el mismo con el que se calculan vencimientos)
+      const ahora = new Date();
+      const [empresa] = await tx.insert(empresas).values({ ...body.empresa, createdAt: ahora }).returning();
+      await tx.insert(suscripciones).values({ empresaId: empresa.id, plan: (PLAN_IDS as string[]).includes(empresa.plan) ? empresa.plan : "profesional", pruebaHasta: sumarDias(hoyAr(), DIAS_PRUEBA) });
+      const rolesEmpresa = await crearRolesPrearmados(tx, empresa.id);
+      const [usuario] = await tx
+        .insert(usuarios)
+        .values({ empresaId: empresa.id, nombre: body.usuario.nombre, email: body.usuario.email, passwordHash, rol: "admin", rolId: rolesEmpresa.admin.id, ultimoAcceso: new Date(), sesionId: randomUUID() })
+        .returning();
+      await tx.insert(aceptacionesTerminos).values({
+        empresaId: empresa.id,
+        usuarioId: usuario.id,
+        version: TERMINOS_VERSION,
+        ip: req.ip,
+        userAgent: req.headers["user-agent"]?.slice(0, 300) ?? null,
+        aceptadoEn: ahora,
+      });
+      return { empresa, usuario };
+    });
+
+    return reply.status(201).send(await sesion(usuario, empresa));
+  });
+
+  // Límite de intentos por IP: evita que se prueben contraseñas por fuerza bruta
+  app.post("/login", { config: { rateLimit: { max: 10, timeWindow: "5 minutes" } } }, async (req) => {
+    const body = parse(loginSchema, req.body);
+    const [u] = await app.db.select().from(usuarios).where(eq(usuarios.email, body.email));
+    // Mismo mensaje para email inexistente o contraseña incorrecta
+    if (!u || !(await verifyPassword(body.password, u.passwordHash))) throw unauthorized("Email o contraseña incorrectos");
+    if (u.estado !== "Activo") throw unauthorized("Tu usuario está suspendido. Hablá con el administrador.");
+
+    const [e] = await app.db.select().from(empresas).where(eq(empresas.id, u.empresaId));
+    if (e?.suspendidaEn) throw new HttpError(403, "La cuenta de esta empresa está suspendida. Escribinos para resolverlo.", undefined, "EMPRESA_SUSPENDIDA");
+    // Sesión nueva: si estaba abierto en otro dispositivo, allá se cierra
+    const [actualizado] = await app.db.update(usuarios).set({ ultimoAcceso: new Date(), sesionId: randomUUID() }).where(eq(usuarios.id, u.id)).returning();
+    return sesion(actualizado, e);
+  });
+
+  /** Cerrar sesión: el token deja de servir también en el servidor */
+  app.post("/logout", { preHandler: requireAuth }, async (req, reply) => {
+    await app.db.update(usuarios).set({ sesionId: null }).where(eq(usuarios.id, req.user.sub));
+    return reply.status(204).send();
+  });
+
+  app.get("/me", { preHandler: requireAuth }, async (req) => {
+    const [u] = await app.db.select().from(usuarios).where(eq(usuarios.id, req.user.sub));
+    if (!u || u.estado !== "Activo") throw unauthorized();
+    const [e] = await app.db.select().from(empresas).where(eq(empresas.id, u.empresaId));
+    if (!e) throw notFound();
+    if (e.suspendidaEn) throw new HttpError(403, "La cuenta de esta empresa está suspendida. Escribinos para resolverlo.", undefined, "EMPRESA_SUSPENDIDA");
+    return { usuario: await conPerfil(u), empresa: e };
+  });
+};

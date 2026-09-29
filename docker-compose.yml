@@ -1,0 +1,75 @@
+# Prexacode en un servidor propio (VPS): app + PostgreSQL + copias de seguridad diarias.
+# Uso: copiar .env.example a .env, completarlo y ver DEPLOY.md.
+#  - Servidor que ya tiene nginx (u otro proxy): `docker compose up -d --build` y nginx apunta a 127.0.0.1:PUERTO_APP
+#  - Servidor vacío: `docker compose --profile caddy up -d --build` (Caddy atiende 80/443 con HTTPS automático)
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-prexacode}
+      POSTGRES_USER: ${POSTGRES_USER:-prexacode}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Falta POSTGRES_PASSWORD en .env}
+      # UTF-8 explícito: acentos, ñ y emojis en cualquier texto
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-prexacode}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-prexacode}
+    # Solo accesible desde el mismo servidor: lo publica nginx (o Caddy)
+    ports:
+      - "127.0.0.1:${PUERTO_APP:-8010}:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # HTTPS automático con Let's Encrypt para el dominio de .env (DOMINIO)
+  caddy:
+    image: caddy:2-alpine
+    profiles: ["caddy"]
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMINIO: ${DOMINIO:-}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+  # Copia de seguridad de la base todos los días, se guardan las de los últimos 14 días en ./backups
+  backup:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER:-prexacode}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB:-prexacode}
+      DIAS_A_GUARDAR: ${BACKUP_DIAS:-14}
+    volumes:
+      - ./backups:/backups
+      - ./deploy/backup.sh:/backup.sh:ro
+    entrypoint: ["/bin/sh", "/backup.sh"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

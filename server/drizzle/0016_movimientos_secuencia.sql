@@ -1,0 +1,2 @@
+ALTER TABLE "movimientos_stock" ADD COLUMN "secuencia" bigserial NOT NULL;--> statement-breakpoint
+CREATE INDEX "movimientos_producto_secuencia_idx" ON "movimientos_stock" USING btree ("producto_id","secuencia");

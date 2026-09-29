@@ -1,0 +1,9 @@
+# HTTPS automático (Let's Encrypt) para el dominio configurado en .env
+{$DOMINIO} {
+	encode zstd gzip
+	reverse_proxy app:3000
+	# Límite razonable de tamaño de pedidos (los logos e imports van por la API)
+	request_body {
+		max_size 10MB
+	}
+}
