@@ -1,3 +1,5 @@
+import { laboratoriosRoutes } from "./routes/laboratorios.js";
+import { clinicaRoutes } from "./routes/clinica.js";
 import { turnosPublicosRoutes } from "./routes/turnosPublicos.js";
 import { presupuestosDentalesRoutes } from "./routes/presupuestosDentales.js";
 import { consultorioRoutes } from "./routes/consultorio.js";
@@ -172,15 +174,19 @@ export async function buildApp({ db, jwtSecret, logger = false, conectorArca, ca
   // En producción la web y la API están en el mismo dominio: CORS solo para ese origen
   await app.register(cors, { origin: produccion ? appUrl : true });
   // Encabezados de seguridad (CSP: solo recursos propios, más las fuentes de Google)
+  // Medición (solo si está configurada): se permiten los dominios de Google Analytics y del píxel de Meta
+  const ga = medicion?.ga ? { script: ["https://www.googletagmanager.com"], conexion: ["https://*.google-analytics.com", "https://*.analytics.google.com", "https://*.googletagmanager.com"], imagen: ["https://*.google-analytics.com", "https://*.googletagmanager.com"] } : null;
+  const meta = medicion?.metaPixel ? { script: ["https://connect.facebook.net"], conexion: ["https://www.facebook.com", "https://connect.facebook.net"], imagen: ["https://www.facebook.com"] } : null;
+  const externos = (k: "script" | "conexion" | "imagen") => [...(ga?.[k] ?? []), ...(meta?.[k] ?? [])];
   await app.register(helmet, {
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'"],
+        scriptSrc: ["'self'", ...externos("script")],
         styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
-        imgSrc: ["'self'", "data:", "blob:"],
-        connectSrc: ["'self'"],
+        imgSrc: ["'self'", "data:", "blob:", ...externos("imagen")],
+        connectSrc: ["'self'", ...externos("conexion")],
         frameAncestors: ["'none'"],
         formAction: ["'self'"],
         objectSrc: ["'none'"],
@@ -253,6 +259,8 @@ export async function buildApp({ db, jwtSecret, logger = false, conectorArca, ca
   await app.register(prestacionesRoutes, { prefix: "/api/prestaciones" });
   await app.register(presupuestosDentalesRoutes, { prefix: "/api/presupuestos-dentales" });
   await app.register(consultorioRoutes, { prefix: "/api/consultorio" });
+  await app.register(laboratoriosRoutes, { prefix: "/api/laboratorios" });
+  await app.register(clinicaRoutes, { prefix: "/api/clinica" });
   await app.register(turnosPublicosRoutes, { prefix: "/api/publico/turnos" });
   app.get("/api/publico/medicion", async () => medicion ?? { ga: null, metaPixel: null });
   if (adminInicial) await crearAdminInicial(db, adminInicial.email, adminInicial.password);

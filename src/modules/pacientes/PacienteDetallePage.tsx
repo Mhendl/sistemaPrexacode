@@ -15,6 +15,8 @@ import { nombreCompleto, useBorrarPaciente, usePaciente, useTurnosPaciente, type
 import { Archivos, Evoluciones } from "./HistoriaClinica";
 import { Odontograma } from "./Odontograma";
 import { PacienteFormDialog } from "./PacienteFormDialog";
+import { Consentimientos } from "@/modules/clinica/Consentimientos";
+import { Periodontograma } from "@/modules/clinica/Periodontograma";
 import { CuentaPaciente } from "@/modules/consultorio/CuentaPaciente";
 import { PresupuestosPaciente } from "@/modules/consultorio/Presupuestos";
 import { formatDni } from "./PacientesPage";
@@ -129,7 +131,7 @@ export function PacienteDetallePage() {
   const borrar = useBorrarPaciente();
   const [editar, setEditar] = useState(false);
   const veHistoria = puede("historia.ver");
-  const pestanas = ["datos", ...(veHistoria ? ["historia", "odontograma", "imagenes"] : []), ...(puede("presupuestos.ver") ? ["presupuestos"] : []), ...(puede("cobranzas.ver") ? ["cuenta"] : []), ...(puede("agenda.ver") ? ["turnos"] : [])];
+  const pestanas = ["datos", ...(veHistoria ? ["historia", "odontograma", "periodontograma", "consentimientos", "imagenes"] : []), ...(puede("presupuestos.ver") ? ["presupuestos"] : []), ...(puede("cobranzas.ver") ? ["cuenta"] : []), ...(puede("agenda.ver") ? ["turnos"] : [])];
   const tab = pestanas.includes(params.get("tab") ?? "") ? params.get("tab")! : veHistoria ? "historia" : "datos";
 
   const eliminar = async () => {
@@ -227,6 +229,8 @@ export function PacienteDetallePage() {
               <TabsList className="mb-4 w-full justify-start overflow-x-auto sm:w-auto">
                 {veHistoria && <TabsTrigger value="historia">Historia clínica</TabsTrigger>}
                 {veHistoria && <TabsTrigger value="odontograma">Odontograma</TabsTrigger>}
+                {veHistoria && <TabsTrigger value="periodontograma">Periodontograma</TabsTrigger>}
+                {veHistoria && <TabsTrigger value="consentimientos">Consentimientos</TabsTrigger>}
                 {veHistoria && <TabsTrigger value="imagenes">Imágenes</TabsTrigger>}
                 {pestanas.includes("presupuestos") && <TabsTrigger value="presupuestos">Presupuestos</TabsTrigger>}
                 {pestanas.includes("cuenta") && <TabsTrigger value="cuenta">Cuenta</TabsTrigger>}
@@ -243,6 +247,12 @@ export function PacienteDetallePage() {
                   </TabsContent>
                   <TabsContent value="odontograma">
                     <Odontograma pacienteId={p.id} edad={p.edad} />
+                  </TabsContent>
+                  <TabsContent value="periodontograma">
+                    <Periodontograma pacienteId={p.id} />
+                  </TabsContent>
+                  <TabsContent value="consentimientos">
+                    <Consentimientos pacienteId={p.id} />
                   </TabsContent>
                   <TabsContent value="imagenes">
                     <Archivos pacienteId={p.id} />

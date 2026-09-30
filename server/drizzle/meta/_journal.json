@@ -204,6 +204,13 @@
       "when": 1790737483269,
       "tag": "0028_recordatorios_referidos",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1790739209276,
+      "tag": "0029_laboratorios_consentimientos",
+      "breakpoints": true
     }
   ]
 }

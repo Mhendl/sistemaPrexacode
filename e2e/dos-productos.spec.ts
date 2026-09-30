@@ -26,11 +26,10 @@ test("CoreDental: desde su dirección se registra un consultorio con su marca, s
   await expect(page.getByTestId("empresa-actual")).toContainText("Plan Clínica");
   await expect(page.getByText("CoreDental").first()).toBeVisible();
 
-  // Lo que todavía se está construyendo aparece como "Próximamente", con lo que va a incluir
+  // Todo lo del menú ya está construido: nada queda como "Próximamente"
   await menu.getByRole("link", { name: "Laboratorios" }).click();
-  await expect(page.getByText("Próximamente")).toBeVisible();
-  await expect(page.getByText(/Saldo con cada laboratorio/)).toBeVisible();
-  // Pacientes ya está construido
+  await expect(page.getByText("Todavía no cargaste laboratorios")).toBeVisible();
+  await expect(page.getByText("Próximamente")).toHaveCount(0);
   await menu.getByRole("link", { name: "Pacientes" }).click();
   await expect(page.getByText("Todavía no cargaste pacientes")).toBeVisible();
 

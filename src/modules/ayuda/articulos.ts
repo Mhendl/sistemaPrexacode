@@ -364,6 +364,39 @@ export const ARTICULOS: Articulo[] = [
     texto: "En Configuración → Plan y suscripción, en Recomendá y ganá, está tu link. Por cada empresa que se registra con ese link y paga su primer mes, te sumamos 30 días gratis. Lo podés copiar o mandar por WhatsApp.",
   },
 
+  {
+    id: "dental-laboratorios",
+    titulo: "Encargar un trabajo a un laboratorio y pagarle",
+    seccion: "Pacientes",
+    producto: "dental",
+    path: "/laboratorios",
+    permisos: ["laboratorios.ver"],
+    palabras: "laboratorio protesis corona trabajo encargar pagar deuda saldo",
+    texto: "En Laboratorios cargás cada laboratorio. Adentro, Encargar trabajo registra qué se pidió, para qué paciente y pieza, cuánto sale y cuándo vuelve; cuando llega tocás Recibido. Con Pagar registrás el pago: queda en Gastos (categoría Laboratorio) y, si es en efectivo, sale de la caja. Arriba ves cuánto se le debe.",
+  },
+  {
+    id: "dental-consentimiento",
+    titulo: "Firmar un consentimiento informado",
+    seccion: "Historia clínica",
+    producto: "dental",
+    path: "/pacientes",
+    permisos: ["historia.ver"],
+    palabras: "consentimiento informado firma firmar autorizacion extraccion implante tutor menor",
+    texto: "El texto se completa solo con los datos del paciente y queda guardado tal como se leyó, con la firma, la fecha, la hora y desde dónde se firmó. Si es menor, firma la madre, el padre o el tutor con su nombre y DNI. El paciente lo puede revocar: queda registrado, no se borra.",
+    pasos: ["Abrí el paciente y entrá a la pestaña Consentimientos.", "Tocá Firmar consentimiento y elegí el modelo.", "El paciente lee el texto y firma en la pantalla con el dedo o el mouse (el profesional también puede firmar).", "Tocá Guardar firmado. Se puede imprimir o guardar en PDF."],
+    consejo: "Los modelos se editan en Prestaciones y precios → Consentimientos.",
+  },
+  {
+    id: "dental-periodontograma",
+    titulo: "Cargar un periodontograma",
+    seccion: "Historia clínica",
+    producto: "dental",
+    path: "/pacientes",
+    permisos: ["historia.ver"],
+    palabras: "periodontograma periodontal sondaje bolsa sangrado movilidad furca encia periodoncia",
+    texto: "En la pestaña Periodontograma, Nuevo examen tiene una fila por pieza: profundidad de sondaje y margen gingival en los 3 sitios vestibulares y los 3 linguales, sangrado, movilidad y furca. Al guardar se calculan los índices (profundidad promedio, % de sangrado, sitios de 4 mm o más, nivel de inserción) y se comparan con el examen anterior. Los exámenes no se modifican: para controlar, se hace otro.",
+  },
+
   // ------------------------------------------------------------------ Clientes
   {
     id: "cliente-nuevo",

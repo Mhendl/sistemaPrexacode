@@ -207,3 +207,21 @@ describe("inicio del consultorio", () => {
     expect(inicio.cobros).toEqual({ mes: 7000, porCobrar: 10000 });
   });
 });
+
+describe("medición", () => {
+  it("sin IDs no se carga nada; con IDs la política de seguridad deja pasar solo a Google y Meta", async () => {
+    const sin = await app.inject({ method: "GET", url: "/api/publico/medicion" });
+    expect(sin.json()).toEqual({ ga: null, metaPixel: null });
+    expect(sin.headers["content-security-policy"]).toContain("script-src 'self';");
+    const con = await crearApp({ medicion: { ga: "G-TEST123", metaPixel: "123456" } });
+    try {
+      const r = await con.app.inject({ method: "GET", url: "/api/publico/medicion" });
+      expect(r.json()).toEqual({ ga: "G-TEST123", metaPixel: "123456" });
+      const csp = String(r.headers["content-security-policy"]);
+      expect(csp).toContain("script-src 'self' https://www.googletagmanager.com https://connect.facebook.net");
+      expect(csp).toContain("https://*.google-analytics.com");
+    } finally {
+      await con.cerrar();
+    }
+  });
+});

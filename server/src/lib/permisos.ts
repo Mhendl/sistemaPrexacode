@@ -19,6 +19,14 @@ export const SECCIONES_PERMISOS = [
       { id: "historia.editar", nombre: "Cargar evoluciones, odontograma e imágenes" },
     ],
   },
+  {
+    seccion: "Laboratorios",
+    producto: "dental",
+    permisos: [
+      { id: "laboratorios.ver", nombre: "Ver laboratorios, trabajos y saldos" },
+      { id: "laboratorios.editar", nombre: "Encargar y recibir trabajos, y pagar a laboratorios" },
+    ],
+  },
   { seccion: "Clientes", permisos: [{ id: "clientes.ver", nombre: "Ver clientes y su ficha" }, { id: "clientes.editar", nombre: "Crear, editar y borrar clientes" }] },
   { seccion: "Oportunidades", producto: "gestion", permisos: [{ id: "oportunidades.ver", nombre: "Ver el embudo de ventas" }, { id: "oportunidades.editar", nombre: "Crear y mover oportunidades" }] },
   { seccion: "Agenda", permisos: [{ id: "agenda.ver", nombre: "Ver la agenda" }, { id: "agenda.editar", nombre: "Agendar, mover y cancelar" }] },
@@ -62,6 +70,7 @@ export const PERMISOS: Permiso[] = SECCIONES_PERMISOS.flatMap((s) => s.permisos.
 /** Para editar hace falta poder ver: al guardar un rol se agregan solos */
 export const REQUIERE: Partial<Record<Permiso, Permiso[]>> = {
   "pacientes.editar": ["pacientes.ver"],
+  "laboratorios.editar": ["laboratorios.ver"],
   "historia.ver": ["pacientes.ver"],
   "historia.editar": ["historia.ver", "pacientes.ver"],
   "clientes.editar": ["clientes.ver"],
@@ -114,12 +123,12 @@ export const ROLES_PREARMADOS_DENTAL = {
     nombre: "Profesional",
     descripcion: "Pacientes, historia clínica, odontograma, turnos y presupuestos",
     esAdmin: false,
-    permisos: completarPermisos(["pacientes.editar", "historia.editar", "agenda.editar", "presupuestos.editar", "facturacion.ver", "cobranzas.ver", "reportes.ver"]),
+    permisos: completarPermisos(["pacientes.editar", "historia.editar", "agenda.editar", "presupuestos.editar", "facturacion.ver", "cobranzas.ver", "reportes.ver", "laboratorios.editar"]),
   },
   recepcion: {
     nombre: "Recepción",
     descripcion: "Pacientes, turnos, presupuestos, cobros y facturación. No ve la historia clínica",
     esAdmin: false,
-    permisos: completarPermisos(["pacientes.editar", "agenda.editar", "presupuestos.ver", "facturacion.emitir", "cobranzas.cobrar"]),
+    permisos: completarPermisos(["pacientes.editar", "agenda.editar", "presupuestos.ver", "facturacion.emitir", "cobranzas.cobrar", "laboratorios.editar"]),
   },
 } as const;

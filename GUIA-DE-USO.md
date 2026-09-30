@@ -224,7 +224,12 @@ Turnos del día (cada profesional puede ver solo los suyos), pacientes activos y
 - **Recordatorios por WhatsApp** (Turnos → Recordatorios): los turnos de mañana, cada uno con el botón WhatsApp que abre el chat del paciente con el mensaje y el link ya escritos. Queda marcado a quién se le avisó.
 - **Factura electrónica al paciente:** en la Cuenta del paciente, cada pago tiene **Facturar**. Sale a su nombre y con su DNI: factura C (monotributo) o B exenta (responsable inscripto: las prestaciones de salud no llevan IVA). Un pago facturado se anula recién después de hacer la nota de crédito.
 
-> **Próximamente en CoreDental:** laboratorios, periodontograma, consentimientos firmados en pantalla y portal del paciente.
+### Consentimientos, periodontograma y laboratorios
+- **Consentimiento informado firmado en pantalla** (ficha del paciente → Consentimientos): se elige el modelo (general, extracción, endodoncia, implante, o los que armes en Prestaciones y precios → Consentimientos), el texto se completa con los datos del paciente y firma con el dedo o el mouse. Queda guardado tal cual se leyó, con fecha, hora y desde dónde se firmó. Si es menor, firma el tutor con nombre y DNI. Se imprime o se guarda en PDF. No se modifica: si el paciente se arrepiente, se **revoca** y queda registrado.
+- **Periodontograma** (ficha del paciente → Periodontograma): profundidad de sondaje y margen en 6 sitios por pieza, sangrado, movilidad y furca. Calcula solo los índices (profundidad promedio, % de sangrado, sitios de 4 y 6 mm, nivel de inserción) y los compara con el examen anterior.
+- **Laboratorios** (menú Laboratorios): cada trabajo encargado con paciente, pieza, importe y fecha de entrega; se marca **Recibido** al llegar. Los pagos al laboratorio quedan en Gastos (y salen de la caja si son en efectivo), y se ve cuánto se le debe a cada uno.
+
+> **Próximamente en CoreDental:** horarios por profesional, sueldos por porcentaje, campañas a pacientes y portal del paciente con turnos online.
 
 ---
 

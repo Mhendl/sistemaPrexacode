@@ -1304,6 +1304,8 @@ export const gastos = pgTable(
     importe: monto("importe").notNull(),
     medio: text("medio").notNull(),
     comprobante: text("comprobante"),
+    /** Pago a un laboratorio (baja su saldo) */
+    laboratorioId: uuid("laboratorio_id").references(() => laboratorios.id, { onDelete: "set null" }),
     usuarioId: uuid("usuario_id").references(() => usuarios.id, { onDelete: "set null" }),
     cargadoPor: text("cargado_por").notNull(),
     anuladoEn: timestamp("anulado_en", { withTimezone: true }),
@@ -1356,4 +1358,128 @@ export const cajas = pgTable(
     version: version(),
   },
   (t) => [uniqueIndex("cajas_empresa_fecha_uq").on(t.empresaId, t.fecha)],
+);
+
+/* ---------------------------------------------------------------- CoreDental: laboratorios, consentimientos y periodontograma */
+
+export const laboratorios = pgTable(
+  "laboratorios",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    empresaId: uuid("empresa_id")
+      .notNull()
+      .references(() => empresas.id, { onDelete: "cascade" }),
+    nombre: text("nombre").notNull(),
+    telefono: text("telefono"),
+    email: text("email"),
+    notas: text("notas"),
+    activo: boolean("activo").notNull().default(true),
+    version: version(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("laboratorios_empresa_nombre_uq").on(t.empresaId, t.nombre)],
+);
+
+/** Trabajo encargado a un laboratorio (una corona, una prótesis…): lo que se le debe y cuándo vuelve */
+export const trabajosLaboratorio = pgTable(
+  "trabajos_laboratorio",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    empresaId: uuid("empresa_id")
+      .notNull()
+      .references(() => empresas.id, { onDelete: "cascade" }),
+    laboratorioId: uuid("laboratorio_id")
+      .notNull()
+      .references(() => laboratorios.id, { onDelete: "restrict" }),
+    pacienteId: uuid("paciente_id").references(() => pacientes.id, { onDelete: "set null" }),
+    descripcion: text("descripcion").notNull(),
+    pieza: integer("pieza"),
+    fechaEnvio: text("fecha_envio").notNull(),
+    fechaPrevista: text("fecha_prevista"),
+    fechaRecibido: text("fecha_recibido"),
+    /** Enviado | Recibido | Cancelado */
+    estado: text("estado").notNull().default("Enviado"),
+    importe: monto("importe").notNull(),
+    profesional: text("profesional").notNull(),
+    usuarioId: uuid("usuario_id").references(() => usuarios.id, { onDelete: "set null" }),
+    notas: text("notas"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("trabajos_laboratorio_lab_idx").on(t.laboratorioId), index("trabajos_laboratorio_paciente_idx").on(t.pacienteId)],
+);
+
+/** Plantillas de consentimiento informado del consultorio (texto con {paciente}, {dni}, {profesional}…) */
+export const plantillasConsentimiento = pgTable("plantillas_consentimiento", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  empresaId: uuid("empresa_id")
+    .notNull()
+    .references(() => empresas.id, { onDelete: "cascade" }),
+  titulo: text("titulo").notNull(),
+  texto: text("texto").notNull(),
+  activa: boolean("activa").notNull().default(true),
+  version: version(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Consentimiento informado firmado (Ley 26.529, arts. 5 a 10): el texto tal como se leyó, las firmas,
+ * quién firmó, cuándo y desde dónde. No se modifica; el paciente lo puede revocar (queda registrado).
+ */
+export const consentimientos = pgTable(
+  "consentimientos",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    empresaId: uuid("empresa_id")
+      .notNull()
+      .references(() => empresas.id, { onDelete: "cascade" }),
+    pacienteId: uuid("paciente_id")
+      .notNull()
+      .references(() => pacientes.id, { onDelete: "restrict" }),
+    plantillaId: uuid("plantilla_id").references(() => plantillasConsentimiento.id, { onDelete: "set null" }),
+    titulo: text("titulo").notNull(),
+    texto: text("texto").notNull(),
+    profesional: text("profesional").notNull(),
+    usuarioId: uuid("usuario_id").references(() => usuarios.id, { onDelete: "set null" }),
+    /** Quien firma: el paciente, o su madre, padre, tutor o representante */
+    firmante: text("firmante").notNull(),
+    firmanteDni: text("firmante_dni"),
+    vinculo: text("vinculo").notNull(),
+    /** Firmas dibujadas en pantalla (imagen PNG en base64) */
+    firmaPaciente: text("firma_paciente").notNull(),
+    firmaProfesional: text("firma_profesional"),
+    ip: text("ip"),
+    userAgent: text("user_agent"),
+    firmadoEn: timestamp("firmado_en", { withTimezone: true }).notNull().defaultNow(),
+    revocadoEn: timestamp("revocado_en", { withTimezone: true }),
+    revocadoPor: text("revocado_por"),
+    motivoRevocacion: text("motivo_revocacion"),
+  },
+  (t) => [index("consentimientos_paciente_idx").on(t.pacienteId)],
+);
+
+/**
+ * Periodontograma: un examen periodontal completo en una fecha. Por pieza, 6 sitios
+ * (3 vestibulares: distal, medio, mesial · 3 linguales/palatinos): profundidad de sondaje, margen gingival,
+ * sangrado y placa; más movilidad y furca. Como la historia clínica, no se modifica: se hace otro examen.
+ */
+export const periodontogramas = pgTable(
+  "periodontogramas",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    empresaId: uuid("empresa_id")
+      .notNull()
+      .references(() => empresas.id, { onDelete: "cascade" }),
+    pacienteId: uuid("paciente_id")
+      .notNull()
+      .references(() => pacientes.id, { onDelete: "restrict" }),
+    fecha: text("fecha").notNull(),
+    profesional: text("profesional").notNull(),
+    usuarioId: uuid("usuario_id").references(() => usuarios.id, { onDelete: "set null" }),
+    notas: text("notas"),
+    piezas: jsonb("piezas")
+      .$type<Record<string, { ausente?: boolean; ps: (number | null)[]; mg: (number | null)[]; sangrado: boolean[]; placa: boolean[]; movilidad: number; furca: number }>>()
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("periodontogramas_paciente_idx").on(t.pacienteId, t.fecha)],
 );

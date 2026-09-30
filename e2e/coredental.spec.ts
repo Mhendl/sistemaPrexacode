@@ -56,7 +56,7 @@ test("un consultorio de punta a punta: paciente, historia clínica, odontograma,
   await expect(page.getByTestId("evolucion")).toContainText("Dra. Laura Pérez");
 
   // Odontograma: caries en la oclusal de la 16, a realizar (rojo)
-  await page.getByRole("tab", { name: "Odontograma" }).click();
+  await page.getByRole("tab", { name: "Odontograma", exact: true }).click();
   await page.getByTestId("pieza-16").locator('polygon[data-cara="O"]').click();
   await elegir(page, "Prestación", "CAR · Caries");
   await page.getByRole("button", { name: /^Marcar/ }).click();
@@ -155,7 +155,7 @@ test("en el celular, las pantallas del consultorio entran en el ancho", async ({
   const p = await r.json();
   await page.setViewportSize({ width: 375, height: 800 });
   await entrarCon(page, cuenta);
-  for (const url of ["/", "/pacientes", `/pacientes/${p.id}?tab=historia`, `/pacientes/${p.id}?tab=odontograma`, `/pacientes/${p.id}?tab=datos`, "/agenda"]) {
+  for (const url of ["/", "/pacientes", `/pacientes/${p.id}?tab=historia`, `/pacientes/${p.id}?tab=odontograma`, `/pacientes/${p.id}?tab=datos`, `/pacientes/${p.id}?tab=periodontograma`, `/pacientes/${p.id}?tab=consentimientos`, "/agenda", "/laboratorios"]) {
     await page.goto(url);
     await page.waitForLoadState("networkidle");
     const ancho = await page.evaluate(() => document.documentElement.scrollWidth);

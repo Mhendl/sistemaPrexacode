@@ -16,6 +16,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRole } from "@/context/AuthProvider";
 import { aNumero } from "@/lib/numeros";
 import { useCrearObraSocial, useObrasSociales, usePrestaciones, type PrestacionApi } from "@/modules/pacientes/api";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
+import { useAccionClinica, usePlantillas } from "@/modules/clinica/api";
 import { useAumentarPrecios, useGuardarObraSocial, useGuardarPrecios, useGuardarPrestacion, usePrecios } from "./api";
 
 const aTexto = (n: number | null) => (n === null ? "" : n.toLocaleString("es-AR", { maximumFractionDigits: 2 }));
@@ -423,16 +426,99 @@ function ObrasSociales() {
   );
 }
 
+/** Modelos de consentimiento informado: se completan solos con los datos del paciente al firmar */
+function ModelosConsentimiento() {
+  const { puede } = useRole();
+  const editable = puede("configuracion");
+  const { data: plantillas = [] } = usePlantillas();
+  const accion = useAccionClinica();
+  const [edit, setEdit] = useState<{ id?: string; titulo: string; texto: string; activa: boolean } | null>(null);
+  const guardar = async () => {
+    try {
+      await accion.mutateAsync({ url: edit!.id ? `/consentimientos/plantillas/${edit!.id}` : "/consentimientos/plantillas", metodo: edit!.id ? "PUT" : "POST", body: { titulo: edit!.titulo, texto: edit!.texto, activa: edit!.activa } });
+      toast.success("Modelo guardado");
+      setEdit(null);
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : "No se pudo guardar");
+    }
+  };
+  return (
+    <div className="grid gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="max-w-2xl text-sm text-muted-foreground">
+          Son modelos orientativos: revisalos y adaptalos a tu práctica. Al firmar se completan solos <code className="rounded bg-muted px-1">{"{paciente}"}</code>, <code className="rounded bg-muted px-1">{"{dni}"}</code>, <code className="rounded bg-muted px-1">{"{profesional}"}</code>, <code className="rounded bg-muted px-1">{"{consultorio}"}</code> y <code className="rounded bg-muted px-1">{"{fecha}"}</code>. Lo ya firmado no cambia.
+        </p>
+        {editable && (
+          <Button onClick={() => setEdit({ titulo: "", texto: "", activa: true })}>
+            <Plus className="size-4" /> Nuevo modelo
+          </Button>
+        )}
+      </div>
+      <Card className="overflow-hidden p-0 shadow-none">
+        <ul className="divide-y">
+          {plantillas.map((p) => (
+            <li key={p.id} className={cn("flex items-center justify-between gap-3 px-4 py-3", !p.activa && "opacity-50")}>
+              <span>{p.titulo}</span>
+              {editable && (
+                <Button size="icon-sm" variant="ghost" onClick={() => setEdit(p)} aria-label={`Editar ${p.titulo}`}>
+                  <Pencil className="size-4" />
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      </Card>
+      <Dialog open={!!edit} onOpenChange={(o) => !o && setEdit(null)}>
+        <DialogContent className="max-h-[92svh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{edit?.id ? "Editar modelo" : "Nuevo modelo de consentimiento"}</DialogTitle>
+            <DialogDescription>Escribilo como lo va a leer el paciente.</DialogDescription>
+          </DialogHeader>
+          {edit && (
+            <div className="grid gap-3">
+              <div className="grid gap-1.5">
+                <Label htmlFor="mod-titulo">Título</Label>
+                <Input id="mod-titulo" value={edit.titulo} onChange={(e) => setEdit({ ...edit, titulo: e.target.value })} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="mod-texto">Texto</Label>
+                <Textarea id="mod-texto" rows={14} value={edit.texto} onChange={(e) => setEdit({ ...edit, texto: e.target.value })} />
+              </div>
+              {edit.id && (
+                <label className="flex items-center gap-2 text-sm">
+                  <Switch checked={edit.activa} onCheckedChange={(v) => setEdit({ ...edit, activa: v })} aria-label="Activo" /> Activo
+                </label>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEdit(null)}>
+              Cancelar
+            </Button>
+            <Button onClick={guardar} disabled={accion.isPending}>
+              Guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 export function PrestacionesPage() {
+  const { puede } = useRole();
   return (
     <>
       <PageHeader title="Prestaciones y precios" description="El nomenclador del consultorio, las obras sociales y cuánto se cobra cada prestación en cada una." />
       <Tabs defaultValue="precios">
-        <TabsList className="mb-4">
-          <TabsTrigger value="precios">Precios</TabsTrigger>
-          <TabsTrigger value="nomenclador">Nomenclador</TabsTrigger>
-          <TabsTrigger value="obras">Obras sociales</TabsTrigger>
-        </TabsList>
+        <div className="-mx-4 mb-4 overflow-x-auto px-4 lg:mx-0 lg:px-0">
+          <TabsList className="w-max">
+            <TabsTrigger value="precios">Precios</TabsTrigger>
+            <TabsTrigger value="nomenclador">Nomenclador</TabsTrigger>
+            <TabsTrigger value="obras">Obras sociales</TabsTrigger>
+            {puede("historia.ver") && <TabsTrigger value="consentimientos">Consentimientos</TabsTrigger>}
+          </TabsList>
+        </div>
         <TabsContent value="precios">
           <Precios />
         </TabsContent>
@@ -442,6 +528,11 @@ export function PrestacionesPage() {
         <TabsContent value="obras">
           <ObrasSociales />
         </TabsContent>
+        {puede("historia.ver") && (
+          <TabsContent value="consentimientos">
+            <ModelosConsentimiento />
+          </TabsContent>
+        )}
       </Tabs>
     </>
   );

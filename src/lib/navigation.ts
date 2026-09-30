@@ -100,14 +100,7 @@ const seccionesDental: NavSection[] = [
     items: [
       { path: "/prestaciones", label: "Prestaciones y precios", icon: Stethoscope, permisos: ["pacientes.ver", "configuracion"], description: "Nomenclador, obras sociales y precios" },
       { path: "/liquidacion", label: "Liquidación a obras sociales", icon: FileSpreadsheet, permisos: ["reportes.ver"], description: "Lo que hay que facturarle a cada obra social" },
-      {
-        path: "/laboratorios",
-        label: "Laboratorios",
-        icon: FlaskConical,
-        permisos: [],
-        description: "Trabajos enviados y cuenta corriente con cada laboratorio",
-        features: ["Trabajos por paciente y profesional", "Pagos al laboratorio, parciales o totales", "Saldo con cada laboratorio"],
-      },
+      { path: "/laboratorios", label: "Laboratorios", icon: FlaskConical, permisos: ["laboratorios.ver"], description: "Trabajos encargados y lo que se le debe a cada laboratorio" },
     ],
   },
   {
