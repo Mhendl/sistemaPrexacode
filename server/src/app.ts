@@ -1,3 +1,5 @@
+import { presupuestosDentalesRoutes } from "./routes/presupuestosDentales.js";
+import { consultorioRoutes } from "./routes/consultorio.js";
 import { pacientesRoutes } from "./routes/pacientes.js";
 import { prestacionesRoutes } from "./routes/prestaciones.js";
 import { productoDe } from "./lib/productos.js";
@@ -246,6 +248,8 @@ export async function buildApp({ db, jwtSecret, logger = false, conectorArca, ca
   await app.register(empleadosRoutes, { prefix: "/api/empleados" });
   await app.register(pacientesRoutes, { prefix: "/api/pacientes" });
   await app.register(prestacionesRoutes, { prefix: "/api/prestaciones" });
+  await app.register(presupuestosDentalesRoutes, { prefix: "/api/presupuestos-dentales" });
+  await app.register(consultorioRoutes, { prefix: "/api/consultorio" });
   if (adminInicial) await crearAdminInicial(db, adminInicial.email, adminInicial.password);
 
   // La web compilada, en la misma pieza que la API

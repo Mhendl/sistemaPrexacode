@@ -15,6 +15,8 @@ import { nombreCompleto, useBorrarPaciente, usePaciente, useTurnosPaciente, type
 import { Archivos, Evoluciones } from "./HistoriaClinica";
 import { Odontograma } from "./Odontograma";
 import { PacienteFormDialog } from "./PacienteFormDialog";
+import { CuentaPaciente } from "@/modules/consultorio/CuentaPaciente";
+import { PresupuestosPaciente } from "@/modules/consultorio/Presupuestos";
 import { formatDni } from "./PacientesPage";
 
 const SEXO = { F: "Femenino", M: "Masculino", X: "X" } as const;
@@ -127,7 +129,7 @@ export function PacienteDetallePage() {
   const borrar = useBorrarPaciente();
   const [editar, setEditar] = useState(false);
   const veHistoria = puede("historia.ver");
-  const pestanas = ["datos", ...(veHistoria ? ["historia", "odontograma", "imagenes"] : []), ...(puede("agenda.ver") ? ["turnos"] : [])];
+  const pestanas = ["datos", ...(veHistoria ? ["historia", "odontograma", "imagenes"] : []), ...(puede("presupuestos.ver") ? ["presupuestos"] : []), ...(puede("cobranzas.ver") ? ["cuenta"] : []), ...(puede("agenda.ver") ? ["turnos"] : [])];
   const tab = pestanas.includes(params.get("tab") ?? "") ? params.get("tab")! : veHistoria ? "historia" : "datos";
 
   const eliminar = async () => {
@@ -226,6 +228,8 @@ export function PacienteDetallePage() {
                 {veHistoria && <TabsTrigger value="historia">Historia clínica</TabsTrigger>}
                 {veHistoria && <TabsTrigger value="odontograma">Odontograma</TabsTrigger>}
                 {veHistoria && <TabsTrigger value="imagenes">Imágenes</TabsTrigger>}
+                {pestanas.includes("presupuestos") && <TabsTrigger value="presupuestos">Presupuestos</TabsTrigger>}
+                {pestanas.includes("cuenta") && <TabsTrigger value="cuenta">Cuenta</TabsTrigger>}
                 <TabsTrigger value="datos">Datos</TabsTrigger>
                 {pestanas.includes("turnos") && <TabsTrigger value="turnos">Turnos</TabsTrigger>}
               </TabsList>
@@ -244,6 +248,16 @@ export function PacienteDetallePage() {
                     <Archivos pacienteId={p.id} />
                   </TabsContent>
                 </>
+              )}
+              {pestanas.includes("presupuestos") && (
+                <TabsContent value="presupuestos">
+                  <PresupuestosPaciente paciente={p} />
+                </TabsContent>
+              )}
+              {pestanas.includes("cuenta") && (
+                <TabsContent value="cuenta">
+                  <CuentaPaciente paciente={p} />
+                </TabsContent>
               )}
               <TabsContent value="turnos">
                 <Turnos pacienteId={p.id} />

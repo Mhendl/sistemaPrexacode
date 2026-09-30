@@ -1,3 +1,7 @@
+import { useRole } from "@/context/AuthProvider";
+import { PrestacionesPage } from "@/modules/consultorio/PrestacionesPage";
+import { PresupuestoDentalPage, PresupuestosDentalesPage } from "@/modules/consultorio/Presupuestos";
+import { CajaPage, CobrosConsultorioPage, GastosPage, LiquidacionPage, ReciboPacientePage } from "@/modules/consultorio/Paginas";
 import { PacientesPage } from "@/modules/pacientes/PacientesPage";
 import { PacienteDetallePage } from "@/modules/pacientes/PacienteDetallePage";
 import { AyudaPage } from "@/modules/ayuda/Ayuda";
@@ -57,6 +61,12 @@ const queryClient = new QueryClient({
 
 /** Módulos planificados que todavía no tienen pantalla */
 const proximos = allNavItems.filter((i) => i.features);
+
+/** Misma dirección, pantalla distinta según el producto de la empresa (ej. /presupuestos) */
+function Segun({ gestion, dental }: { gestion: ReactNode; dental: ReactNode }) {
+  const { empresa } = useRole();
+  return <>{empresa.producto === "dental" ? dental : gestion}</>;
+}
 
 function Cargando() {
   return (
@@ -125,11 +135,16 @@ export default function App() {
                   <Route path="facturacion" element={<FacturacionPage />} />
                   <Route path="facturacion/nueva" element={<NuevaFacturaPage />} />
                   <Route path="facturacion/:id" element={<ComprobanteDetallePage />} />
-                  <Route path="presupuestos" element={<PresupuestosPage />} />
+                  <Route path="presupuestos" element={<Segun gestion={<PresupuestosPage />} dental={<PresupuestosDentalesPage />} />} />
                   <Route path="presupuestos/nuevo" element={<PresupuestoFormPage />} />
-                  <Route path="presupuestos/:id" element={<PresupuestoDetallePage />} />
+                  <Route path="presupuestos/:id" element={<Segun gestion={<PresupuestoDetallePage />} dental={<PresupuestoDentalPage />} />} />
                   <Route path="presupuestos/:id/editar" element={<PresupuestoFormPage key="editar" />} />
-                  <Route path="cobranzas" element={<CobranzasPage />} />
+                  <Route path="cobranzas" element={<Segun gestion={<CobranzasPage />} dental={<CobrosConsultorioPage />} />} />
+                  <Route path="prestaciones" element={<PrestacionesPage />} />
+                  <Route path="caja" element={<CajaPage />} />
+                  <Route path="gastos" element={<GastosPage />} />
+                  <Route path="liquidacion" element={<LiquidacionPage />} />
+                  <Route path="pacientes/:id/recibos/:pagoId" element={<ReciboPacientePage />} />
                   <Route path="cobranzas/nuevo" element={<NuevoReciboPage />} />
                   <Route path="cobranzas/recibos/:id" element={<ReciboDetallePage />} />
                   <Route path="productos" element={<ProductosPage />} />

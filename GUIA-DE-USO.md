@@ -210,7 +210,16 @@ El mismo sistema, con la marca, los colores y el menú de CoreDental. Se entra p
 ### Inicio del consultorio
 Turnos del día (cada profesional puede ver solo los suyos), pacientes activos y nuevos del mes, lo cobrado en el mes y lo que falta cobrar, y los ausentes del mes.
 
-> **Próximamente en CoreDental:** precios por obra social en cada prestación, caja diaria, gastos, laboratorios, periodontograma, consentimientos firmados y portal del paciente.
+### Precios, presupuestos y cobros
+- **Prestaciones y precios:** el nomenclador del consultorio y una **lista de precios por obra social**. Cada prestación tiene lo que paga el paciente (coseguro) y lo que paga la obra social, además del precio particular. Si una obra social no tiene precio para algo, se cobra el particular. **Aumentar precios** sube toda una lista por porcentaje, con redondeo.
+- **Presupuestos:** con los precios de la obra social del paciente, bonificación por renglón y **Traer lo pendiente** del odontograma. Se imprimen o se guardan en PDF. Aceptado el presupuesto, cada prestación se marca como **Realizado**: queda cobrada al precio acordado (aunque después suban los precios) y pasa a azul en el odontograma.
+- **Cuenta del paciente:** todo lo realizado, lo que pagó y el saldo (debe, al día o a favor). **Registrar pago** en efectivo, transferencia, tarjeta o Mercado Pago, con **recibo numerado** para imprimir. Lo cargado por error se anula con motivo.
+- **Cobros y deudas:** quién debe, quién tiene saldo a favor y los últimos pagos.
+- **Caja diaria:** se abre con el efectivo inicial, suma los pagos, otros ingresos y gastos por medio de pago, y al cerrar se cuenta el efectivo y queda la **diferencia** (faltante o sobrante). Con la caja cerrada no se puede mover efectivo de ese día; solo un administrador la reabre.
+- **Gastos y resultado:** gastos por categoría (insumos, laboratorio, alquiler, servicios…) y el **resultado del mes**: lo cobrado menos lo gastado.
+- **Liquidación a obras sociales:** por obra social y mes, todas las prestaciones hechas a sus afiliados, con número de afiliado, código e importe a facturarle. **Exportar a Excel** para presentarla.
+
+> **Próximamente en CoreDental:** facturación electrónica al paciente con su DNI desde el cobro, laboratorios, periodontograma, consentimientos firmados en pantalla, recordatorios de turnos y portal del paciente.
 
 ---
 

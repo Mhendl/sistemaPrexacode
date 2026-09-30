@@ -98,14 +98,8 @@ const seccionesDental: NavSection[] = [
   {
     title: "Clínica",
     items: [
-      {
-        path: "/prestaciones",
-        label: "Prestaciones y obras sociales",
-        icon: Stethoscope,
-        permisos: [],
-        description: "Nomenclador de prácticas y precios por obra social",
-        features: ["Prácticas con código, por cara, por pieza o por consulta", "Obras sociales y planes", "Precio para la obra social y para el paciente en cada práctica", "Los presupuestos y los cobros toman el precio solo"],
-      },
+      { path: "/prestaciones", label: "Prestaciones y precios", icon: Stethoscope, permisos: ["pacientes.ver", "configuracion"], description: "Nomenclador, obras sociales y precios" },
+      { path: "/liquidacion", label: "Liquidación a obras sociales", icon: FileSpreadsheet, permisos: ["reportes.ver"], description: "Lo que hay que facturarle a cada obra social" },
       {
         path: "/laboratorios",
         label: "Laboratorios",
@@ -119,25 +113,11 @@ const seccionesDental: NavSection[] = [
   {
     title: "Cobros",
     items: [
-      item("/presupuestos"),
+      { ...item("/presupuestos"), description: "Tratamientos propuestos a cada paciente" },
+      { ...item("/cobranzas"), label: "Cobros y deudas", description: "Quién debe y los pagos de pacientes" },
+      { path: "/caja", label: "Caja diaria", icon: Landmark, permisos: ["cobranzas.ver"], description: "Apertura, movimientos y cierre de caja" },
+      { path: "/gastos", label: "Gastos y resultado", icon: ReceiptText, permisos: ["cobranzas.ver"], description: "Gastos del consultorio y resultado del mes" },
       item("/facturacion"),
-      item("/cobranzas"),
-      {
-        path: "/caja",
-        label: "Caja diaria",
-        icon: Landmark,
-        permisos: [],
-        description: "Apertura, ingresos, egresos y cierre de caja",
-        features: ["Apertura con efectivo y banco", "Ingresos por medio de pago", "Gastos del día", "Cierre con diferencia de caja"],
-      },
-      {
-        path: "/gastos",
-        label: "Gastos",
-        icon: ReceiptText,
-        permisos: [],
-        description: "Gastos y proveedores del consultorio",
-        features: ["Gastos por categoría: proveedores, laboratorio, alquiler, servicios", "Informe financiero: cobrado, gastado y resultado"],
-      },
     ],
   },
   { title: "Equipo", items: [{ ...item("/empleados"), label: "Equipo y sueldos", description: "Profesionales, secretaría, sueldos y porcentajes" }] },

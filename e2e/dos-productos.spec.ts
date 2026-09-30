@@ -21,7 +21,7 @@ test("CoreDental: desde su dirección se registra un consultorio con su marca, s
 
   await registrarse(page, "/registro", "Consultorio Sonrisas");
   const menu = page.getByRole("navigation").first();
-  for (const m of ["Pacientes", "Turnos", "Prestaciones y obras sociales", "Caja diaria", "Equipo y sueldos", "Facturación"]) await expect(menu.getByRole("link", { name: m })).toBeVisible();
+  for (const m of ["Pacientes", "Turnos", "Prestaciones y precios", "Caja diaria", "Equipo y sueldos", "Facturación"]) await expect(menu.getByRole("link", { name: m })).toBeVisible();
   for (const m of ["Oportunidades", "Remitos", "Productos y stock"]) await expect(menu.getByRole("link", { name: m })).toHaveCount(0);
   await expect(page.getByTestId("empresa-actual")).toContainText("Plan Clínica");
   await expect(page.getByText("CoreDental").first()).toBeVisible();

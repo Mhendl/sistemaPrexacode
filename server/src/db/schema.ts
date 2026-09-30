@@ -1116,3 +1116,226 @@ export const odontograma = pgTable(
   },
   (t) => [index("odontograma_paciente_idx").on(t.pacienteId)],
 );
+
+/* ---------------------------------------------------------------- CoreDental: precios, presupuestos, cobros y caja */
+
+/**
+ * Lista de precios: cuánto paga el paciente y cuánto la obra social por cada prestación.
+ * Sin obra social (null) es el precio particular.
+ */
+export const prestacionPrecios = pgTable(
+  "prestacion_precios",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    empresaId: uuid("empresa_id")
+      .notNull()
+      .references(() => empresas.id, { onDelete: "cascade" }),
+    prestacionId: uuid("prestacion_id")
+      .notNull()
+      .references(() => prestaciones.id, { onDelete: "cascade" }),
+    obraSocialId: uuid("obra_social_id").references(() => obrasSociales.id, { onDelete: "cascade" }),
+    /** Lo que paga el paciente (particular: el precio; con obra social: el coseguro) */
+    precioPaciente: monto("precio_paciente").notNull().default(0),
+    /** Lo que se le factura a la obra social */
+    precioObraSocial: monto("precio_obra_social").notNull().default(0),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("prestacion_precios_particular_uq").on(t.prestacionId).where(sql`${t.obraSocialId} is null`),
+    uniqueIndex("prestacion_precios_obra_uq").on(t.prestacionId, t.obraSocialId).where(sql`${t.obraSocialId} is not null`),
+  ],
+);
+
+/** Presupuesto odontológico: prestaciones por pieza con el precio acordado con el paciente */
+export const presupuestosDentales = pgTable(
+  "presupuestos_dentales",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    empresaId: uuid("empresa_id")
+      .notNull()
+      .references(() => empresas.id, { onDelete: "cascade" }),
+    pacienteId: uuid("paciente_id")
+      .notNull()
+      .references(() => pacientes.id, { onDelete: "restrict" }),
+    numero: integer("numero").notNull(),
+    fecha: text("fecha").notNull(),
+    validoHasta: text("valido_hasta").notNull(),
+    /** Obra social con la que se calcularon los precios (queda aunque el paciente cambie de cobertura) */
+    obraSocialId: uuid("obra_social_id").references(() => obrasSociales.id, { onDelete: "set null" }),
+    obraSocial: text("obra_social"),
+    profesional: text("profesional").notNull(),
+    usuarioId: uuid("usuario_id").references(() => usuarios.id, { onDelete: "set null" }),
+    /** Pendiente | Aceptado | Rechazado */
+    estado: text("estado").notNull().default("Pendiente"),
+    observaciones: text("observaciones"),
+    total: monto("total").notNull(),
+    version: version(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("presupuestos_dentales_numero_uq").on(t.empresaId, t.numero), index("presupuestos_dentales_paciente_idx").on(t.pacienteId)],
+);
+
+export const presupuestoDentalItems = pgTable(
+  "presupuesto_dental_items",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    presupuestoId: uuid("presupuesto_id")
+      .notNull()
+      .references(() => presupuestosDentales.id, { onDelete: "cascade" }),
+    prestacionId: uuid("prestacion_id")
+      .notNull()
+      .references(() => prestaciones.id, { onDelete: "restrict" }),
+    pieza: integer("pieza"),
+    caras: jsonb("caras").$type<string[]>().notNull().default([]),
+    /** La marca "a realizar" del odontograma de la que salió (si salió de ahí) */
+    odontogramaId: uuid("odontograma_id").references(() => odontograma.id, { onDelete: "set null" }),
+    /** Lo que paga el paciente por este renglón (ya con el descuento) */
+    importePaciente: monto("importe_paciente").notNull(),
+    /** Lo que paga la obra social (informativo en el presupuesto; se liquida al realizarlo) */
+    importeObraSocial: monto("importe_obra_social").notNull().default(0),
+    descuento: numeric("descuento", { precision: 5, scale: 2, mode: "number" }).notNull().default(0),
+    /** Cuando se realiza queda la prestación cargada a la cuenta del paciente */
+    cargoId: uuid("cargo_id"),
+    orden: integer("orden").notNull(),
+  },
+  (t) => [index("presupuesto_dental_items_presupuesto_idx").on(t.presupuestoId)],
+);
+
+/**
+ * Prestación realizada: lo que se le cobra al paciente (su cuenta) y lo que se liquida a su obra social.
+ * Sale del odontograma, de un presupuesto o se carga a mano (una consulta, una limpieza).
+ */
+export const cargosPaciente = pgTable(
+  "cargos_paciente",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    empresaId: uuid("empresa_id")
+      .notNull()
+      .references(() => empresas.id, { onDelete: "cascade" }),
+    pacienteId: uuid("paciente_id")
+      .notNull()
+      .references(() => pacientes.id, { onDelete: "restrict" }),
+    prestacionId: uuid("prestacion_id")
+      .notNull()
+      .references(() => prestaciones.id, { onDelete: "restrict" }),
+    pieza: integer("pieza"),
+    caras: jsonb("caras").$type<string[]>().notNull().default([]),
+    fecha: text("fecha").notNull(),
+    profesional: text("profesional").notNull(),
+    usuarioId: uuid("usuario_id").references(() => usuarios.id, { onDelete: "set null" }),
+    /** La cobertura al momento de la atención (para liquidar a la obra social) */
+    obraSocialId: uuid("obra_social_id").references(() => obrasSociales.id, { onDelete: "set null" }),
+    obraSocial: text("obra_social"),
+    plan: text("plan"),
+    numeroAfiliado: text("numero_afiliado"),
+    importePaciente: monto("importe_paciente").notNull(),
+    importeObraSocial: monto("importe_obra_social").notNull().default(0),
+    odontogramaId: uuid("odontograma_id").references(() => odontograma.id, { onDelete: "set null" }),
+    presupuestoItemId: uuid("presupuesto_item_id").references(() => presupuestoDentalItems.id, { onDelete: "set null" }),
+    anuladoEn: timestamp("anulado_en", { withTimezone: true }),
+    anuladoPor: text("anulado_por"),
+    motivoAnulacion: text("motivo_anulacion"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("cargos_paciente_paciente_idx").on(t.pacienteId),
+    index("cargos_paciente_empresa_fecha_idx").on(t.empresaId, t.fecha),
+    uniqueIndex("cargos_paciente_odontograma_uq").on(t.odontogramaId).where(sql`${t.odontogramaId} is not null and ${t.anuladoEn} is null`),
+  ],
+);
+
+/** Pago del paciente a su cuenta, con recibo interno numerado */
+export const pagosPaciente = pgTable(
+  "pagos_paciente",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    empresaId: uuid("empresa_id")
+      .notNull()
+      .references(() => empresas.id, { onDelete: "cascade" }),
+    pacienteId: uuid("paciente_id")
+      .notNull()
+      .references(() => pacientes.id, { onDelete: "restrict" }),
+    numero: integer("numero").notNull(),
+    fecha: text("fecha").notNull(),
+    importe: monto("importe").notNull(),
+    medio: text("medio").notNull(),
+    referencia: text("referencia"),
+    notas: text("notas"),
+    usuarioId: uuid("usuario_id").references(() => usuarios.id, { onDelete: "set null" }),
+    cobradoPor: text("cobrado_por").notNull(),
+    anuladoEn: timestamp("anulado_en", { withTimezone: true }),
+    anuladoPor: text("anulado_por"),
+    motivoAnulacion: text("motivo_anulacion"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("pagos_paciente_numero_uq").on(t.empresaId, t.numero), index("pagos_paciente_paciente_idx").on(t.pacienteId), index("pagos_paciente_empresa_fecha_idx").on(t.empresaId, t.fecha)],
+);
+
+/** Gastos del consultorio (proveedores, laboratorio, alquiler, servicios…) */
+export const gastos = pgTable(
+  "gastos",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    empresaId: uuid("empresa_id")
+      .notNull()
+      .references(() => empresas.id, { onDelete: "cascade" }),
+    fecha: text("fecha").notNull(),
+    categoria: text("categoria").notNull(),
+    descripcion: text("descripcion").notNull(),
+    proveedor: text("proveedor"),
+    importe: monto("importe").notNull(),
+    medio: text("medio").notNull(),
+    comprobante: text("comprobante"),
+    usuarioId: uuid("usuario_id").references(() => usuarios.id, { onDelete: "set null" }),
+    cargadoPor: text("cargado_por").notNull(),
+    anuladoEn: timestamp("anulado_en", { withTimezone: true }),
+    anuladoPor: text("anulado_por"),
+    motivoAnulacion: text("motivo_anulacion"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("gastos_empresa_fecha_idx").on(t.empresaId, t.fecha)],
+);
+
+/** Otros ingresos de caja que no son pagos de pacientes (ej.: aporte del dueño, cambio) */
+export const ingresosCaja = pgTable(
+  "ingresos_caja",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    empresaId: uuid("empresa_id")
+      .notNull()
+      .references(() => empresas.id, { onDelete: "cascade" }),
+    fecha: text("fecha").notNull(),
+    concepto: text("concepto").notNull(),
+    importe: monto("importe").notNull(),
+    medio: text("medio").notNull(),
+    usuarioId: uuid("usuario_id").references(() => usuarios.id, { onDelete: "set null" }),
+    cargadoPor: text("cargado_por").notNull(),
+    anuladoEn: timestamp("anulado_en", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("ingresos_caja_empresa_fecha_idx").on(t.empresaId, t.fecha)],
+);
+
+/** Caja diaria: apertura con el efectivo inicial y cierre con el arqueo (lo contado vs. lo esperado) */
+export const cajas = pgTable(
+  "cajas",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    empresaId: uuid("empresa_id")
+      .notNull()
+      .references(() => empresas.id, { onDelete: "cascade" }),
+    fecha: text("fecha").notNull(),
+    aperturaEfectivo: monto("apertura_efectivo").notNull(),
+    abiertaPor: text("abierta_por").notNull(),
+    abiertaEn: timestamp("abierta_en", { withTimezone: true }).notNull().defaultNow(),
+    /** Al cerrar: el efectivo que tenía que haber y el que se contó */
+    esperadoEfectivo: monto("esperado_efectivo"),
+    contadoEfectivo: monto("contado_efectivo"),
+    diferencia: monto("diferencia"),
+    cerradaPor: text("cerrada_por"),
+    cerradaEn: timestamp("cerrada_en", { withTimezone: true }),
+    notas: text("notas"),
+    version: version(),
+  },
+  (t) => [uniqueIndex("cajas_empresa_fecha_uq").on(t.empresaId, t.fecha)],
+);

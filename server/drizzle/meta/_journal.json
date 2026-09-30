@@ -190,6 +190,13 @@
       "when": 1790731048699,
       "tag": "0026_coredental_pacientes",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1790734504607,
+      "tag": "0027_coredental_cobros",
+      "breakpoints": true
     }
   ]
 }

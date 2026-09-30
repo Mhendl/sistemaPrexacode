@@ -1,11 +1,14 @@
 import { and, asc, count, desc, eq, ilike, isNull, or, sql, type SQL } from "drizzle-orm";
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { agendaRecursos, eventos, evoluciones, obrasSociales, odontograma, pacienteArchivoDatos, pacienteArchivos, pacientes, prestaciones, usuarios } from "../db/schema.js";
+import { agendaRecursos, cargosPaciente, presupuestoDentalItems, eventos, evoluciones, obrasSociales, odontograma, pacienteArchivoDatos, pacienteArchivos, pacientes, pagosPaciente, prestaciones, usuarios } from "../db/schema.js";
+import { anularCargoDeMarca, coberturaDe, exigirCajaAbierta, MEDIOS_DENTAL, precioDe, prestacionDe, registrarRealizada, saldoPaciente } from "../lib/cuentasDental.js";
+import { siguienteNumero } from "../lib/numeracion.js";
+import { MAX_IMPORTE } from "../lib/validation.js";
 import { requireAuth, requirePermiso, tienePermiso } from "../lib/auth.js";
 import { hoyAr } from "../lib/cuentas.js";
 import { CARAS, edad, ESTADOS_ODONTOGRAMA, PIEZAS, TIPOS_ARCHIVO } from "../lib/dental.js";
-import { badRequest, conflict, edicionConcurrente, esReferenciado, notFound, parse } from "../lib/errors.js";
+import { badRequest, conflict, edicionConcurrente, esReferenciado, forbidden, notFound, parse } from "../lib/errors.js";
 import { productoDeEmpresa } from "../lib/productos.js";
 import { emailSchema, fechaValida, versionSchema } from "../lib/validation.js";
 
@@ -392,7 +395,8 @@ export const pacientesRoutes: FastifyPluginAsync = async (app) => {
     const caras = p.alcance === "cara" ? d.caras : [];
     const autor = await autorDe(req);
     const fecha = d.fecha ?? hoyAr();
-    const marcas = await app.db
+    const marcas = await app.db.transaction(async (tx) => {
+      const nuevas = await tx
       .insert(odontograma)
       .values(
         d.piezas.map((pieza) => ({
@@ -410,6 +414,14 @@ export const pacientesRoutes: FastifyPluginAsync = async (app) => {
         })),
       )
       .returning();
+      // Lo realizado en el consultorio se carga a la cuenta del paciente (lo "existente" ya venía hecho)
+      if (d.estado === "realizado") {
+        for (const m of nuevas) {
+          await registrarRealizada(tx, { empresaId: req.user.empresaId, pacienteId: id, prestacionId: p.id, pieza: m.pieza, caras: m.caras, fecha, profesional: autor, usuarioId: req.user.sub, odontogramaId: m.id });
+        }
+      }
+      return nuevas;
+    });
     return reply.status(201).send(marcas);
   });
 
@@ -426,13 +438,19 @@ export const pacientesRoutes: FastifyPluginAsync = async (app) => {
     const { fecha } = parse(z.object({ fecha: fechaIso.optional().refine((f) => !f || f <= hoyAr(), "La fecha no puede ser futura") }), req.body ?? {});
     const m = await marcaDe(req.user.empresaId, id, marcaId);
     if (m.estado !== "a_realizar") throw conflict("Solo se puede marcar como realizado lo que estaba a realizar");
-    const [r] = await app.db
-      .update(odontograma)
-      .set({ estado: "realizado", realizadoEn: fecha ?? hoyAr(), realizadoPor: await autorDe(req), version: sql`${odontograma.version} + 1` })
-      .where(and(eq(odontograma.id, marcaId), eq(odontograma.estado, "a_realizar"), isNull(odontograma.anuladoEn)))
-      .returning();
-    if (!r) throw conflict("Otra persona la modificó recién. Actualizá la pantalla.");
-    return r;
+    const autor = await autorDe(req);
+    const dia = fecha ?? hoyAr();
+    return app.db.transaction(async (tx) => {
+      const [r] = await tx
+        .update(odontograma)
+        .set({ estado: "realizado", realizadoEn: dia, realizadoPor: autor, version: sql`${odontograma.version} + 1` })
+        .where(and(eq(odontograma.id, marcaId), eq(odontograma.estado, "a_realizar"), isNull(odontograma.anuladoEn)))
+        .returning();
+      if (!r) throw conflict("Otra persona la modificó recién. Actualizá la pantalla.");
+      // Queda cargada en la cuenta (con el precio del presupuesto aceptado, si estaba en uno)
+      await registrarRealizada(tx, { empresaId: req.user.empresaId, pacienteId: id, prestacionId: r.prestacionId, pieza: r.pieza, caras: r.caras, fecha: dia, profesional: autor, usuarioId: req.user.sub, odontogramaId: r.id });
+      return r;
+    });
   });
 
   /** Una marca cargada por error no se borra: se anula con el motivo y queda en el historial */
@@ -440,12 +458,143 @@ export const pacientesRoutes: FastifyPluginAsync = async (app) => {
     const { id, marcaId } = parse(z.object({ id: z.string().uuid(), marcaId: z.string().uuid() }), req.params);
     const { motivo } = parse(z.object({ motivo: z.string().trim().min(3, "Contá por qué se anula").max(300) }), req.body);
     await marcaDe(req.user.empresaId, id, marcaId);
-    const [r] = await app.db
-      .update(odontograma)
-      .set({ anuladoEn: new Date(), anuladoPor: await autorDe(req), motivoAnulacion: motivo, version: sql`${odontograma.version} + 1` })
-      .where(and(eq(odontograma.id, marcaId), isNull(odontograma.anuladoEn)))
-      .returning();
-    if (!r) throw conflict("Otra persona la modificó recién. Actualizá la pantalla.");
+    const autor = await autorDe(req);
+    return app.db.transaction(async (tx) => {
+      const [r] = await tx
+        .update(odontograma)
+        .set({ anuladoEn: new Date(), anuladoPor: autor, motivoAnulacion: motivo, version: sql`${odontograma.version} + 1` })
+        .where(and(eq(odontograma.id, marcaId), isNull(odontograma.anuladoEn)))
+        .returning();
+      if (!r) throw conflict("Otra persona la modificó recién. Actualizá la pantalla.");
+      // Si ya estaba cargada en la cuenta del paciente, se anula también
+      await anularCargoDeMarca(tx, marcaId, autor, `Marca del odontograma anulada: ${motivo}`);
+      return r;
+    });
+  });
+
+  // ---------------------------------------------------------------- obras sociales (administración)
+
+  app.put("/obras-sociales/:id", { preHandler: requirePermiso("configuracion") }, async (req) => {
+    const { id } = parse(idSchema, req.params);
+    const d = parse(z.object({ nombre: z.string().trim().min(2, "Poné el nombre").max(80), activa: z.boolean() }), req.body);
+    try {
+      const [o] = await app.db.update(obrasSociales).set({ nombre: d.nombre, activa: d.activa, version: sql`${obrasSociales.version} + 1` }).where(and(eq(obrasSociales.id, id), eq(obrasSociales.empresaId, req.user.empresaId))).returning();
+      if (!o) throw notFound("Obra social no encontrada");
+      return o;
+    } catch (e) {
+      if (esDuplicado(e)) throw conflict("Ya hay una obra social con ese nombre", { nombre: "Ya existe" });
+      throw e;
+    }
+  });
+
+  // ---------------------------------------------------------------- cuenta del paciente: prestaciones realizadas y pagos
+
+  const verCuenta = requirePermiso("cobranzas.ver");
+  const importe = z.coerce.number({ invalid_type_error: "Importe inválido" }).min(0, "No puede ser negativo").max(MAX_IMPORTE, "Importe demasiado grande");
+
+  app.get("/:id/cuenta", { preHandler: verCuenta }, async (req) => {
+    const { id } = parse(idSchema, req.params);
+    await pacienteDe(req.user.empresaId, id);
+    const [cargos, pagos, saldo] = await Promise.all([
+      app.db
+        .select({ cargo: cargosPaciente, prestacion: prestaciones.nombre, codigo: prestaciones.codigo })
+        .from(cargosPaciente)
+        .innerJoin(prestaciones, eq(prestaciones.id, cargosPaciente.prestacionId))
+        .where(and(eq(cargosPaciente.pacienteId, id), eq(cargosPaciente.empresaId, req.user.empresaId)))
+        .orderBy(desc(cargosPaciente.fecha), desc(cargosPaciente.createdAt)),
+      app.db.select().from(pagosPaciente).where(and(eq(pagosPaciente.pacienteId, id), eq(pagosPaciente.empresaId, req.user.empresaId))).orderBy(desc(pagosPaciente.fecha), desc(pagosPaciente.createdAt)),
+      saldoPaciente(app.db, id),
+    ]);
+    return { ...saldo, cargos: cargos.map((c) => ({ ...c.cargo, prestacion: c.prestacion, codigo: c.codigo })), pagos };
+  });
+
+  /** Cargar a mano una prestación hecha (una consulta, una limpieza) con el precio de la lista */
+  app.post("/:id/cargos", async (req, reply) => {
+    if (!tienePermiso(req, "cobranzas.cobrar", "historia.editar")) throw forbidden();
+    const { id } = parse(idSchema, req.params);
+    const d = parse(
+      z.object({
+        prestacionId: z.string({ required_error: "Elegí la prestación" }).uuid("Elegí la prestación"),
+        pieza: z.number().int().refine((p) => PIEZAS.includes(p), "Pieza inválida").optional().nullable(),
+        fecha: fechaIso.optional().refine((f) => !f || f <= hoyAr(), "La fecha no puede ser futura"),
+        /** Si no viene, se toma de la lista de precios de su obra social */
+        importePaciente: importe.optional(),
+      }),
+      req.body,
+    );
+    await pacienteDe(req.user.empresaId, id);
+    const p = await prestacionDe(app.db, req.user.empresaId, d.prestacionId);
+    if (!p || !p.activa) throw badRequest("La prestación no existe o está desactivada", { prestacionId: "Inválida" });
+    const autor = await autorDe(req);
+    const cargo = await app.db.transaction(async (tx) => {
+      let importes: { paciente: number; obraSocial: number } | undefined;
+      if (d.importePaciente !== undefined) {
+        const cob = await coberturaDe(tx, id);
+        importes = { paciente: d.importePaciente, obraSocial: (await precioDe(tx, req.user.empresaId, p.id, cob.obraSocialId)).obraSocial };
+      }
+      return registrarRealizada(tx, { empresaId: req.user.empresaId, pacienteId: id, prestacionId: p.id, pieza: d.pieza ?? null, caras: [], fecha: d.fecha ?? hoyAr(), profesional: autor, usuarioId: req.user.sub, importes });
+    });
+    return reply.status(201).send(cargo);
+  });
+
+  app.post("/:id/cargos/:cargoId/anular", { preHandler: requirePermiso("cobranzas.anular") }, async (req) => {
+    const { id, cargoId } = parse(z.object({ id: z.string().uuid(), cargoId: z.string().uuid() }), req.params);
+    const { motivo } = parse(z.object({ motivo: z.string().trim().min(3, "Contá por qué se anula").max(300) }), req.body);
+    const [c] = await app.db.select().from(cargosPaciente).where(and(eq(cargosPaciente.id, cargoId), eq(cargosPaciente.pacienteId, id), eq(cargosPaciente.empresaId, req.user.empresaId)));
+    if (!c) throw notFound("Prestación no encontrada");
+    if (c.anuladoEn) throw conflict("Ya estaba anulada");
+    if (c.odontogramaId) throw conflict("Esta prestación salió del odontograma: anulá la marca en el odontograma y se anula sola.");
+    const [r] = await app.db.update(cargosPaciente).set({ anuladoEn: new Date(), anuladoPor: await autorDe(req), motivoAnulacion: motivo }).where(and(eq(cargosPaciente.id, cargoId), isNull(cargosPaciente.anuladoEn))).returning();
+    if (c.presupuestoItemId) {
+      await app.db.update(presupuestoDentalItems).set({ cargoId: null }).where(eq(presupuestoDentalItems.id, c.presupuestoItemId));
+    }
+    return r;
+  });
+
+  /** Pago del paciente a cuenta (con recibo interno numerado) */
+  app.post("/:id/pagos", { preHandler: requirePermiso("cobranzas.cobrar") }, async (req, reply) => {
+    const { id } = parse(idSchema, req.params);
+    const d = parse(
+      z.object({
+        importe: importe.refine((v) => v > 0, "El importe tiene que ser mayor a cero"),
+        medio: z.enum(MEDIOS_DENTAL, { errorMap: () => ({ message: "Elegí el medio de pago" }) }),
+        fecha: fechaIso.optional().refine((f) => !f || f <= hoyAr(), "La fecha no puede ser futura"),
+        referencia: texto(120),
+        notas: texto(500),
+      }),
+      req.body,
+    );
+    await pacienteDe(req.user.empresaId, id);
+    const fecha = d.fecha ?? hoyAr();
+    await exigirCajaAbierta(app.db, req.user.empresaId, fecha, d.medio);
+    const autor = await autorDe(req);
+    const pago = await app.db.transaction(async (tx) => {
+      const numero = await siguienteNumero(tx, req.user.empresaId, "recibo-paciente");
+      const [p] = await tx
+        .insert(pagosPaciente)
+        .values({ empresaId: req.user.empresaId, pacienteId: id, numero, fecha, importe: d.importe, medio: d.medio, referencia: d.referencia, notas: d.notas, usuarioId: req.user.sub, cobradoPor: autor })
+        .returning();
+      return p!;
+    });
+    return reply.status(201).send({ ...pago, ...(await saldoPaciente(app.db, id)) });
+  });
+
+  app.get("/:id/pagos/:pagoId", { preHandler: verCuenta }, async (req) => {
+    const { id, pagoId } = parse(z.object({ id: z.string().uuid(), pagoId: z.string().uuid() }), req.params);
+    const [p] = await app.db.select().from(pagosPaciente).where(and(eq(pagosPaciente.id, pagoId), eq(pagosPaciente.pacienteId, id), eq(pagosPaciente.empresaId, req.user.empresaId)));
+    if (!p) throw notFound("Pago no encontrado");
+    return { ...p, paciente: await pacienteDe(req.user.empresaId, id).then((x) => ({ nombre: x.nombre, apellido: x.apellido, dni: x.dni, obraSocial: x.obraSocial })) };
+  });
+
+  app.post("/:id/pagos/:pagoId/anular", { preHandler: requirePermiso("cobranzas.anular") }, async (req) => {
+    const { id, pagoId } = parse(z.object({ id: z.string().uuid(), pagoId: z.string().uuid() }), req.params);
+    const { motivo } = parse(z.object({ motivo: z.string().trim().min(3, "Contá por qué se anula").max(300) }), req.body);
+    const [p] = await app.db.select().from(pagosPaciente).where(and(eq(pagosPaciente.id, pagoId), eq(pagosPaciente.pacienteId, id), eq(pagosPaciente.empresaId, req.user.empresaId)));
+    if (!p) throw notFound("Pago no encontrado");
+    if (p.anuladoEn) throw conflict("Ya estaba anulado");
+    await exigirCajaAbierta(app.db, req.user.empresaId, p.fecha, p.medio);
+    const [r] = await app.db.update(pagosPaciente).set({ anuladoEn: new Date(), anuladoPor: await autorDe(req), motivoAnulacion: motivo }).where(and(eq(pagosPaciente.id, pagoId), isNull(pagosPaciente.anuladoEn))).returning();
+    if (!r) throw conflict("Otra persona lo modificó recién. Actualizá la pantalla.");
     return r;
   });
 };
