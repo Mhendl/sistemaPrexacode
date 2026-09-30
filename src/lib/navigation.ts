@@ -20,6 +20,7 @@ import {
   FlaskConical,
   Landmark,
   ReceiptText,
+  Percent,
 } from "lucide-react";
 import { productoActivo, type ProductoId } from "@/config/brand";
 import type { Acceso, NavItem, NavSection, Role } from "@/types";
@@ -113,7 +114,13 @@ const seccionesDental: NavSection[] = [
       item("/facturacion"),
     ],
   },
-  { title: "Equipo", items: [{ ...item("/empleados"), label: "Equipo y sueldos", description: "Profesionales, secretaría, sueldos y porcentajes" }] },
+  {
+    title: "Equipo",
+    items: [
+      { ...item("/empleados"), label: "Equipo y sueldos", description: "Legajos, sueldos, adelantos y vacaciones" },
+      { path: "/honorarios", label: "Honorarios", icon: Percent, permisos: ["empleados.ver"], description: "El porcentaje de cada profesional sobre lo que produjo" },
+    ],
+  },
   { title: "Análisis", items: [item("/reportes")] },
   sistema,
 ];

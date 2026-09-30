@@ -40,6 +40,10 @@ import type {
   EventoApi,
   EventoInput,
   RecursoAgendaApi,
+  BloqueoAgendaApi,
+  BloqueoAgendaInput,
+  DisponiblesApi,
+  FranjaHorario,
   EtapaOportunidad,
   OportunidadApi,
   OportunidadInput,
@@ -449,6 +453,35 @@ export function useEliminarRecurso() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["agenda", "config"] }),
   });
 }
+
+export function useGuardarHorarios() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, datos }: { id: string; datos: { horarios: FranjaHorario[]; duracionTurno: number; version?: number } }) => api<RecursoAgendaApi>(`/agenda/recursos/${id}/horarios`, { method: "PUT", body: datos }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["agenda"] }),
+  });
+}
+
+export const useBloqueos = (desde: string, hasta: string) =>
+  useQuery({ queryKey: ["agenda", "bloqueos", { desde, hasta }], queryFn: () => api<BloqueoAgendaApi[]>(`/agenda/bloqueos?desde=${desde}&hasta=${hasta}`) });
+
+export function useAccionBloqueo() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ crear, borrar }: { crear?: BloqueoAgendaInput; borrar?: string }) => {
+      if (borrar) {
+        await api<void>(`/agenda/bloqueos/${borrar}`, { method: "DELETE" });
+        return null;
+      }
+      return api<BloqueoAgendaApi & { turnosAfectados: { id: string; titulo: string; fecha: string; inicio: string; fin: string }[] }>("/agenda/bloqueos", { method: "POST", body: crear });
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["agenda"] }),
+  });
+}
+
+/** Horarios libres de un profesional en un día (se refresca cuando cambia la agenda) */
+export const useDisponibles = (recursoId: string, fecha: string, enabled = true) =>
+  useQuery({ queryKey: ["agenda", "eventos", "disponibles", { recursoId, fecha }], queryFn: () => api<DisponiblesApi>(`/agenda/disponibles?recursoId=${recursoId}&fecha=${fecha}`), enabled: enabled && !!recursoId && /^\d{4}-\d{2}-\d{2}$/.test(fecha) });
 
 export const useEventos = (desde: string, hasta: string, enabled = true) =>
   useQuery({ queryKey: ["agenda", "eventos", { desde, hasta }], queryFn: () => api<EventoApi[]>(`/agenda/eventos?desde=${desde}&hasta=${hasta}`), enabled });

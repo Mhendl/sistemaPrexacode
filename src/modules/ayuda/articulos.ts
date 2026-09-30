@@ -365,6 +365,16 @@ export const ARTICULOS: Articulo[] = [
   },
 
   {
+    id: "dental-honorarios",
+    titulo: "Honorarios por porcentaje de los profesionales",
+    seccion: "Pacientes",
+    producto: "dental",
+    path: "/honorarios",
+    permisos: ["empleados.ver"],
+    palabras: "honorarios porcentaje profesional odontologo pagar liquidar comision produccion sueldo",
+    texto: "En Honorarios cargás el porcentaje de cada profesional. El sistema suma lo que produjo en el mes (las prestaciones que registró como realizadas: lo que paga el paciente más lo que paga la obra social), le resta el laboratorio que encargó si así lo acordaron, y calcula cuánto le corresponde. Con Pagar registrás el pago (se puede en partes): queda en Gastos como «Sueldos y honorarios» y, si es en efectivo, sale de la caja. Tocando el profesional ves el detalle de cada prestación.",
+  },
+  {
     id: "dental-laboratorios",
     titulo: "Encargar un trabajo a un laboratorio y pagarle",
     seccion: "Pacientes",
@@ -486,6 +496,26 @@ export const ARTICULOS: Articulo[] = [
     palabras: "personalizar agenda recursos profesionales tecnicos salas horario nombre turno visita",
     texto:
       "En Configuración → Agenda (o el botón Personalizar de la agenda) elegís cómo se llaman las cosas (\"Turno\" y \"Profesional\" en un consultorio, \"Visita\" y \"Técnico\" en un servicio técnico), el horario de atención, los tipos de evento y los recursos, como salas o boxes. Cada usuario nuevo aparece solo como recurso.",
+  },
+
+  {
+    id: "agenda-horarios",
+    titulo: "Horarios de atención de cada profesional",
+    seccion: "Agenda",
+    path: "/configuracion?tab=agenda",
+    permisos: ["configuracion"],
+    palabras: "horario atencion dias atiende profesional turno cortado duracion turnos libres sobreturno",
+    texto: "Cada profesional puede tener sus días y horarios (también de turno cortado, por ejemplo de 9 a 13 y de 16 a 20) y cuánto dura un turno. Al dar un turno aparecen sus horarios libres para elegir con un toque, y si se agenda fuera de su horario el sistema avisa (se puede agendar igual, como sobreturno). En la agenda, las horas en que no atiende nadie se ven sombreadas.",
+    pasos: ["Entrá a Configuración → Agenda.", "En la fila del profesional tocá Horarios.", "Marcá los días que atiende y sus horarios (con Copiar pasás el lunes al resto de la semana).", "Poné la duración del turno y tocá Guardar horarios."],
+  },
+  {
+    id: "agenda-bloqueos",
+    titulo: "Bloquear vacaciones, un congreso o un feriado",
+    seccion: "Agenda",
+    path: "/agenda",
+    permisos: ["agenda.editar"],
+    palabras: "bloquear bloqueo vacaciones licencia congreso feriado cerrado no atiende",
+    texto: "Con Bloquear horario, en la agenda, marcás días enteros u horas en que un profesional (o todo el consultorio) no atiende. Se ve rayado en la agenda y no deja dar turnos ahí. Si ya había turnos dados en ese horario, el sistema te los lista para que los reprogrames. Para quitarlo, tocá el bloqueo en la agenda.",
   },
 
   // ------------------------------------------------------------------ Presupuestos

@@ -1,3 +1,4 @@
+import { honorariosRoutes } from "./routes/honorarios.js";
 import { laboratoriosRoutes } from "./routes/laboratorios.js";
 import { clinicaRoutes } from "./routes/clinica.js";
 import { turnosPublicosRoutes } from "./routes/turnosPublicos.js";
@@ -260,6 +261,7 @@ export async function buildApp({ db, jwtSecret, logger = false, conectorArca, ca
   await app.register(presupuestosDentalesRoutes, { prefix: "/api/presupuestos-dentales" });
   await app.register(consultorioRoutes, { prefix: "/api/consultorio" });
   await app.register(laboratoriosRoutes, { prefix: "/api/laboratorios" });
+  await app.register(honorariosRoutes, { prefix: "/api/honorarios" });
   await app.register(clinicaRoutes, { prefix: "/api/clinica" });
   await app.register(turnosPublicosRoutes, { prefix: "/api/publico/turnos" });
   app.get("/api/publico/medicion", async () => medicion ?? { ga: null, metaPixel: null });

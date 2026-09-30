@@ -2,12 +2,13 @@ import { and, asc, desc, eq, gte, lte, ne, sql, type SQL } from "drizzle-orm";
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import type { Db } from "../db/client.js";
-import { agendaRecursos, clientes, configAgenda, eventos, pacientes, usuarios } from "../db/schema.js";
+import { agendaBloqueos, agendaRecursos, clientes, configAgenda, eventos, pacientes, usuarios } from "../db/schema.js";
 import { permisoPorMetodo, requirePermiso } from "../lib/auth.js";
 import { diasEntre, hoyAr } from "../lib/cuentas.js";
 import { badRequest, conflict, edicionConcurrente, esReferenciado, HttpError, notFound, parse } from "../lib/errors.js";
 import { notificarUsuario } from "../lib/notificaciones.js";
-import { datosDelTurno, enviarEmailTurno, textoWhatsappTurno } from "../lib/turnos.js";
+import { bloqueoQueCae, dentroDeHorario, errorEnFranjas, textoHorario, turnosLibres, type Bloqueo } from "../lib/horarios.js";
+import { ahoraAr, datosDelTurno, enviarEmailTurno, textoWhatsappTurno } from "../lib/turnos.js";
 import { versionSchema, fechaValida } from "../lib/validation.js";
 
 /** Paleta de colores para los recursos (se asignan en orden) */
@@ -63,6 +64,33 @@ const recursoSchema = z.object({
   activo: z.boolean().optional(),
   version: z.number().int().positive().max(2_000_000_000).optional(),
 });
+
+const horariosSchema = z.object({
+  horarios: z
+    .array(z.object({ dia: z.number().int().min(0).max(6), desde: hora, hasta: z.string().regex(/^(([01]\d|2[0-3]):[0-5]\d|24:00)$/, "Hora inválida (HH:MM)") }))
+    .max(21, "Hasta 3 franjas por día"),
+  duracionTurno: z.coerce.number().int().min(5, "Entre 5 y 240 minutos").max(240, "Entre 5 y 240 minutos"),
+  version: z.number().int().positive().max(2_000_000_000).optional(),
+});
+
+const bloqueoSchema = z
+  .object({
+    recursoId: z.string().uuid().optional().nullable().transform((v) => v || null),
+    desde: fechaIso,
+    hasta: fechaIso,
+    horaDesde: hora.optional().nullable().transform((v) => v || null),
+    horaHasta: z
+      .string()
+      .regex(/^(([01]\d|2[0-3]):[0-5]\d|24:00)$/, "Hora inválida (HH:MM)")
+      .optional()
+      .nullable()
+      .transform((v) => v || null),
+    motivo: z.string().trim().min(2, "Contá el motivo (vacaciones, congreso…)").max(120),
+  })
+  .refine((b) => b.hasta >= b.desde, { message: "Termina antes de empezar", path: ["hasta"] })
+  .refine((b) => diasEntre(b.desde, b.hasta) <= 366, { message: "Hasta un año", path: ["hasta"] })
+  .refine((b) => !b.horaDesde === !b.horaHasta, { message: "Poné las dos horas, o ninguna para el día completo", path: ["horaHasta"] })
+  .refine((b) => !b.horaDesde || !b.horaHasta || b.horaHasta > b.horaDesde, { message: "Tiene que terminar después de empezar", path: ["horaHasta"] });
 
 const eventoSchema = z
   .object({
@@ -130,7 +158,7 @@ const soloAdmin = requirePermiso("configuracion");
 export const agendaRoutes: FastifyPluginAsync = async (app) => {
   // Todos los roles usan la agenda; la configuración y los recursos los maneja el administrador
   // Consultar la agenda pide "ver"; agendar o mover, "editar" (la configuración, además, "configuracion")
-  app.addHook("preHandler", permisoPorMetodo("agenda.ver", "agenda.editar", { "/config": "configuracion", "/recursos": "configuracion", "/recursos/:id": "configuracion" }));
+  app.addHook("preHandler", permisoPorMetodo("agenda.ver", "agenda.editar", { "/config": "configuracion", "/recursos": "configuracion", "/recursos/:id": "configuracion", "/recursos/:id/horarios": "configuracion" }));
 
   const recursosDe = (empresaId: string) => app.db.select().from(agendaRecursos).where(eq(agendaRecursos.empresaId, empresaId)).orderBy(asc(agendaRecursos.createdAt));
 
@@ -209,6 +237,126 @@ export const agendaRoutes: FastifyPluginAsync = async (app) => {
     }
     return reply.status(204).send();
   });
+
+  /** Días y horarios de atención, y cuánto dura un turno */
+  app.put("/recursos/:id/horarios", { preHandler: soloAdmin }, async (req) => {
+    const { id } = parse(idSchema, req.params);
+    const { version, ...d } = parse(horariosSchema, req.body);
+    const error = errorEnFranjas(d.horarios);
+    if (error) throw badRequest(error, { horarios: error });
+    const filtros: SQL[] = [eq(agendaRecursos.id, id), eq(agendaRecursos.empresaId, req.user.empresaId)];
+    const [actual] = await app.db.select().from(agendaRecursos).where(and(...filtros));
+    if (!actual) throw notFound("No encontrado");
+    if (version) filtros.push(eq(agendaRecursos.version, version));
+    const horarios = [...d.horarios].sort((a, b) => a.dia - b.dia || a.desde.localeCompare(b.desde));
+    const [r] = await app.db
+      .update(agendaRecursos)
+      .set({ horarios, duracionTurno: d.duracionTurno, version: sql`${agendaRecursos.version} + 1` })
+      .where(and(...filtros))
+      .returning();
+    if (!r) throw edicionConcurrente(actual.nombre);
+    return r;
+  });
+
+  // ---------------------------------------------------------------- bloqueos (vacaciones, congresos, feriados)
+
+  const bloqueosEntre = (empresaId: string, desde: string, hasta: string) =>
+    app.db
+      .select()
+      .from(agendaBloqueos)
+      .where(and(eq(agendaBloqueos.empresaId, empresaId), lte(agendaBloqueos.desde, hasta), gte(agendaBloqueos.hasta, desde)))
+      .orderBy(asc(agendaBloqueos.desde));
+
+  app.get("/bloqueos", async (req) => {
+    const q = parse(z.object({ desde: fechaIso, hasta: fechaIso }), req.query);
+    if (diasEntre(q.desde, q.hasta) > 400) throw badRequest("El período puede ser de hasta un año", { hasta: "Período demasiado largo" });
+    return bloqueosEntre(req.user.empresaId, q.desde, q.hasta);
+  });
+
+  app.post("/bloqueos", async (req, reply) => {
+    const d = parse(bloqueoSchema, req.body);
+    if (d.recursoId) {
+      const [r] = await app.db.select({ id: agendaRecursos.id }).from(agendaRecursos).where(and(eq(agendaRecursos.id, d.recursoId), eq(agendaRecursos.empresaId, req.user.empresaId)));
+      if (!r) throw badRequest("Elegí a quién se bloquea", { recursoId: "Inválido" });
+    }
+    const [u] = await app.db.select({ nombre: usuarios.nombre }).from(usuarios).where(eq(usuarios.id, req.user.sub));
+    const [b] = await app.db
+      .insert(agendaBloqueos)
+      .values({ ...d, empresaId: req.user.empresaId, creadoPor: u?.nombre ?? "Usuario" })
+      .returning();
+    // Turnos que ya estaban dados en ese período: se avisan para reprogramarlos (no se cancelan solos)
+    const filtros: SQL[] = [eq(eventos.empresaId, req.user.empresaId), gte(eventos.fecha, d.desde), lte(eventos.fecha, d.hasta), ne(eventos.estado, "Cancelado"), ne(eventos.estado, "Ausente")];
+    if (d.recursoId) filtros.push(eq(eventos.recursoId, d.recursoId));
+    const previos = (await app.db.select().from(eventos).where(and(...filtros))).filter((e) => bloqueoQueCae([b!], e.recursoId, e.fecha, e.inicio, e.fin));
+    return reply.status(201).send({ ...b, turnosAfectados: previos.map((e) => ({ id: e.id, titulo: e.titulo, fecha: e.fecha, inicio: e.inicio, fin: e.fin })) });
+  });
+
+  app.delete("/bloqueos/:id", async (req, reply) => {
+    const { id } = parse(idSchema, req.params);
+    const [b] = await app.db.delete(agendaBloqueos).where(and(eq(agendaBloqueos.id, id), eq(agendaBloqueos.empresaId, req.user.empresaId))).returning();
+    if (!b) throw notFound("Bloqueo no encontrado");
+    return reply.status(204).send();
+  });
+
+  /** Horarios libres de un profesional en un día, para dar un turno rápido */
+  app.get("/disponibles", async (req) => {
+    const q = parse(z.object({ recursoId: z.string().uuid("Elegí a quién"), fecha: fechaIso, duracion: z.coerce.number().int().min(5).max(240).optional() }), req.query);
+    const [r] = await app.db.select().from(agendaRecursos).where(and(eq(agendaRecursos.id, q.recursoId), eq(agendaRecursos.empresaId, req.user.empresaId)));
+    if (!r) throw notFound("No encontrado");
+    return disponibles(req.user.empresaId, r, q.fecha, q.duracion);
+  });
+
+  async function disponibles(empresaId: string, r: typeof agendaRecursos.$inferSelect, fecha: string, duracion?: number) {
+    const cfg = await asegurarConfig(app.db, empresaId);
+    const [ocupados, bloqueos] = await Promise.all([
+      app.db
+        .select({ inicio: eventos.inicio, fin: eventos.fin })
+        .from(eventos)
+        .where(and(eq(eventos.recursoId, r.id), eq(eventos.fecha, fecha), ne(eventos.estado, "Cancelado"), ne(eventos.estado, "Ausente"))),
+      bloqueosEntre(empresaId, fecha, fecha),
+    ]);
+    const ahora = ahoraAr();
+    const hoy = ahora.slice(0, 10);
+    const libres =
+      fecha < hoy
+        ? []
+        : turnosLibres({
+            horarios: r.horarios,
+            franjaGeneral: { desde: aHora(cfg.horaInicio), hasta: aHora(cfg.horaFin) },
+            duracion: duracion ?? r.duracionTurno,
+            fecha,
+            recursoId: r.id,
+            ocupados,
+            bloqueos,
+            desdeMin: fecha === hoy ? aMin(ahora.slice(11, 16)) : undefined,
+          });
+    const bloqueoDia = bloqueos.find((b) => (!b.recursoId || b.recursoId === r.id) && !b.horaDesde);
+    return {
+      duracion: duracion ?? r.duracionTurno,
+      conHorarios: r.horarios.length > 0,
+      horario: r.horarios.length ? textoHorario(r.horarios, fecha) : null,
+      bloqueo: bloqueoDia?.motivo ?? null,
+      libres,
+    };
+  }
+
+  /**
+   * Fuera de su horario de atención o en un horario bloqueado: se avisa, y se puede agendar igual (sobreturno).
+   * Solo si cambió el día, el horario o a quién se asigna (editar las notas de un turno viejo no molesta).
+   */
+  async function controlarHorario(empresaId: string, d: z.infer<typeof eventoSchema>, recurso: typeof agendaRecursos.$inferSelect, actual?: typeof eventos.$inferSelect) {
+    if (d.estado === "Cancelado" || d.estado === "Ausente" || d.permitirSuperposicion) return;
+    if (actual && actual.fecha === d.fecha && actual.inicio === d.inicio && actual.fin === d.fin && actual.recursoId === d.recursoId) return;
+    const [b] = (await bloqueosEntre(empresaId, d.fecha, d.fecha)).filter((x) => bloqueoQueCae([x as Bloqueo], recurso.id, d.fecha, d.inicio, d.fin));
+    if (b) {
+      const quien = b.recursoId ? recurso.nombre : "La agenda";
+      const periodo = b.desde === b.hasta ? `el ${ddmm(b.desde)}` : `del ${ddmm(b.desde)} al ${ddmm(b.hasta)}`;
+      throw new HttpError(409, `${quien} tiene bloqueado ${periodo}${b.horaDesde ? ` de ${b.horaDesde} a ${b.horaHasta}` : ""}: ${b.motivo}.`, { inicio: "Bloqueado" }, "BLOQUEADO");
+    }
+    if (!dentroDeHorario(recurso.horarios, d.fecha, d.inicio, d.fin)) {
+      throw new HttpError(409, `Está fuera del horario de ${recurso.nombre}: ${textoHorario(recurso.horarios, d.fecha)}.`, { inicio: "Fuera de horario" }, "FUERA_DE_HORARIO");
+    }
+  }
 
   // ---------------------------------------------------------------- eventos
 
@@ -315,6 +463,7 @@ export const agendaRoutes: FastifyPluginAsync = async (app) => {
     const empresaId = req.user.empresaId;
     const recurso = await validarReferencias(empresaId, datos);
     d.titulo = datos.titulo;
+    await controlarHorario(empresaId, datos, recurso);
     await superposicion(empresaId, datos, recurso);
     const [ev] = await app.db.insert(eventos).values({ ...d, empresaId, usuarioId: req.user.sub }).returning();
     await avisar(empresaId, req.user.sub, recurso, "Te agendaron algo nuevo", ev!);
@@ -337,6 +486,7 @@ export const agendaRoutes: FastifyPluginAsync = async (app) => {
     if (version && version !== actual.version) throw edicionConcurrente("este evento");
     const recurso = await validarReferencias(empresaId, datos, actual.recursoId);
     d.titulo = datos.titulo;
+    await controlarHorario(empresaId, datos, recurso, actual);
     await superposicion(empresaId, datos, recurso, id);
 
     const filtros: SQL[] = [eq(eventos.id, id), eq(eventos.empresaId, empresaId)];

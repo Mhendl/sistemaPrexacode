@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Check, Loader2, Plus, Trash2, X } from "lucide-react";
+import { Check, Clock, Loader2, Plus, Trash2, X } from "lucide-react";
+import { HorariosDialog, resumenHorario } from "@/modules/agenda/HorariosDialog";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "@/api/client";
@@ -224,6 +225,7 @@ function FilaRecurso({ config, recurso, onListo }: { config: ConfigAgendaApi; re
   const [nombre, setNombre] = useState(recurso?.nombre ?? "");
   const [color, setColor] = useState(recurso?.color ?? config.colores.find((c) => !usados.has(c)) ?? config.colores[0]!);
   const [usuarioId, setUsuarioId] = useState<string | null>(recurso?.usuarioId ?? null);
+  const [horarios, setHorarios] = useState(false);
   const cambiado = !recurso || nombre !== recurso.nombre || color !== recurso.color || usuarioId !== recurso.usuarioId;
 
   const grabar = async (extra: { activo?: boolean } = {}) => {
@@ -286,6 +288,11 @@ function FilaRecurso({ config, recurso, onListo }: { config: ConfigAgendaApi; re
           </SelectContent>
         </Select>
         <div className="ml-auto flex gap-1">
+          {recurso && (
+            <Button size="sm" variant="outline" onClick={() => setHorarios(true)} aria-label={`Horarios de ${recurso.nombre}`}>
+              <Clock className="size-4" /> Horarios
+            </Button>
+          )}
           {cambiado && (
             <Button size="sm" onClick={() => grabar()} disabled={guardar.isPending || nombre.trim().length < 2}>
               <Check className="size-4" /> {recurso ? "Guardar" : "Agregar"}
@@ -302,6 +309,15 @@ function FilaRecurso({ config, recurso, onListo }: { config: ConfigAgendaApi; re
           )}
         </div>
       </div>
+      {recurso && (
+        <>
+          <div className="text-xs text-muted-foreground" data-testid="resumen-horario">
+            {resumenHorario(recurso.horarios)}
+            {recurso.horarios.length > 0 && ` · turnos de ${recurso.duracionTurno} min`}
+          </div>
+          <HorariosDialog recurso={recurso} open={horarios} onOpenChange={setHorarios} />
+        </>
+      )}
     </div>
   );
 }

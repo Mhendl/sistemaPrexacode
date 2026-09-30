@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "@/api/client";
 import { manejarErrorGuardado } from "@/api/errores";
-import { useAccionEvento, useClientes, useGuardarEvento } from "@/api/hooks";
+import { useAccionEvento, useClientes, useDisponibles, useGuardarEvento } from "@/api/hooks";
 import type { ConfigAgendaApi, EstadoEvento, EventoApi, EventoInput } from "@/api/types";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -16,6 +16,8 @@ import { productoActivo } from "@/config/brand";
 import { PacienteSelector } from "@/modules/pacientes/PacienteSelector";
 
 const NINGUNO = "__ninguno";
+/** Avisos del servidor que se pueden pasar por alto con "Agendar igual" */
+const AVISOS: Record<string, string> = { SUPERPOSICION: "Se superpone.", FUERA_DE_HORARIO: "Fuera de horario.", BLOQUEADO: "Horario bloqueado." };
 const ESTADOS: EstadoEvento[] = ["Pendiente", "Confirmado", "Realizado", "Cancelado"];
 /** En un consultorio además se marca si el paciente no vino */
 const ESTADOS_DENTAL: EstadoEvento[] = ["Pendiente", "Confirmado", "Realizado", "Ausente", "Cancelado"];
@@ -57,7 +59,7 @@ export function EventoDialog({ open, onOpenChange, config, evento, inicial }: Pr
   const accion = useAccionEvento();
   const [d, setD] = useState<EventoInput>(() => vacio(config, inicial));
   const [errores, setErrores] = useState<Record<string, string>>({});
-  const [superpone, setSuperpone] = useState<string | null>(null);
+  const [superpone, setSuperpone] = useState<{ titulo: string; mensaje: string } | null>(null);
   const [confirmarBorrado, setConfirmarBorrado] = useState(false);
 
   useEffect(() => {
@@ -95,8 +97,8 @@ export function EventoDialog({ open, onOpenChange, config, evento, inicial }: Pr
       toast.success(evento ? "Cambios guardados" : "Quedó agendado", { description: `${d.titulo} · ${d.inicio} a ${d.fin}` });
       onOpenChange(false);
     } catch (err) {
-      if (err instanceof ApiError && err.code === "SUPERPOSICION") {
-        setSuperpone(err.message);
+      if (err instanceof ApiError && err.code && AVISOS[err.code]) {
+        setSuperpone({ titulo: AVISOS[err.code]!, mensaje: err.message });
         return;
       }
       if (manejarErrorGuardado(err, { setErrores, qc, recargar: ["agenda", "eventos"] })) onOpenChange(false);
@@ -215,6 +217,18 @@ export function EventoDialog({ open, onOpenChange, config, evento, inicial }: Pr
             </div>
             {(errores.fecha || errores.inicio || errores.fin) && <p className="col-span-3 text-xs text-destructive">{errores.fin ?? errores.inicio ?? errores.fecha}</p>}
           </div>
+          {!evento && open && (
+            <HorariosLibres
+              recursoId={d.recursoId}
+              fecha={d.fecha}
+              elegido={d.inicio}
+              soloConHorarios={!dental}
+              onElegir={(inicio, duracion) => {
+                setD((x) => ({ ...x, inicio, fin: sumarMinutos(inicio, duracion) }));
+                setSuperpone(null);
+              }}
+            />
+          )}
           <div className="grid gap-1.5">
             <Label htmlFor="ev-estado">Estado</Label>
             <Select value={d.estado} onValueChange={(v) => set("estado", v as EstadoEvento)}>
@@ -244,7 +258,7 @@ export function EventoDialog({ open, onOpenChange, config, evento, inicial }: Pr
               <div className="flex items-start gap-2">
                 <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning-ink" />
                 <span>
-                  <b>Se superpone.</b> {superpone}
+                  <b>{superpone.titulo}</b> {superpone.mensaje}
                 </span>
               </div>
               <div className="flex justify-end">
@@ -292,3 +306,46 @@ export function EventoDialog({ open, onOpenChange, config, evento, inicial }: Pr
 }
 
 const minutos = (h: string) => Number(h.slice(0, 2)) * 60 + Number(h.slice(3, 5));
+
+/** Los horarios libres del profesional ese día, para elegir con un toque */
+function HorariosLibres({ recursoId, fecha, elegido, soloConHorarios, onElegir }: { recursoId: string; fecha: string; elegido: string; soloConHorarios: boolean; onElegir: (inicio: string, duracion: number) => void }) {
+  const { data } = useDisponibles(recursoId, fecha);
+  const [todos, setTodos] = useState(false);
+  if (!data || (soloConHorarios && !data.conHorarios)) return null;
+  const MAX = 12;
+  const lista = todos ? data.libres : data.libres.slice(0, MAX);
+  return (
+    <div className="grid gap-1.5 sm:col-span-2" data-testid="horarios-libres">
+      <div className="text-xs text-muted-foreground">
+        {data.bloqueo ? (
+          <span className="text-warning-ink">Bloqueado: {data.bloqueo}</span>
+        ) : data.libres.length ? (
+          <>Horarios libres{data.horario ? ` (${data.horario})` : ""}:</>
+        ) : (
+          <>No quedan horarios libres ese día{data.horario ? ` (${data.horario})` : ""}.</>
+        )}
+      </div>
+      {!data.bloqueo && data.libres.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {lista.map((h) => (
+            <button
+              key={h}
+              type="button"
+              onClick={() => onElegir(h, data.duracion)}
+              aria-label={`Turno libre ${h}`}
+              aria-pressed={h === elegido}
+              className={h === elegido ? "rounded-md border border-primary bg-primary px-2 py-1 text-xs font-medium text-primary-foreground" : "rounded-md border px-2 py-1 text-xs hover:border-primary hover:text-primary"}
+            >
+              {h}
+            </button>
+          ))}
+          {data.libres.length > MAX && (
+            <button type="button" onClick={() => setTodos(!todos)} className="px-1 text-xs text-primary hover:underline">
+              {todos ? "Ver menos" : `+${data.libres.length - MAX} más`}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

@@ -1,3 +1,4 @@
+import { HonorariosPage } from "@/modules/consultorio/HonorariosPage";
 import { LaboratorioPage, LaboratoriosPage } from "@/modules/clinica/LaboratoriosPage";
 import { TurnoPublicoPage } from "@/modules/agenda/TurnoPublicoPage";
 import { useRole } from "@/context/AuthProvider";
@@ -148,6 +149,7 @@ export default function App() {
                   <Route path="gastos" element={<GastosPage />} />
                   <Route path="liquidacion" element={<LiquidacionPage />} />
                   <Route path="laboratorios" element={<LaboratoriosPage />} />
+                  <Route path="honorarios" element={<HonorariosPage />} />
                   <Route path="laboratorios/:id" element={<LaboratorioPage />} />
                   <Route path="pacientes/:id/recibos/:pagoId" element={<ReciboPacientePage />} />
                   <Route path="cobranzas/nuevo" element={<NuevoReciboPage />} />

@@ -119,7 +119,7 @@ test("en el celular, las pantallas de cobros entran en el ancho", async ({ page,
   const pac = await c.post("/pacientes", { nombre: "Lucas", apellido: "Fernández" });
   await page.setViewportSize({ width: 375, height: 800 });
   await entrarCon(page, c.cuenta);
-  for (const url of ["/prestaciones", "/presupuestos", "/cobranzas", "/caja", "/gastos", "/liquidacion", `/pacientes/${pac.id}?tab=cuenta`, `/pacientes/${pac.id}?tab=presupuestos`]) {
+  for (const url of ["/prestaciones", "/presupuestos", "/cobranzas", "/caja", "/gastos", "/liquidacion", "/honorarios", `/pacientes/${pac.id}?tab=cuenta`, `/pacientes/${pac.id}?tab=presupuestos`]) {
     await page.goto(url);
     await page.waitForLoadState("networkidle");
     const ancho = await page.evaluate(() => document.documentElement.scrollWidth);

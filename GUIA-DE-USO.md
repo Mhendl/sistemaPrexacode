@@ -229,7 +229,12 @@ Turnos del día (cada profesional puede ver solo los suyos), pacientes activos y
 - **Periodontograma** (ficha del paciente → Periodontograma): profundidad de sondaje y margen en 6 sitios por pieza, sangrado, movilidad y furca. Calcula solo los índices (profundidad promedio, % de sangrado, sitios de 4 y 6 mm, nivel de inserción) y los compara con el examen anterior.
 - **Laboratorios** (menú Laboratorios): cada trabajo encargado con paciente, pieza, importe y fecha de entrega; se marca **Recibido** al llegar. Los pagos al laboratorio quedan en Gastos (y salen de la caja si son en efectivo), y se ve cuánto se le debe a cada uno.
 
-> **Próximamente en CoreDental:** horarios por profesional, sueldos por porcentaje, campañas a pacientes y portal del paciente con turnos online.
+### Horarios, bloqueos y honorarios
+- **Horarios de cada profesional** (Configuración → Agenda → Horarios): días y horas en que atiende, también turno cortado, y cuánto dura un turno. Al dar un turno aparecen sus **horarios libres** para elegir con un toque; si se agenda fuera de horario avisa y se puede **agendar igual** (sobreturno). Las horas en que no atiende nadie se ven sombreadas. Sirve también en Prexacode (técnicos, salas).
+- **Bloquear horario** (en la agenda): vacaciones, congreso o feriado, de un profesional o de todo el consultorio, días enteros u horas. Se ve rayado y no deja dar turnos; si ya había turnos, los lista para reprogramarlos.
+- **Honorarios por porcentaje** (menú Honorarios): el porcentaje de cada profesional sobre lo que produjo en el mes (paciente + obra social), descontando su laboratorio si así se acordó. Pagos en partes, que quedan en Gastos y en la caja. Detalle por prestación.
+
+> **Próximamente en CoreDental:** campañas a pacientes y portal del paciente con turnos online.
 
 ---
 

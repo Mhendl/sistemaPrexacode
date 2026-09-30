@@ -1,10 +1,11 @@
 import { Recordatorios } from "./Recordatorios";
 import { productoActivo } from "@/config/brand";
 import { useEffect, useMemo, useState, type MouseEvent } from "react";
-import { CalendarPlus, ChevronLeft, ChevronRight, Plus, Settings2 } from "lucide-react";
+import { Ban, CalendarPlus, ChevronLeft, ChevronRight, Plus, Settings2 } from "lucide-react";
 import { Link, useSearchParams } from "react-router";
-import { useConfigAgenda, useEventos } from "@/api/hooks";
-import type { ConfigAgendaApi, EventoApi, EventoInput } from "@/api/types";
+import { useBloqueos, useConfigAgenda, useEventos } from "@/api/hooks";
+import type { BloqueoAgendaApi, ConfigAgendaApi, EventoApi, EventoInput, RecursoAgendaApi } from "@/api/types";
+import { BloqueoDialog, VerBloqueo } from "./BloqueoDialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -46,10 +47,13 @@ function Calendario({ config }: { config: ConfigAgendaApi }) {
   const [vista, setVista] = useState<"semana" | "dia">(() => (window.innerWidth < 768 ? "dia" : "semana"));
   const [ocultos, setOcultos] = useState<string[]>([]);
   const [dialogo, setDialogo] = useState<{ evento?: EventoApi; inicial?: Partial<EventoInput> } | null>(null);
+  const [bloqueando, setBloqueando] = useState(false);
+  const [verBloqueo, setVerBloqueo] = useState<BloqueoAgendaApi | null>(null);
 
   const lunes = lunesDe(fecha);
   const domingo = sumarDias(lunes, 6);
   const { data: eventos = [] } = useEventos(lunes, domingo);
+  const { data: bloqueos = [] } = useBloqueos(lunes, domingo);
   const recursoPorId = useMemo(() => new Map(config.recursos.map((r) => [r.id, r])), [config.recursos]);
   const miRecurso = config.recursos.find((r) => r.activo && r.usuarioId === usuario.id);
 
@@ -76,12 +80,15 @@ function Calendario({ config }: { config: ConfigAgendaApi }) {
 
   const dias = vista === "semana" ? Array.from({ length: 7 }, (_, i) => sumarDias(lunes, i)) : [fecha];
   const visibles = eventos.filter((e) => !ocultos.includes(e.recursoId));
+  const bloqueosVisibles = bloqueos.filter((b) => !b.recursoId || !ocultos.includes(b.recursoId));
+  const conHorario = config.recursos.filter((r) => r.activo && !ocultos.includes(r.id));
   // Recursos a mostrar: activos, más los desactivados que tengan algo esta semana
   const recursos = config.recursos.filter((r) => r.activo || eventos.some((e) => e.recursoId === r.id));
 
-  // Franja horaria: la configurada, ampliada si hay eventos fuera de ella
-  const desdeH = Math.floor(Math.min(aMin(config.horaInicio), ...visibles.map((e) => aMin(e.inicio))) / 60);
-  const hastaH = Math.ceil(Math.max(aMin(config.horaFin), ...visibles.map((e) => aMin(e.fin))) / 60);
+  // Franja horaria: la configurada, ampliada si hay eventos o alguien atiende fuera de ella
+  const franjas = conHorario.flatMap((r) => r.horarios);
+  const desdeH = Math.floor(Math.min(aMin(config.horaInicio), ...visibles.map((e) => aMin(e.inicio)), ...franjas.map((h) => aMin(h.desde))) / 60);
+  const hastaH = Math.ceil(Math.max(aMin(config.horaFin), ...visibles.map((e) => aMin(e.fin)), ...franjas.map((h) => aMin(h.hasta))) / 60);
   const horas = Array.from({ length: Math.max(1, hastaH - desdeH) }, (_, i) => desdeH + i);
 
   const titulo =
@@ -112,6 +119,11 @@ function Calendario({ config }: { config: ConfigAgendaApi }) {
         actions={
           <>
             {productoActivo() === "dental" && puede("agenda.editar") && <Recordatorios />}
+            <Si permiso="agenda.editar">
+              <Button variant="outline" onClick={() => setBloqueando(true)} disabled={sinRecursos}>
+                <Ban className="size-4" /> Bloquear horario
+              </Button>
+            </Si>
             {puede("configuracion") && (
               <Button variant="outline" asChild>
                 <Link to="/configuracion?tab=agenda">
@@ -227,6 +239,38 @@ function Calendario({ config }: { config: ConfigAgendaApi }) {
                   {horas.map((h) => (
                     <div key={h} data-hueco="1" className="border-b border-dashed border-border/70" style={{ height: HORA_PX }} />
                   ))}
+                  {fueraDeHorario(conHorario, f, desdeH * 60, hastaH * 60).map(([a, b]) => (
+                    <div key={a} data-hueco="1" data-testid="fuera-de-horario" className="absolute inset-x-0 bg-muted/60" style={{ top: ((a - desdeH * 60) / 60) * HORA_PX, height: ((b - a) / 60) * HORA_PX }} />
+                  ))}
+                  {bloqueosVisibles
+                    .filter((b) => b.desde <= f && f <= b.hasta)
+                    .map((b) => {
+                      const a = b.horaDesde ? Math.max(aMin(b.horaDesde), desdeH * 60) : desdeH * 60;
+                      const z = b.horaHasta ? Math.min(aMin(b.horaHasta), hastaH * 60) : hastaH * 60;
+                      if (z <= a) return null;
+                      const quien = b.recursoId ? (recursoPorId.get(b.recursoId)?.nombre ?? "") : "Toda la agenda";
+                      return (
+                        <button
+                          key={b.id}
+                          type="button"
+                          data-testid="bloqueo-agenda"
+                          aria-label={`Bloqueado: ${b.motivo}, ${quien}`}
+                          onClick={(ev) => {
+                            ev.stopPropagation();
+                            setVerBloqueo(b);
+                          }}
+                          className="absolute inset-x-0.5 overflow-hidden rounded-md border border-dashed border-muted-foreground/40 px-2 py-1 text-left text-[11px] text-muted-foreground"
+                          style={{
+                            top: ((a - desdeH * 60) / 60) * HORA_PX + 1,
+                            height: ((z - a) / 60) * HORA_PX - 2,
+                            background: "repeating-linear-gradient(135deg, color-mix(in oklch, var(--muted-foreground) 10%, transparent) 0 6px, transparent 6px 12px)",
+                          }}
+                        >
+                          <span className="font-medium">{b.motivo}</span>
+                          <span className="block truncate">{quien}</span>
+                        </button>
+                      );
+                    })}
                   {conCarriles(visibles.filter((e) => e.fecha === f)).map(({ evento, carril, carriles }) => (
                     <EventoBloque
                       key={evento.id}
@@ -248,8 +292,31 @@ function Calendario({ config }: { config: ConfigAgendaApi }) {
       </Card>
 
       <EventoDialog open={!!dialogo} onOpenChange={(o) => !o && setDialogo(null)} config={config} evento={dialogo?.evento} inicial={dialogo?.inicial} />
+      <BloqueoDialog open={bloqueando} onOpenChange={setBloqueando} config={config} fecha={fecha < hoy ? hoy : fecha} recursoId={miRecurso?.id} />
+      <VerBloqueo bloqueo={verBloqueo} nombre={verBloqueo?.recursoId ? (recursoPorId.get(verBloqueo.recursoId)?.nombre ?? "") : "Toda la agenda"} onClose={() => setVerBloqueo(null)} puedeQuitar={puede("agenda.editar")} />
     </>
   );
+}
+
+/**
+ * Tramos del día en que no atiende ninguno de los que se están viendo (para sombrearlos).
+ * Si alguno no tiene horarios cargados, atiende siempre: no se sombrea nada.
+ */
+function fueraDeHorario(recursos: RecursoAgendaApi[], fecha: string, desde: number, hasta: number): [number, number][] {
+  if (!recursos.length || recursos.some((r) => !r.horarios.length)) return [];
+  const dia = aFecha(fecha).getDay();
+  const franjas = recursos
+    .flatMap((r) => r.horarios.filter((h) => h.dia === dia))
+    .map((h) => [aMin(h.desde), aMin(h.hasta)] as [number, number])
+    .sort((a, b) => a[0] - b[0]);
+  const out: [number, number][] = [];
+  let cursor = desde;
+  for (const [a, b] of franjas) {
+    if (a > cursor) out.push([cursor, Math.min(a, hasta)]);
+    cursor = Math.max(cursor, b);
+  }
+  if (cursor < hasta) out.push([cursor, hasta]);
+  return out.filter(([a, b]) => b > a);
 }
 
 /** Reparte los eventos superpuestos en carriles lado a lado */

@@ -518,6 +518,10 @@ export const agendaRecursos = pgTable(
     /** Opcional: el usuario del sistema que corresponde a este recurso (recibe los avisos) */
     usuarioId: uuid("usuario_id").references(() => usuarios.id, { onDelete: "set null" }),
     activo: boolean("activo").notNull().default(true),
+    /** Días y horarios en que atiende (dia: 0 domingo … 6 sábado; puede tener dos franjas el mismo día). Vacío: sin restricción */
+    horarios: jsonb("horarios").$type<{ dia: number; desde: string; hasta: string }[]>().notNull().default([]),
+    /** Duración habitual de un turno, en minutos (para ofrecer los horarios libres) */
+    duracionTurno: integer("duracion_turno").notNull().default(30),
     version: version(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -1306,6 +1310,9 @@ export const gastos = pgTable(
     comprobante: text("comprobante"),
     /** Pago a un laboratorio (baja su saldo) */
     laboratorioId: uuid("laboratorio_id").references(() => laboratorios.id, { onDelete: "set null" }),
+    /** Pago de honorarios a un profesional, por el mes (aaaa-mm) que se le liquida */
+    honorariosUsuarioId: uuid("honorarios_usuario_id").references(() => usuarios.id, { onDelete: "set null" }),
+    honorariosMes: text("honorarios_mes"),
     usuarioId: uuid("usuario_id").references(() => usuarios.id, { onDelete: "set null" }),
     cargadoPor: text("cargado_por").notNull(),
     anuladoEn: timestamp("anulado_en", { withTimezone: true }),
@@ -1482,4 +1489,45 @@ export const periodontogramas = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("periodontogramas_paciente_idx").on(t.pacienteId, t.fecha)],
+);
+
+/* ---------------------------------------------------------------- Agenda: bloqueos y honorarios */
+
+/** Horario bloqueado (vacaciones, congreso, feriado): no se dan turnos. Sin recurso: bloquea a todos */
+export const agendaBloqueos = pgTable(
+  "agenda_bloqueos",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    empresaId: uuid("empresa_id")
+      .notNull()
+      .references(() => empresas.id, { onDelete: "cascade" }),
+    recursoId: uuid("recurso_id").references(() => agendaRecursos.id, { onDelete: "cascade" }),
+    desde: text("desde").notNull(),
+    hasta: text("hasta").notNull(),
+    /** Sin horas: el día completo */
+    horaDesde: text("hora_desde"),
+    horaHasta: text("hora_hasta"),
+    motivo: text("motivo").notNull(),
+    creadoPor: text("creado_por").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("agenda_bloqueos_empresa_idx").on(t.empresaId, t.desde)],
+);
+
+/** Honorarios por porcentaje de cada profesional (CoreDental): sobre lo que produjo en el mes */
+export const honorariosConfig = pgTable(
+  "honorarios_config",
+  {
+    empresaId: uuid("empresa_id")
+      .notNull()
+      .references(() => empresas.id, { onDelete: "cascade" }),
+    usuarioId: uuid("usuario_id")
+      .notNull()
+      .references(() => usuarios.id, { onDelete: "cascade" }),
+    porcentaje: numeric("porcentaje", { precision: 5, scale: 2, mode: "number" }).notNull(),
+    /** Si se le descuenta el costo de los trabajos de laboratorio que encargó */
+    descontarLaboratorio: boolean("descontar_laboratorio").notNull().default(true),
+    version: version(),
+  },
+  (t) => [primaryKey({ columns: [t.empresaId, t.usuarioId] })],
 );

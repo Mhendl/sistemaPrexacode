@@ -467,13 +467,52 @@ export interface LibroIvaApi extends Periodo {
 
 export type EstadoEvento = "Pendiente" | "Confirmado" | "Realizado" | "Ausente" | "Cancelado";
 
+export interface FranjaHorario {
+  /** 0 domingo … 6 sábado */
+  dia: number;
+  desde: string;
+  hasta: string;
+}
+
 export interface RecursoAgendaApi {
   id: string;
   nombre: string;
   color: string;
   usuarioId: string | null;
   activo: boolean;
+  /** Días y horarios de atención (vacío: sin restricción) */
+  horarios: FranjaHorario[];
+  duracionTurno: number;
   version: number;
+}
+
+export interface BloqueoAgendaApi {
+  id: string;
+  /** Sin recurso: bloquea a todos */
+  recursoId: string | null;
+  desde: string;
+  hasta: string;
+  horaDesde: string | null;
+  horaHasta: string | null;
+  motivo: string;
+  creadoPor: string;
+}
+
+export interface BloqueoAgendaInput {
+  recursoId: string | null;
+  desde: string;
+  hasta: string;
+  horaDesde: string | null;
+  horaHasta: string | null;
+  motivo: string;
+}
+
+export interface DisponiblesApi {
+  duracion: number;
+  conHorarios: boolean;
+  horario: string | null;
+  bloqueo: string | null;
+  libres: string[];
 }
 
 export interface ConfigAgendaApi {
