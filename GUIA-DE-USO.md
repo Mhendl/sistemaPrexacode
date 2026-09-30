@@ -237,7 +237,8 @@ Turnos del día (cada profesional puede ver solo los suyos), pacientes activos y
 ### Turnos online
 - **Link de turnos online** (Configuración → Agenda → Turnos online): el paciente elige profesional, día y horario libre, y deja nombre, DNI y celular. El turno entra a la agenda como «Turno online», al consultorio le llega el aviso y al paciente (si dejó email) la confirmación con el link para confirmar o cancelar. Por DNI se usa la ficha existente; si es nuevo se da de alta con «faltan datos». Hasta dos turnos online pendientes por paciente, anticipación mínima y días máximos configurables, link renovable. Ideal para la bio de Instagram, Google y WhatsApp.
 
-> **Próximamente en CoreDental:** campañas a pacientes (recordatorio de control, cumpleaños, deudores).
+### Campañas
+- **Campañas** (menú Pacientes → Campañas): a quién (los que no vienen hace N meses y no tienen turno, cumpleaños del mes, deudores, afiliados de una obra social, todos), por dónde (email automático con link de baja, o WhatsApp con un toque por paciente) y qué decir, con {nombre}, {consultorio}, {saldo} y {link_turnos}. Vista previa de a cuántos llega y cómo se ve. Hasta 1000 emails por día para cuidar la entrega. El paciente puede darse de baja desde el email o se destilda en su ficha («Acepta recibir campañas»).
 
 ---
 

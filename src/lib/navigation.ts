@@ -21,6 +21,7 @@ import {
   Landmark,
   ReceiptText,
   Percent,
+  Megaphone,
 } from "lucide-react";
 import { productoActivo, type ProductoId } from "@/config/brand";
 import type { Acceso, NavItem, NavSection, Role } from "@/types";
@@ -94,6 +95,7 @@ const seccionesDental: NavSection[] = [
     items: [
       { path: "/pacientes", label: "Pacientes", icon: Contact, permisos: ["pacientes.ver"], description: "Ficha, historia clínica y odontograma de cada paciente" },
       { ...item("/agenda"), label: "Turnos", description: "Agenda de turnos por profesional" },
+      { path: "/campanas", label: "Campañas", icon: Megaphone, permisos: ["pacientes.editar"], description: "Control, cumpleaños y novedades a grupos de pacientes" },
     ],
   },
   {

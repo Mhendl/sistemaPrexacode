@@ -225,6 +225,13 @@
       "when": 1790771512955,
       "tag": "0031_turnos_online",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1790772587871,
+      "tag": "0032_campanas",
+      "breakpoints": true
     }
   ]
 }

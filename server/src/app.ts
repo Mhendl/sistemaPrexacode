@@ -1,3 +1,4 @@
+import { bajaCampanasRoutes, campanasRoutes } from "./routes/campanas.js";
 import { reservasRoutes } from "./routes/reservas.js";
 import { honorariosRoutes } from "./routes/honorarios.js";
 import { laboratoriosRoutes } from "./routes/laboratorios.js";
@@ -266,6 +267,8 @@ export async function buildApp({ db, jwtSecret, logger = false, conectorArca, ca
   await app.register(clinicaRoutes, { prefix: "/api/clinica" });
   await app.register(turnosPublicosRoutes, { prefix: "/api/publico/turnos" });
   await app.register(reservasRoutes, { prefix: "/api/publico/reservas" });
+  await app.register(campanasRoutes, { prefix: "/api/campanas" });
+  await app.register(bajaCampanasRoutes, { prefix: "/api/publico/baja-campanas" });
   app.get("/api/publico/medicion", async () => medicion ?? { ga: null, metaPixel: null });
   if (adminInicial) await crearAdminInicial(db, adminInicial.email, adminInicial.password);
 

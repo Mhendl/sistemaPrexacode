@@ -65,6 +65,8 @@ const pacienteSchema = z.object({
   intervenciones: texto(4000),
   notas: texto(2000),
   estado: z.enum(["Activo", "Inactivo"]).optional(),
+  /** Acepta recibir campañas */
+  recibeCampanas: z.boolean().optional(),
 });
 
 const listaSchema = z.object({ q: z.string().trim().max(100).optional(), estado: z.enum(["Activo", "Inactivo"]).optional() });

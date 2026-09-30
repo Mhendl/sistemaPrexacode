@@ -1,3 +1,4 @@
+import { BajaCampanasPage, CampanaPage, CampanasPage, NuevaCampanaPage } from "@/modules/campanas/CampanasPage";
 import { ReservaPage } from "@/modules/agenda/ReservaPage";
 import { HonorariosPage } from "@/modules/consultorio/HonorariosPage";
 import { LaboratorioPage, LaboratoriosPage } from "@/modules/clinica/LaboratoriosPage";
@@ -125,6 +126,7 @@ export default function App() {
                 <Route path="ver/:token" element={<DocumentoPublicoPage />} />
                 <Route path="turno/:token" element={<TurnoPublicoPage />} />
                 <Route path="reservar/:codigo" element={<ReservaPage />} />
+                <Route path="baja-campanas/:token" element={<BajaCampanasPage />} />
                 {/* Panel de administración de Prexacode: login y sesión propios */}
                 <Route path="admin/*" element={<AdminApp />} />
                 <Route element={<Protegido><AppLayout /></Protegido>}>
@@ -152,6 +154,9 @@ export default function App() {
                   <Route path="liquidacion" element={<LiquidacionPage />} />
                   <Route path="laboratorios" element={<LaboratoriosPage />} />
                   <Route path="honorarios" element={<HonorariosPage />} />
+                  <Route path="campanas" element={<CampanasPage />} />
+                  <Route path="campanas/nueva" element={<NuevaCampanaPage />} />
+                  <Route path="campanas/:id" element={<CampanaPage />} />
                   <Route path="laboratorios/:id" element={<LaboratorioPage />} />
                   <Route path="pacientes/:id/recibos/:pagoId" element={<ReciboPacientePage />} />
                   <Route path="cobranzas/nuevo" element={<NuevoReciboPage />} />

@@ -377,6 +377,18 @@ export const ARTICULOS: Articulo[] = [
     consejo: "Si el link se difundió donde no querías, tocá «Crear un link nuevo»: el anterior deja de funcionar.",
   },
   {
+    id: "dental-campanas",
+    titulo: "Campañas: control, cumpleaños y novedades a tus pacientes",
+    seccion: "Pacientes",
+    producto: "dental",
+    path: "/campanas",
+    permisos: ["pacientes.editar"],
+    palabras: "campaña campañas email masivo whatsapp control recordatorio cumpleaños deudores obra social novedades marketing baja",
+    texto: "En Campañas elegís a quién: los que no vienen hace unos meses (y no tienen turno), los que cumplen años en el mes, los que deben, los afiliados de una obra social o todos. Después, por dónde: por email salen solos, con un link para darse de baja; por WhatsApp te queda la lista y mandás cada uno con un toque. El mensaje se personaliza con {nombre}, {consultorio}, {saldo} y el link de turnos online ({link_turnos}). Los pacientes que se dieron de baja o no aceptan campañas nunca la reciben.",
+    pasos: ["Entrá a Campañas → Nueva campaña.", "Elegí el grupo y el canal: a la derecha ves a cuántos les llega.", "Revisá el mensaje (a la derecha ves cómo queda).", "Tocá Mandar y confirmá."],
+    consejo: "La que más turnos trae: «Control» a los que no vienen hace 6 meses, con el link de turnos online.",
+  },
+  {
     id: "dental-honorarios",
     titulo: "Honorarios por porcentaje de los profesionales",
     seccion: "Pacientes",

@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { manejarErrorGuardado } from "@/api/errores";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +34,7 @@ const vacio: PacienteInput = {
   antecedentes: "",
   intervenciones: "",
   notas: "",
+  recibeCampanas: true,
 };
 
 const Grupo = ({ titulo, children }: { titulo: string; children: React.ReactNode }) => (
@@ -226,6 +228,13 @@ export function PacienteFormDialog({ open, onOpenChange, paciente, inicial, onSa
             <Label htmlFor="pac-notas">Notas administrativas</Label>
             <Textarea id="pac-notas" rows={2} value={datos.notas ?? ""} onChange={set("notas")} placeholder="Ej.: prefiere turnos a la tarde" />
           </div>
+          <label className="flex items-start gap-2 text-sm sm:col-span-2">
+            <Checkbox checked={datos.recibeCampanas !== false} onCheckedChange={(v) => setDatos((d) => ({ ...d, recibeCampanas: !!v }))} className="mt-0.5" aria-label="Acepta recibir campañas" />
+            <span>
+              Acepta recibir campañas
+              <span className="block text-xs text-muted-foreground">Recordatorios de control, saludo de cumpleaños y novedades del consultorio.</span>
+            </span>
+          </label>
 
           <DialogFooter className="sm:col-span-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

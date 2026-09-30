@@ -1021,6 +1021,10 @@ export const pacientes = pgTable(
     notas: text("notas"),
     /** Alta rápida desde un turno: faltan datos por completar */
     datosPendientes: boolean("datos_pendientes").notNull().default(false),
+    /** Acepta recibir campañas (control, cumpleaños, novedades). Se da de baja con el link del email */
+    recibeCampanas: boolean("recibe_campanas").notNull().default(true),
+    /** Para el link de baja de las campañas (se crea la primera vez) */
+    tokenCampanas: text("token_campanas").unique(),
     estado: text("estado").notNull().default("Activo"),
     version: version(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -1542,4 +1546,56 @@ export const honorariosConfig = pgTable(
     version: version(),
   },
   (t) => [primaryKey({ columns: [t.empresaId, t.usuarioId] })],
+);
+
+/* ---------------------------------------------------------------- CoreDental: campañas a pacientes */
+
+/** Un envío masivo a un grupo de pacientes (control, cumpleaños, deudores…), por email o WhatsApp */
+export const campanas = pgTable(
+  "campanas",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    empresaId: uuid("empresa_id")
+      .notNull()
+      .references(() => empresas.id, { onDelete: "cascade" }),
+    nombre: text("nombre").notNull(),
+    /** Email | WhatsApp */
+    canal: text("canal").notNull(),
+    /** todos | sin_visita | cumpleanos | deudores | obra_social */
+    segmento: text("segmento").notNull(),
+    /** Meses sin venir, mes del cumpleaños o la obra social */
+    parametro: text("parametro"),
+    asunto: text("asunto"),
+    mensaje: text("mensaje").notNull(),
+    destinatarios: integer("destinatarios").notNull(),
+    creadoPor: text("creado_por").notNull(),
+    usuarioId: uuid("usuario_id").references(() => usuarios.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("campanas_empresa_idx").on(t.empresaId, t.createdAt)],
+);
+
+export const campanaEnvios = pgTable(
+  "campana_envios",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    campanaId: uuid("campana_id")
+      .notNull()
+      .references(() => campanas.id, { onDelete: "cascade" }),
+    empresaId: uuid("empresa_id")
+      .notNull()
+      .references(() => empresas.id, { onDelete: "cascade" }),
+    pacienteId: uuid("paciente_id")
+      .notNull()
+      .references(() => pacientes.id, { onDelete: "cascade" }),
+    /** El email o el teléfono al que se mandó */
+    destino: text("destino").notNull(),
+    /** El mensaje ya personalizado */
+    texto: text("texto").notNull(),
+    /** Pendiente | Enviado | Simulado | Error */
+    estado: text("estado").notNull().default("Pendiente"),
+    error: text("error"),
+    enviadoEn: timestamp("enviado_en", { withTimezone: true }),
+  },
+  (t) => [index("campana_envios_campana_idx").on(t.campanaId), index("campana_envios_empresa_idx").on(t.empresaId, t.enviadoEn)],
 );

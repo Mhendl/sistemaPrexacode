@@ -43,6 +43,8 @@ export interface PacienteInput {
   intervenciones: string | null;
   notas: string | null;
   estado?: "Activo" | "Inactivo";
+  /** Acepta recibir campañas (control, cumpleaños, novedades) */
+  recibeCampanas?: boolean;
 }
 
 export interface PacienteApi extends PacienteInput {
