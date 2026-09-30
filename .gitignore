@@ -7,3 +7,6 @@ server/.data
 server/dist
 backups
 .env
+
+# Listas de prospección (datos de contacto): nunca al repositorio
+listas/
