@@ -4,7 +4,7 @@ import { z } from "zod";
 import { empresas, interesados, prospeccionCampanas, prospeccionConfig, prospeccionEnvios, prospectos, usuarios } from "../db/schema.js";
 import { requirePlataforma } from "../lib/auth.js";
 import { badRequest, conflict, notFound, parse } from "../lib/errors.js";
-import { configProspeccion, enviarProspeccion, nuevoToken, PLANTILLAS, topeDelDia } from "../lib/prospeccion.js";
+import { configProspeccion, enviarProspeccion, nuevoToken, PLANTILLAS, registrarVisita, topeDelDia } from "../lib/prospeccion.js";
 import { ahoraAr } from "../lib/turnos.js";
 
 const idSchema = z.object({ id: z.string().uuid("Id inválido") });
@@ -134,10 +134,16 @@ export const prospeccionAdminRoutes: FastifyPluginAsync = async (app) => {
       .innerJoin(prospectos, eq(prospectos.id, prospeccionEnvios.prospectoId))
       .where(eq(prospeccionEnvios.estado, "Enviado"))
       .groupBy(prospectos.campanaId);
+    const visitas = await app.db
+      .select({ id: prospectos.campanaId, n: sql<number>`count(*)::int` })
+      .from(prospectos)
+      .where(sql`${prospectos.visitoEn} is not null`)
+      .groupBy(prospectos.campanaId);
     return lista.map((c) => {
       const de = (e: string) => Number(conteos.find((x) => x.id === c.id && x.estado === e)?.n ?? 0);
       const total = conteos.filter((x) => x.id === c.id).reduce((a, x) => a + Number(x.n), 0);
-      return { ...c, total, pendientes: de("Pendiente") + de("En curso"), respondieron: de("Respondió"), bajas: de("Baja"), rebotes: de("Rebotó"), terminados: de("Terminado"), emailsEnviados: Number(enviados.find((x) => x.id === c.id)?.n ?? 0) };
+      const visitaron = Number(visitas.find((x) => x.id === c.id)?.n ?? 0);
+      return { ...c, total, visitaron, registrados: de("Registrado"), pendientes: de("Pendiente") + de("En curso"), respondieron: de("Respondió"), bajas: de("Baja"), rebotes: de("Rebotó"), terminados: de("Terminado"), emailsEnviados: Number(enviados.find((x) => x.id === c.id)?.n ?? 0) };
     });
   });
 
@@ -221,7 +227,7 @@ export const prospeccionAdminRoutes: FastifyPluginAsync = async (app) => {
   /** Marcar a mano (ej.: respondió por teléfono, o no quiere más emails) */
   app.put("/prospectos/:id", async (req) => {
     const { id } = parse(idSchema, req.params);
-    const d = parse(z.object({ estado: z.enum(["Pendiente", "En curso", "Respondió", "Baja", "Rebotó", "Terminado"]), nota: texto(1000) }), req.body);
+    const d = parse(z.object({ estado: z.enum(["Pendiente", "En curso", "Respondió", "Registrado", "Baja", "Rebotó", "Terminado"]), nota: texto(1000) }), req.body);
     const [actual] = await app.db.select().from(prospectos).where(eq(prospectos.id, id));
     if (!actual) throw notFound("No encontrado");
     if (actual.estado === "Baja" && d.estado !== "Baja") throw conflict("Pidió no recibir más emails: no se le puede volver a escribir");
@@ -241,6 +247,12 @@ export const prospeccionPublicaRoutes: FastifyPluginAsync = async (app) => {
   app.get("/:token", { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (req) => {
     const p = await de(parse(tokenSchema, req.params).token);
     return { dadoDeBaja: p.estado === "Baja" };
+  });
+  /** La landing avisa que la persona entró desde el link del email (no importa si el link no es válido) */
+  app.post("/visita/:token", { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (req, reply) => {
+    const { token } = parse(tokenSchema, req.params);
+    await registrarVisita(app, token);
+    return reply.status(204).send();
   });
   app.post("/:token", { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (req) => {
     const p = await de(parse(tokenSchema, req.params).token);

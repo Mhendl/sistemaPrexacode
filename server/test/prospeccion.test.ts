@@ -182,4 +182,44 @@ describe("prospección de punta a punta", () => {
     buzon.estado.falla = false;
     expect((await api("GET", "/config")).json().ultimoError).toMatch(/No se pudo leer la casilla/);
   });
+
+  it("la visita a la página y el registro a la prueba desde el email quedan anotados; el que se registró sale de la secuencia", async () => {
+    bandeja.length = 0;
+    const plantillas = (await api("GET", "/plantillas")).json();
+    // El email lleva a la página para probar gratis; responder es opcional
+    expect(plantillas.dental[0].cuerpo).toContain("creás tu cuenta en 2 minutos y ya lo estás usando: 14 días gratis, sin tarjeta y sin tener que hablar con nadie. {link}");
+    expect(plantillas.dental[0].cuerpo).toContain("Si te surge alguna duda, respondeme este email.");
+    const id = (await api("POST", "/campanas", { nombre: "Consultorios de Palermo", producto: "dental", pasos: plantillas.dental })).json().id;
+    await api("POST", `/campanas/${id}/importar`, { confirmar: true, filas: [{ email: "hola@sonrisaspalermo.com", nombre: "Laura", empresa: "Sonrisas Palermo", ciudad: "Palermo" }] });
+    await api("POST", "/config/activa", { activa: true });
+    const lunes = new Date("2026-10-19T13:00:00Z");
+    // (primero puede salir alguno que quedó pendiente de antes)
+    for (let i = 0; i < 4 && !correo.enviados.some((e) => e.mensaje.para === "hola@sonrisaspalermo.com"); i++) await tickProspeccion(app, mas(lunes, i * 60));
+    const texto = correo.enviados.find((e) => e.mensaje.para === "hola@sonrisaspalermo.com")!.mensaje.texto;
+    const t = /r=([A-Za-z0-9_-]+)/.exec(texto)![1]!;
+
+    // Entra dos veces a la página (lo avisa la landing)
+    for (let i = 0; i < 2; i++) expect((await app.inject({ method: "POST", url: `/api/publico/baja-prospecto/visita/${t}` })).statusCode).toBe(204);
+    expect((await app.inject({ method: "POST", url: "/api/publico/baja-prospecto/visita/token-que-no-existe" })).statusCode).toBe(204);
+    let p = (await api("GET", `/prospectos?campanaId=${id}`)).json()[0];
+    expect(p).toMatchObject({ visitas: 2, estado: "En curso" });
+    expect(p.visitoEn).toBeTruthy();
+    expect((await api("GET", "/campanas")).json().find((c: { id: string }) => c.id === id)).toMatchObject({ visitaron: 1, registrados: 0 });
+
+    // Se registra a la prueba con el link del email
+    const alta = await app.inject({
+      method: "POST",
+      url: "/api/auth/registro",
+      payload: { empresa: { razonSocial: "Sonrisas Palermo", cuit: cuitValido("20"), condicionIva: "Monotributista" }, usuario: { nombre: "Laura", email: emailUnico("laura"), password: "clave-segura-123" }, aceptaTerminos: true, producto: "dental", prospecto: t },
+    });
+    expect(alta.statusCode, alta.body).toBe(201);
+    p = (await api("GET", `/prospectos?campanaId=${id}`)).json()[0];
+    expect(p).toMatchObject({ estado: "Registrado", nota: "Se registró a la prueba gratis desde el email" });
+    expect(p.empresaId).toBeTruthy();
+    expect((await api("GET", "/campanas")).json().find((c: { id: string }) => c.id === id)).toMatchObject({ registrados: 1 });
+    // Ya no le llega el recordatorio
+    const aElla = () => correo.enviados.filter((e) => e.mensaje.para === "hola@sonrisaspalermo.com").length;
+    for (let i = 0; i < 10; i++) await tickProspeccion(app, mas(new Date("2026-10-26T13:00:00Z"), i * 60));
+    expect(aElla()).toBe(1);
+  });
 });

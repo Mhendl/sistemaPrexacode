@@ -22,6 +22,17 @@ function codigoReferido(): string | null {
   }
 }
 import { useAuth } from "@/context/AuthProvider";
+
+/** De qué email de prospección vino (?p=): se recuerda aunque pase por otras pantallas */
+function prospectoDeOrigen(): string | null {
+  try {
+    const p = new URLSearchParams(window.location.search).get("p");
+    if (p) sessionStorage.setItem("prexacode-prospecto", p);
+    return p ?? sessionStorage.getItem("prexacode-prospecto");
+  } catch {
+    return null;
+  }
+}
 import { AuthLayout } from "./AuthLayout";
 
 const condiciones = ["Responsable Inscripto", "Monotributista", "Exento"];
@@ -37,6 +48,7 @@ export function RegistroPage() {
   // Si vino con un link de recomendación, se recuerda desde que abre la página
   useEffect(() => {
     codigoReferido();
+    prospectoDeOrigen();
   }, []);
 
   const submit = async (e: React.FormEvent) => {
@@ -50,6 +62,7 @@ export function RegistroPage() {
         usuario: { nombre: f.nombre, email: f.email, password: f.password },
         aceptaTerminos: acepta,
         ref: codigoReferido(),
+        prospecto: prospectoDeOrigen(),
       });
       conversionRegistro(productoActivo());
       toast.success(`¡Bienvenido a ${brand.nombre}!`);

@@ -1691,6 +1691,12 @@ export const prospectos = pgTable(
     ultimoEnvio: timestamp("ultimo_envio", { withTimezone: true }),
     /** Para el link de baja y para saber de qué email vino si pide una demo */
     token: text("token").notNull().unique(),
+    /** Entró a la página desde el link del email (la primera vez) y cuántas veces */
+    visitoEn: timestamp("visito_en", { withTimezone: true }),
+    visitas: integer("visitas").notNull().default(0),
+    /** Se registró a la prueba gratis desde el email: la empresa que creó */
+    registradoEn: timestamp("registrado_en", { withTimezone: true }),
+    empresaId: uuid("empresa_id").references(() => empresas.id, { onDelete: "set null" }),
     nota: text("nota"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

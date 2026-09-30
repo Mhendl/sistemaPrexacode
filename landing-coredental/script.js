@@ -89,3 +89,21 @@ document.querySelectorAll('.feature-block, .benefit-card, .pricing-card, .faq-it
     el.classList.add('fade-up');
     observer.observe(el);
 });
+
+// ===== Vino desde un email de prospección (?r=…): se avisa la visita y el "Probar gratis" lo recuerda =====
+(function () {
+    var r = null;
+    try {
+        r = new URLSearchParams(location.search).get('r');
+        if (r) sessionStorage.setItem('prospecto', r); else r = sessionStorage.getItem('prospecto');
+    } catch (e) {}
+    if (!r || !/^[A-Za-z0-9_-]{10,40}$/.test(r)) return;
+    try {
+        if (new URLSearchParams(location.search).get('r')) fetch('https://app.coredental.com.ar/api/publico/baja-prospecto/visita/' + r, { method: 'POST', keepalive: true }).catch(function () {});
+    } catch (e) {}
+    document.querySelectorAll('a[href*="/registro"]').forEach(function (a) {
+        var u = new URL(a.href);
+        u.searchParams.set('p', r);
+        a.href = u.toString();
+    });
+})();

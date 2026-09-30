@@ -1,3 +1,4 @@
+import { registrarAlta } from "../lib/prospeccion.js";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { and, eq, gt, isNull } from "drizzle-orm";
 import type { FastifyPluginAsync } from "fastify";
@@ -29,6 +30,8 @@ const registroSchema = z.object({
   }),
   /** Código de quien lo recomendó (link /registro?ref=…) */
   ref: z.string().trim().max(20).optional().nullable(),
+  /** Vino desde un email de prospección (link con ?p=…) */
+  prospecto: z.string().trim().max(40).optional().nullable(),
   /** Qué producto contrata (lo define la dirección web desde la que se registra) */
   producto: z.enum(PRODUCTO_IDS).default("gestion"),
   aceptaTerminos: z.literal(true, { errorMap: () => ({ message: "Tenés que aceptar los Términos y Condiciones y la Política de Privacidad" }) }),
@@ -87,6 +90,8 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       });
       return { empresa, usuario };
     });
+
+    if (body.prospecto) await registrarAlta(app, body.prospecto, empresa.id).catch((e) => app.log.warn(e, "No se pudo marcar el alta del prospecto"));
 
     // Bienvenida (no frena el registro si el correo falla)
     const marca = marcaDe(empresa.producto);

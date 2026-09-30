@@ -30,6 +30,8 @@ export interface RegistroInput {
   aceptaTerminos: boolean;
   /** Código de quien lo recomendó (link /registro?ref=…) */
   ref?: string | null;
+  /** Vino desde un email de prospección */
+  prospecto?: string | null;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);

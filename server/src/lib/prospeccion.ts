@@ -139,6 +139,24 @@ const transporteDe = (app: FastifyInstance, c: Config) => ({
   password: app.cifrador.descifrar(c.passwordCifrada!),
 });
 
+/** Entró a la página desde el link del email (lo avisa la landing) */
+export async function registrarVisita(app: FastifyInstance, token: string) {
+  const [p] = await app.db
+    .update(prospectos)
+    .set({ visitas: sql`${prospectos.visitas} + 1`, visitoEn: sql`coalesce(${prospectos.visitoEn}, now())` })
+    .where(eq(prospectos.token, token))
+    .returning({ id: prospectos.id });
+  return !!p;
+}
+
+/** Se registró a la prueba desde el email: sale de la secuencia (ya no hay que convencerlo) */
+export async function registrarAlta(app: FastifyInstance, token: string, empresaId: string) {
+  await app.db
+    .update(prospectos)
+    .set({ estado: "Registrado", registradoEn: new Date(), empresaId, nota: "Se registró a la prueba gratis desde el email" })
+    .where(and(eq(prospectos.token, token), inArray(prospectos.estado, ["Pendiente", "En curso", "Terminado", "Respondió"])));
+}
+
 /** Manda un email con la casilla de prospección */
 export async function enviarProspeccion(app: FastifyInstance, c: Config, para: string, asunto: string, texto: string) {
   await app.cartero.enviar(transporteDe(app, c), {
@@ -282,26 +300,29 @@ export async function tickProspeccion(app: FastifyInstance, ahora = new Date()):
   return "enviado";
 }
 
-/** Secuencias sugeridas: cortas, en primera persona y con una sola pregunta */
+/**
+ * Secuencias sugeridas: cortas y en primera persona. El pedido principal es mirar la página y probarlo gratis
+ * (se vende solo); responder queda para quien tenga dudas.
+ */
 export const PLANTILLAS: Record<"dental" | "gestion", { dias: number; asunto: string; cuerpo: string }[]> = {
   dental: [
     {
       dias: 0,
       asunto: "Turnos online para {empresa}",
       cuerpo:
-        "Hola {nombre},\n\nTe escribo porque vi {empresa} en {ciudad} y quería contarte de CoreDental, un sistema para consultorios odontológicos hecho en Argentina.\n\nEn un solo lugar tenés la historia clínica con odontograma, los turnos (los pacientes pueden sacarlos solos online) con recordatorio por WhatsApp o email para que confirmen, y la liquidación de cada obra social lista a fin de mes.\n\n¿Te sirve que te lo muestre en 15 minutos, cuando te quede cómodo? Si preferís mirarlo solo, se prueba 14 días gratis: {link}\n\nSaludos,\n{firma}",
+        "Hola {nombre},\n\nVi {empresa} en {ciudad} y quería contarte de CoreDental, un sistema para consultorios odontológicos hecho en Argentina: historia clínica con odontograma, turnos online con recordatorio para que los pacientes confirmen, y la liquidación de obras sociales lista a fin de mes.\n\nLo mirás acá y, si te gusta, creás tu cuenta en 2 minutos y ya lo estás usando: 14 días gratis, sin tarjeta y sin tener que hablar con nadie. {link}\n\nSi te surge alguna duda, respondeme este email.\n\nSaludos,\n{firma}",
     },
     {
       dias: 3,
       asunto: "",
       cuerpo:
-        "Hola {nombre}, te escribo de nuevo por si se te pasó.\n\nUn detalle que a los consultorios les resulta útil: con CoreDental el paciente recibe el recordatorio con un botón para confirmar o cancelar, y si cancela, el horario queda libre en la agenda para dárselo a otro.\n\n¿Querés que lo veamos juntos? {link}\n\n{firma}",
+        "Hola {nombre}, te escribo de nuevo por si se te pasó.\n\nUn detalle que a los consultorios les resulta útil: el paciente recibe el recordatorio con un botón para confirmar o cancelar, y si cancela, el horario queda libre en la agenda para dárselo a otro.\n\nCreás tu cuenta en 2 minutos y lo probás gratis: {link}\n\n{firma}",
     },
     {
       dias: 5,
       asunto: "",
       cuerpo:
-        "Hola {nombre}, este es mi último email, no quiero llenarte la casilla.\n\nSi en algún momento querés ordenar la agenda, las historias clínicas o las obras sociales del consultorio, respondeme este email y lo vemos. Y si no es para vos, ¡gracias igual por leer!\n\n{firma}",
+        "Hola {nombre}, este es mi último email, no quiero llenarte la casilla.\n\nSi en algún momento querés ordenar la agenda, las historias clínicas o las obras sociales del consultorio, creás tu cuenta en 2 minutos y lo probás 14 días gratis: {link}\n\n¡Gracias por leer!\n{firma}",
     },
   ],
   gestion: [
@@ -309,19 +330,19 @@ export const PLANTILLAS: Record<"dental" | "gestion", { dias: number; asunto: st
       dias: 0,
       asunto: "Facturación y stock de {empresa}",
       cuerpo:
-        "Hola {nombre},\n\nTe escribo porque vi {empresa} en {ciudad} y quería contarte de Prexacode, un sistema de gestión en la nube hecho en Argentina para PyMEs.\n\nEn un solo lugar facturás electrónicamente con ARCA, llevás el stock, las cuentas corrientes de tus clientes y lo que te deben, y sabés en segundos cuánto vendiste en el mes. Tus planillas de Excel se importan en minutos.\n\n¿Te sirve que te lo muestre en 15 minutos? Si preferís mirarlo solo, se prueba 14 días gratis: {link}\n\nSaludos,\n{firma}",
+        "Hola {nombre},\n\nVi {empresa} en {ciudad} y quería contarte de Prexacode, un sistema de gestión en la nube hecho en Argentina para PyMEs: facturación electrónica ARCA, stock, cuentas corrientes de tus clientes y lo que te deben, todo en un lugar. Tus planillas de Excel se importan en minutos.\n\nLo mirás acá y, si te gusta, creás tu cuenta en 2 minutos y ya lo estás usando: 14 días gratis, sin tarjeta y sin tener que hablar con nadie. {link}\n\nSi te surge alguna duda, respondeme este email.\n\nSaludos,\n{firma}",
     },
     {
       dias: 3,
       asunto: "",
       cuerpo:
-        "Hola {nombre}, te escribo de nuevo por si se te pasó.\n\nAlgo que a muchas PyMEs les ahorra horas: con Prexacode ves en una pantalla quién te debe y desde cuándo, y le mandás la factura o el recordatorio por email o WhatsApp con un clic.\n\n¿Querés que lo veamos juntos? {link}\n\n{firma}",
+        "Hola {nombre}, te escribo de nuevo por si se te pasó.\n\nAlgo que a muchas PyMEs les ahorra horas: en una pantalla ves quién te debe y desde cuándo, y le mandás la factura o el recordatorio por email o WhatsApp con un clic.\n\nCreás tu cuenta en 2 minutos y lo probás gratis: {link}\n\n{firma}",
     },
     {
       dias: 5,
       asunto: "",
       cuerpo:
-        "Hola {nombre}, este es mi último email, no quiero llenarte la casilla.\n\nSi en algún momento querés ordenar la facturación, el stock o las cobranzas, respondeme este email y lo vemos. Y si no es para vos, ¡gracias igual por leer!\n\n{firma}",
+        "Hola {nombre}, este es mi último email, no quiero llenarte la casilla.\n\nSi en algún momento querés ordenar la facturación, el stock o las cobranzas, creás tu cuenta en 2 minutos y lo probás 14 días gratis: {link}\n\n¡Gracias por leer!\n{firma}",
     },
   ],
 };

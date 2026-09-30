@@ -47,6 +47,8 @@ interface CampanaApi {
   pasos: Paso[];
   activa: boolean;
   total: number;
+  visitaron: number;
+  registrados: number;
   pendientes: number;
   respondieron: number;
   bajas: number;
@@ -64,6 +66,8 @@ interface ProspectoApi {
   paso: number;
   ultimoEnvio: string | null;
   nota: string | null;
+  visitas: number;
+  visitoEn: string | null;
 }
 
 const useConfig = () => useQuery({ queryKey: ["admin", "prospeccion", "config"], queryFn: () => apiAdmin<ConfigApi>("/plataforma/prospeccion/config"), refetchInterval: 60_000 });
@@ -293,9 +297,11 @@ function Campana({ c }: { c: CampanaApi }) {
           </Button>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-2 text-center text-sm sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2 text-center text-sm sm:grid-cols-4 lg:grid-cols-7">
         {[
           ["Por mandar", c.pendientes],
+          ["Visitaron la página", c.visitaron],
+          ["Se registraron", c.registrados],
           ["Respondieron", c.respondieron],
           ["Terminaron", c.terminados],
           ["Bajas", c.bajas],
@@ -385,7 +391,7 @@ function Prospectos({ campanaId }: { campanaId: string }) {
   return (
     <div className="grid gap-2">
       <div className="flex flex-wrap gap-1.5">
-        {["", "Pendiente", "En curso", "Respondió", "Terminado", "Baja", "Rebotó"].map((e) => (
+        {["", "Pendiente", "En curso", "Registrado", "Respondió", "Terminado", "Baja", "Rebotó"].map((e) => (
           <button key={e} type="button" onClick={() => setEstado(e)} aria-pressed={estado === e} className={cn("rounded-full border px-2.5 py-0.5 text-xs", estado === e ? "border-primary bg-primary text-primary-foreground" : "hover:border-primary/50")}>
             {e || "Todos"}
           </button>
@@ -404,6 +410,11 @@ function Prospectos({ campanaId }: { campanaId: string }) {
               </span>
             </span>
             <span className="text-xs text-muted-foreground">
+              {p.visitas > 0 && (
+                <span className="mr-1.5 rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary" title={p.visitoEn ? `Primera visita: ${fechaHora(p.visitoEn)}` : undefined}>
+                  Visitó la página{p.visitas > 1 ? ` (${p.visitas} veces)` : ""}
+                </span>
+              )}
               {p.estado}
               {p.ultimoEnvio && ` · último ${fechaHora(p.ultimoEnvio)}`}
             </span>
