@@ -1,3 +1,4 @@
+import { BajaProspectoPage } from "@/modules/admin/BajaProspectoPage";
 import { BajaCampanasPage, CampanaPage, CampanasPage, NuevaCampanaPage } from "@/modules/campanas/CampanasPage";
 import { ReservaPage } from "@/modules/agenda/ReservaPage";
 import { HonorariosPage } from "@/modules/consultorio/HonorariosPage";
@@ -127,6 +128,7 @@ export default function App() {
                 <Route path="turno/:token" element={<TurnoPublicoPage />} />
                 <Route path="reservar/:codigo" element={<ReservaPage />} />
                 <Route path="baja-campanas/:token" element={<BajaCampanasPage />} />
+                <Route path="baja-prospecto/:token" element={<BajaProspectoPage />} />
                 {/* Panel de administración de Prexacode: login y sesión propios */}
                 <Route path="admin/*" element={<AdminApp />} />
                 <Route element={<Protegido><AppLayout /></Protegido>}>

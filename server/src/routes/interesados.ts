@@ -1,7 +1,7 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
-import { adminsPlataforma, interesados } from "../db/schema.js";
+import { adminsPlataforma, interesados, prospectos } from "../db/schema.js";
 import { requirePlataforma } from "../lib/auth.js";
 import { enviarDePlataforma } from "../lib/email/plataforma.js";
 import { notFound, parse } from "../lib/errors.js";
@@ -39,6 +39,14 @@ export const interesadosPublicosRoutes: FastifyPluginAsync = async (app) => {
   app.post("/", { config: { rateLimit: { max: 5, timeWindow: "1 hour" } } }, async (req, reply) => {
     const { sitio: _s, ...d } = parse(interesadoSchema, req.body);
     const [i] = await app.db.insert(interesados).values({ ...d, ip: ipDe(req) }).returning();
+    // Si llegó desde un email de prospección (?r=…), esa persona sale de la secuencia: ya respondió
+    const ref = /[?&]r=([A-Za-z0-9_-]{10,40})/.exec(d.origen ?? "")?.[1];
+    if (ref) {
+      await app.db
+        .update(prospectos)
+        .set({ estado: "Respondió", nota: "Pidió una demo desde la landing" })
+        .where(and(eq(prospectos.token, ref), inArray(prospectos.estado, ["Pendiente", "En curso", "Terminado"])));
+    }
     const marca = d.producto === "dental" ? "CoreDental" : "Prexacode";
     const admins = await app.db.select({ email: adminsPlataforma.email }).from(adminsPlataforma).where(eq(adminsPlataforma.activo, true));
     for (const a of admins) {

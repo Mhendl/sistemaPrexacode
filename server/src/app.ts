@@ -1,3 +1,5 @@
+import { buzonImap, tickProspeccion, type Buzon } from "./lib/prospeccion.js";
+import { prospeccionAdminRoutes, prospeccionPublicaRoutes } from "./routes/prospeccion.js";
 import { interesadosAdminRoutes, interesadosPublicosRoutes } from "./routes/interesados.js";
 import { bajaCampanasRoutes, campanasRoutes } from "./routes/campanas.js";
 import { reservasRoutes } from "./routes/reservas.js";
@@ -61,6 +63,8 @@ declare module "fastify" {
     conectorArca?: (empresa: { id: string; cuit: string }) => ConectorArca;
     /** Envío de emails (en pruebas, uno que los guarda en memoria) */
     cartero: Cartero;
+    /** Lectura de la casilla de prospección (respuestas y rebotes); en pruebas, una falsa */
+    buzon: Buzon;
     cifrador: Cifrador;
     /** URL pública de la web, para los links que reciben los clientes */
     appUrl: string;
@@ -108,6 +112,8 @@ export interface AppOptions {
   limitarIntentos?: boolean;
   /** Producción: CORS solo para APP_URL */
   produccion?: boolean;
+  /** Lectura de la casilla de prospección (en pruebas, una falsa) */
+  buzon?: Buzon;
   /** Carpeta con la web compilada (dist/): si viene, la API también sirve la web (una sola pieza para desplegar) */
   web?: string;
   /** Detrás de un proxy (nginx, Caddy, la plataforma de hosting): toma la IP real del cliente */
@@ -116,13 +122,14 @@ export interface AppOptions {
   tareas?: boolean;
 }
 
-export async function buildApp({ db, jwtSecret, logger = false, conectorArca, cartero, appUrl = "http://localhost:5173", appUrlDental, medicion, smtpUrl, emailRemitente = "notificaciones@prexacode.com.ar", secretsKey, arca = {}, pagos, cotizacion, mpWebhookSecret, urlApi, modoPruebas = false, adminInicial, limitarIntentos = true, produccion = false, web, trustProxy = false, tareas = false }: AppOptions) {
+export async function buildApp({ db, jwtSecret, logger = false, conectorArca, cartero, appUrl = "http://localhost:5173", appUrlDental, medicion, smtpUrl, emailRemitente = "notificaciones@prexacode.com.ar", secretsKey, arca = {}, pagos, cotizacion, mpWebhookSecret, urlApi, modoPruebas = false, adminInicial, limitarIntentos = true, produccion = false, web, trustProxy = false, tareas = false, buzon }: AppOptions) {
   // Al apagar, cortar también las conexiones keep-alive activas (si no, close() puede esperar indefinidamente)
   const app = Fastify({ logger, forceCloseConnections: true, trustProxy, bodyLimit: 5 * 1024 * 1024 });
 
   app.decorate("db", db);
   app.decorate("conectorArca", conectorArca);
   app.decorate("cartero", cartero ?? carteroSmtp(smtpUrl));
+  app.decorate("buzon", buzon ?? buzonImap());
   app.decorate("cifrador", crearCifrador(secretsKey ?? `${jwtSecret}:secretos`));
   app.decorate("appUrl", appUrl);
   app.decorate("urlDe", (producto: string | null | undefined) => (productoDe(producto) === "dental" ? (appUrlDental ?? appUrl) : appUrl));
@@ -260,6 +267,8 @@ export async function buildApp({ db, jwtSecret, logger = false, conectorArca, ca
   await app.register(plataformaRoutes, { prefix: "/api/plataforma" });
   await app.register(interesadosAdminRoutes, { prefix: "/api/plataforma/interesados" });
   await app.register(interesadosPublicosRoutes, { prefix: "/api/publico/interesados" });
+  await app.register(prospeccionAdminRoutes, { prefix: "/api/plataforma/prospeccion" });
+  await app.register(prospeccionPublicaRoutes, { prefix: "/api/publico/baja-prospecto" });
   await app.register(adminRoutes, { prefix: "/api/admin" });
   await app.register(soporteRoutes, { prefix: "/api/soporte" });
   await app.register(empleadosRoutes, { prefix: "/api/empleados" });
@@ -284,11 +293,15 @@ export async function buildApp({ db, jwtSecret, logger = false, conectorArca, ca
     const correr = () => tareasAutomaticas(app).catch((e) => app.log.error(e, "Falló una tarea automática"));
     const primera = setTimeout(correr, 60_000);
     const cadaHora = setInterval(correr, 60 * 60_000);
+    // Prospección: una vuelta cada 5 minutos (manda como mucho un email por vuelta)
+    const prospeccion = setInterval(() => tickProspeccion(app).catch((e) => app.log.error(e, "Falló la prospección")), 5 * 60_000);
     primera.unref();
     cadaHora.unref();
+    prospeccion.unref();
     app.addHook("onClose", async () => {
       clearTimeout(primera);
       clearInterval(cadaHora);
+      clearInterval(prospeccion);
     });
   }
 

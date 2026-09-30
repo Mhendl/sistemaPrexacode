@@ -1629,3 +1629,87 @@ export const interesados = pgTable(
   },
   (t) => [index("interesados_estado_idx").on(t.estado, t.createdAt)],
 );
+
+/* ---------------------------------------------------------------- Prospección (emails comerciales de Prexacode a posibles clientes) */
+
+/** Casilla desde la que salen los emails de prospección (un alias de prexacode.com) y el ritmo de envío. Una sola fila */
+export const prospeccionConfig = pgTable("prospeccion_config", {
+  id: integer("id").primaryKey().default(1),
+  remitenteEmail: text("remitente_email"),
+  remitenteNombre: text("remitente_nombre"),
+  /** Usuario de la casilla (el alias puede mandar con el usuario de la casilla principal) */
+  usuario: text("usuario"),
+  passwordCifrada: text("password_cifrada"),
+  smtpHost: text("smtp_host").notNull().default("smtp.hostinger.com"),
+  smtpPuerto: integer("smtp_puerto").notNull().default(465),
+  imapHost: text("imap_host").notNull().default("imap.hostinger.com"),
+  imapPuerto: integer("imap_puerto").notNull().default(993),
+  /** Tope de emails por día (se llega de a poco: arranca en 10) */
+  maxPorDia: integer("max_por_dia").notNull().default(30),
+  /** Horario de envío (hora de Argentina, de lunes a viernes) */
+  horaDesde: integer("hora_desde").notNull().default(9),
+  horaHasta: integer("hora_hasta").notNull().default(18),
+  activa: boolean("activa").notNull().default(false),
+  /** Último error (ej.: contraseña incorrecta): pausa el envío */
+  ultimoError: text("ultimo_error"),
+  primerEnvioEn: timestamp("primer_envio_en", { withTimezone: true }),
+  imapRevisadoEn: timestamp("imap_revisado_en", { withTimezone: true }),
+  version: integer("version").notNull().default(1),
+});
+
+/** Una secuencia de emails para un grupo de prospectos (ej.: consultorios de Córdoba) */
+export const prospeccionCampanas = pgTable("prospeccion_campanas", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  nombre: text("nombre").notNull(),
+  /** gestion | dental: a qué landing lleva el link */
+  producto: text("producto").notNull(),
+  /** Los emails de la secuencia: a los cuántos días hábiles del anterior, asunto y texto */
+  pasos: jsonb("pasos").$type<{ dias: number; asunto: string; cuerpo: string }[]>().notNull(),
+  activa: boolean("activa").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const prospectos = pgTable(
+  "prospectos",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    campanaId: uuid("campana_id")
+      .notNull()
+      .references(() => prospeccionCampanas.id, { onDelete: "cascade" }),
+    email: text("email").notNull().unique(),
+    nombre: text("nombre"),
+    empresa: text("empresa"),
+    rubro: text("rubro"),
+    ciudad: text("ciudad"),
+    web: text("web"),
+    telefono: text("telefono"),
+    /** Pendiente | En curso | Respondió | Baja | Rebotó | Terminado */
+    estado: text("estado").notNull().default("Pendiente"),
+    /** El próximo paso de la secuencia a mandar (0 = el primero) */
+    paso: integer("paso").notNull().default(0),
+    proximoEnvio: timestamp("proximo_envio", { withTimezone: true }).notNull().defaultNow(),
+    ultimoEnvio: timestamp("ultimo_envio", { withTimezone: true }),
+    /** Para el link de baja y para saber de qué email vino si pide una demo */
+    token: text("token").notNull().unique(),
+    nota: text("nota"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("prospectos_estado_idx").on(t.estado, t.proximoEnvio), index("prospectos_campana_idx").on(t.campanaId)],
+);
+
+export const prospeccionEnvios = pgTable(
+  "prospeccion_envios",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    prospectoId: uuid("prospecto_id")
+      .notNull()
+      .references(() => prospectos.id, { onDelete: "cascade" }),
+    paso: integer("paso").notNull(),
+    asunto: text("asunto").notNull(),
+    /** Enviado | Error */
+    estado: text("estado").notNull(),
+    error: text("error"),
+    enviadoEn: timestamp("enviado_en", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("prospeccion_envios_fecha_idx").on(t.enviadoEn)],
+);
