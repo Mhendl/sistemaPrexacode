@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Building2, ClipboardList, CreditCard, Inbox, LayoutDashboard, LifeBuoy, Loader2, LogOut, Menu, ShieldCheck, Users } from "lucide-react";
+import { Building2, ClipboardList, CreditCard, Inbox, LayoutDashboard, LifeBuoy, Loader2, LogOut, Menu, ShieldCheck, Sparkles, Users } from "lucide-react";
 import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "@/api/client";
@@ -12,6 +12,7 @@ import { plataforma as brand } from "@/config/brand";
 import { cn } from "@/lib/utils";
 import { apiAdmin, getAdminToken, setAdminToken, useAdminYo, type AdminApi } from "./api";
 import { AdminAdministradores } from "./AdminAdministradores";
+import { AdminInteresados } from "./AdminInteresados";
 import { AdminAuditoria } from "./AdminAuditoria";
 import { AdminEmpresa } from "./AdminEmpresa";
 import { AdminEmpresas } from "./AdminEmpresas";
@@ -22,6 +23,7 @@ import { AdminSoporte, AdminTicket } from "./AdminSoporte";
 
 const menu = [
   { to: "/admin", label: "Resumen", icon: LayoutDashboard, fin: true },
+  { to: "/admin/interesados", label: "Interesados", icon: Sparkles },
   { to: "/admin/empresas", label: "Empresas", icon: Building2 },
   { to: "/admin/soporte", label: "Soporte", icon: LifeBuoy },
   { to: "/admin/pagos", label: "Pagos", icon: CreditCard },
@@ -55,6 +57,7 @@ function Protegido() {
     <Marco yo={yo}>
       <Routes>
         <Route index element={<AdminResumen />} />
+        <Route path="interesados" element={<AdminInteresados />} />
         <Route path="empresas" element={<AdminEmpresas />} />
         <Route path="empresas/:id" element={<AdminEmpresa />} />
         <Route path="soporte" element={<AdminSoporte />} />

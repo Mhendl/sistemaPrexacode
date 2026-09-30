@@ -1,3 +1,4 @@
+import { interesadosAdminRoutes, interesadosPublicosRoutes } from "./routes/interesados.js";
 import { bajaCampanasRoutes, campanasRoutes } from "./routes/campanas.js";
 import { reservasRoutes } from "./routes/reservas.js";
 import { honorariosRoutes } from "./routes/honorarios.js";
@@ -175,7 +176,9 @@ export async function buildApp({ db, jwtSecret, logger = false, conectorArca, ca
     }
   });
   // En producción la web y la API están en el mismo dominio: CORS solo para ese origen
-  await app.register(cors, { origin: produccion ? appUrl : true });
+  // Las landings (páginas estáticas en otros dominios) mandan los pedidos de demo a la API
+  const LANDINGS = ["https://coredental.com.ar", "https://www.coredental.com.ar", "https://productos.prexacode.com", "https://prexacode.com", "https://www.prexacode.com"];
+  await app.register(cors, { origin: produccion ? [appUrl, ...(appUrlDental ? [appUrlDental] : []), ...LANDINGS] : true });
   // Encabezados de seguridad (CSP: solo recursos propios, más las fuentes de Google)
   // Medición (solo si está configurada): se permiten los dominios de Google Analytics y del píxel de Meta
   const ga = medicion?.ga ? { script: ["https://www.googletagmanager.com"], conexion: ["https://*.google-analytics.com", "https://*.analytics.google.com", "https://*.googletagmanager.com"], imagen: ["https://*.google-analytics.com", "https://*.googletagmanager.com"] } : null;
@@ -255,6 +258,8 @@ export async function buildApp({ db, jwtSecret, logger = false, conectorArca, ca
   await app.register(suscripcionRoutes, { prefix: "/api/suscripcion" });
   await app.register(legalRoutes, { prefix: "/api/legal" });
   await app.register(plataformaRoutes, { prefix: "/api/plataforma" });
+  await app.register(interesadosAdminRoutes, { prefix: "/api/plataforma/interesados" });
+  await app.register(interesadosPublicosRoutes, { prefix: "/api/publico/interesados" });
   await app.register(adminRoutes, { prefix: "/api/admin" });
   await app.register(soporteRoutes, { prefix: "/api/soporte" });
   await app.register(empleadosRoutes, { prefix: "/api/empleados" });

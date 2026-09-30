@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CoreDental — Software de gestión para clínicas y consultorios odontológicos</title>
+    <meta name="description" content="Historia clínica con odontograma, turnos online, recordatorios, obras sociales, presupuestos, caja y facturación ARCA para tu consultorio odontológico. Probalo 14 días gratis.">
+    <meta property="og:title" content="CoreDental — Tu consultorio odontológico, ordenado">
+    <meta property="og:description" content="Historia clínica, odontograma, turnos online, obras sociales, caja y facturación ARCA. 14 días gratis, sin tarjeta.">
+    <meta property="og:type" content="website">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230e8fae'/%3E%3Ctext x='16' y='22' font-size='17' text-anchor='middle'%3E🦷%3C/text%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css?v=2">
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar" id="navbar">
+        <div class="container nav-container">
+            <a href="#" class="logo">
+                <span class="logo-icon">🦷</span> CoreDental
+            </a>
+            <button class="nav-toggle" id="navToggle" aria-label="Menú">
+                <span></span><span></span><span></span>
+            </button>
+            <ul class="nav-links" id="navLinks">
+                <li><a href="#funcionalidades">Funcionalidades</a></li>
+                <li><a href="#planes">Precios</a></li>
+                <li><a href="#faq">Preguntas</a></li>
+                <li><a href="https://app.coredental.com.ar/login">Ingresar</a></li>
+                <li><a href="https://app.coredental.com.ar/registro" class="btn btn-nav">Probar gratis</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Hero + pedido de demo -->
+    <section class="hero" id="contacto">
+        <div class="container hero-container">
+            <div class="hero-content">
+                <h1>¿Te imaginás gestionar tu clínica dental de forma <span class="gradient-text">simple y sin estrés</span>?</h1>
+                <p class="hero-subtitle">
+                    Historia clínica con odontograma, turnos online, obras sociales, presupuestos, caja y facturación electrónica
+                    en un solo lugar. Menos papel, menos ausencias y las cuentas claras con cada obra social.
+                </p>
+                <div class="hero-ctas">
+                    <a href="https://app.coredental.com.ar/registro" class="btn btn-primary btn-lg">Probar 14 días gratis</a>
+                    <a href="#funcionalidades" class="btn btn-outline btn-lg">Ver qué incluye</a>
+                </div>
+                <div class="hero-checks">
+                    <div class="check-item">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="10" fill="#10b981"/><path d="M6 10l3 3 5-6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        14 días gratis, sin tarjeta: en 5 minutos estás usándolo
+                    </div>
+                    <div class="check-item">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="10" fill="#10b981"/><path d="M6 10l3 3 5-6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        100% en la nube: compu, tablet y celular
+                    </div>
+                    <div class="check-item">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="10" fill="#10b981"/><path d="M6 10l3 3 5-6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        Facturación electrónica ARCA y soporte en español
+                    </div>
+                </div>
+            </div>
+            <div class="hero-form-wrapper">
+                <div class="hero-form-card">
+                    <h3>¿Preferís que te lo mostremos?</h3>
+                    <p class="form-subtitle">Dejanos tus datos y te contactamos para una demo sin compromiso</p>
+                    <form class="contact-form" id="contactForm" novalidate>
+                        <div class="form-row-2">
+                            <div class="form-group">
+                                <label for="nombre">Nombre y apellido *</label>
+                                <input type="text" id="nombre" name="nombre" required placeholder="Tu nombre" autocomplete="name">
+                            </div>
+                            <div class="form-group">
+                                <label for="empresa">Consultorio</label>
+                                <input type="text" id="empresa" name="empresa" placeholder="Nombre del consultorio">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="telefono">Celular *</label>
+                            <div class="phone-input">
+                                <span class="phone-prefix">+54</span>
+                                <input type="tel" id="telefono" name="telefono" required placeholder="11 1234-5678" autocomplete="tel">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="email">Email *</label>
+                            <input type="email" id="email" name="email" required placeholder="tu@email.com" autocomplete="email">
+                        </div>
+                        <div class="form-row-2">
+                            <div class="form-group">
+                                <label for="cargo">Tu cargo</label>
+                                <select id="cargo" name="cargo">
+                                    <option value="">Seleccioná</option>
+                                    <option>Dueño/a del consultorio</option>
+                                    <option>Odontólogo/a</option>
+                                    <option>Secretaria/o</option>
+                                    <option>Gerente / Administrador/a</option>
+                                    <option>Otro</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="tamano">Profesionales</label>
+                                <select id="tamano" name="tamano">
+                                    <option value="">Seleccioná</option>
+                                    <option value="1">1 profesional</option>
+                                    <option value="2-3">2 a 3</option>
+                                    <option value="4-10">4 a 10</option>
+                                    <option value="10+">Más de 10</option>
+                                </select>
+                            </div>
+                        </div>
+                        <input type="text" name="sitio" tabindex="-1" autocomplete="off" class="trampa" aria-hidden="true">
+                        <p class="form-error" id="formError" role="alert"></p>
+                        <button type="submit" class="btn btn-primary btn-block btn-lg">Quiero una demo</button>
+                        <p class="form-legal">Usamos tus datos solo para contactarte por CoreDental.</p>
+                    </form>
+                    <div class="form-ok" id="formOk" hidden>
+                        <div class="form-ok-icon">✓</div>
+                        <h3>¡Gracias! Te contactamos en el día</h3>
+                        <p>Mientras tanto, podés crear tu cuenta y empezar a probarlo.</p>
+                        <a href="https://app.coredental.com.ar/registro" class="btn btn-primary btn-block">Probar 14 días gratis</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Social proof -->
+    <section class="social-proof">
+        <div class="container">
+            <p class="proof-text">Software hecho en Argentina especialmente para <strong>clínicas y consultorios odontológicos</strong>: obras sociales, ARCA y la Ley de historia clínica.</p>
+        </div>
+    </section>
+
+    <!-- Funcionalidades -->
+    <section class="features" id="funcionalidades">
+        <div class="container">
+            <div class="section-header">
+                <h2>Olvidate del papel y administrá tu clínica con la <span class="gradient-text">rapidez y facilidad</span> que CoreDental te ofrece</h2>
+            </div>
+
+            <div class="feature-block">
+                <div class="feature-text">
+                    <div class="feature-badge">Atención de primer nivel</div>
+                    <h3>La historia clínica completa de cada paciente, en un toque</h3>
+                    <ul class="feature-list">
+                        <li>Evoluciones con autor y fecha que no se pueden modificar (Ley 26.529)</li>
+                        <li>Odontograma interactivo: a realizar, realizado y preexistente</li>
+                        <li>Periodontograma con índices calculados solos</li>
+                        <li>Consentimiento informado firmado en la pantalla</li>
+                        <li>Radiografías e imágenes clínicas</li>
+                        <li>Alergias y medicación siempre a la vista</li>
+                    </ul>
+                    <a href="https://app.coredental.com.ar/registro" class="btn btn-primary">Probar 14 días gratis</a>
+                </div>
+                <div class="feature-visual">
+                    <div class="feature-preview">
+                        <div class="fp-header">🦷 Historia Clínica — María González</div>
+                        <div class="fp-body">
+                            <div class="fp-row"><span class="fp-label">DNI</span><span>28.456.789</span></div>
+                            <div class="fp-row"><span class="fp-label">Obra Social</span><span>OSDE 310</span></div>
+                            <div class="fp-row"><span class="fp-label">Alergias</span><span class="fp-tag danger">Penicilina</span></div>
+                            <div class="fp-row"><span class="fp-label">Último turno</span><span>Limpieza y control</span></div>
+                            <div class="fp-row"><span class="fp-label">Consentimiento</span><span class="fp-tag success">Firmado</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="feature-block reverse">
+                <div class="feature-text">
+                    <div class="feature-badge">Más pacientes, menos ausencias</div>
+                    <h3>Turnos online las 24 horas y recordatorios que bajan las ausencias</h3>
+                    <ul class="feature-list">
+                        <li>Link de turnos online para tu web, Instagram y Google</li>
+                        <li>Recordatorio por email y WhatsApp, con botón para confirmar o cancelar</li>
+                        <li>Horarios de cada profesional, turno cortado y bloqueo de vacaciones</li>
+                        <li>Agenda por profesional con los horarios libres a la vista</li>
+                        <li>Campañas: control a los que no vienen, cumpleaños y novedades</li>
+                        <li>Control de ausencias por paciente</li>
+                    </ul>
+                    <a href="https://app.coredental.com.ar/registro" class="btn btn-primary">Probar 14 días gratis</a>
+                </div>
+                <div class="feature-visual">
+                    <div class="feature-preview">
+                        <div class="fp-header">📅 Turnos — Viernes</div>
+                        <div class="fp-body">
+                            <div class="fp-appt"><span class="fp-time">09:00</span><span class="fp-patient">María González</span><span class="fp-tag success">Confirmado</span></div>
+                            <div class="fp-appt"><span class="fp-time">09:30</span><span class="fp-patient">Carlos Rodríguez</span><span class="fp-tag warning">Turno online</span></div>
+                            <div class="fp-appt"><span class="fp-time">10:00</span><span class="fp-patient">Ana Martínez</span><span class="fp-tag success">Confirmado</span></div>
+                            <div class="fp-appt"><span class="fp-time">10:30</span><span class="fp-patient">Luis Fernández</span><span class="fp-tag success">Confirmado</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="feature-block">
+                <div class="feature-text">
+                    <div class="feature-badge">Control financiero total</div>
+                    <h3>Obras sociales, presupuestos, caja y facturación, sin planillas</h3>
+                    <ul class="feature-list">
+                        <li>Precios por obra social y liquidación mensual lista para exportar</li>
+                        <li>Presupuestos por pieza que se cargan solos al realizarse</li>
+                        <li>Cuenta de cada paciente, recibos y deudores</li>
+                        <li>Caja diaria con arqueo, gastos y laboratorios</li>
+                        <li>Honorarios por porcentaje de cada profesional</li>
+                        <li>Factura electrónica ARCA a nombre del paciente</li>
+                    </ul>
+                    <a href="https://app.coredental.com.ar/registro" class="btn btn-primary">Probar 14 días gratis</a>
+                </div>
+                <div class="feature-visual">
+                    <div class="feature-preview">
+                        <div class="fp-header">📊 Resultado del mes</div>
+                        <div class="fp-body">
+                            <div class="fp-stats">
+                                <div class="fp-stat"><div class="fp-stat-val primary">$1.250.000</div><div class="fp-stat-label">Cobrado</div></div>
+                                <div class="fp-stat"><div class="fp-stat-val danger">$180.000</div><div class="fp-stat-label">Adeudado</div></div>
+                                <div class="fp-stat"><div class="fp-stat-val success">$870.000</div><div class="fp-stat-label">Resultado</div></div>
+                            </div>
+                            <div class="fp-bar-chart">
+                                <div class="fp-bar" style="height:80%"><span>Ene</span></div>
+                                <div class="fp-bar" style="height:90%"><span>Feb</span></div>
+                                <div class="fp-bar active" style="height:100%"><span>Mar</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Beneficios -->
+    <section class="benefits" id="beneficios">
+        <div class="container">
+            <div class="section-header">
+                <h2>CoreDental te ayuda en <span class="gradient-text">cada etapa</span> de tu clínica</h2>
+            </div>
+            <div class="benefits-grid">
+                <div class="benefit-card"><div class="benefit-icon">🚀</div><h4>Recién empezás</h4><p>Arrancás en minutos: el nomenclador y los modelos de consentimiento ya vienen cargados.</p></div>
+                <div class="benefit-card"><div class="benefit-icon">📈</div><h4>Estás creciendo</h4><p>Turnos online y campañas para llenar la agenda, y recordatorios para que no falten.</p></div>
+                <div class="benefit-card"><div class="benefit-icon">⚡</div><h4>Querés ordenar</h4><p>Caja, deudores, obras sociales y honorarios claros, sin planillas ni cuadernos.</p></div>
+                <div class="benefit-card"><div class="benefit-icon">🏢</div><h4>Tenés una clínica grande</h4><p>Varios profesionales, recepción y roles: cada uno ve solo lo que le corresponde.</p></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Precios -->
+    <section class="pricing" id="planes">
+        <div class="container">
+            <div class="section-header">
+                <h2>Precios claros, <span class="gradient-text">todo incluido</span></h2>
+                <p>Todos los planes tienen todas las funciones: cambia la cantidad de usuarios. En dólares, que se pagan en pesos al dólar oficial. Pagando el año, 12 meses por el precio de 10.</p>
+            </div>
+            <div class="pricing-grid">
+                <div class="pricing-card">
+                    <div class="pricing-header">
+                        <h3>Consultorio</h3>
+                        <p class="pricing-subtitle">Para el profesional que atiende solo</p>
+                    </div>
+                    <div class="pricing-cta-box">
+                        <div class="pricing-price">USD 45 <small>/ mes</small></div>
+                    </div>
+                    <ul class="pricing-features">
+                        <li class="included">2 usuarios (vos y tu secretaria)</li>
+                        <li class="included">Historia clínica y odontograma</li>
+                        <li class="included">Turnos online y recordatorios</li>
+                        <li class="included">Obras sociales, caja y facturación ARCA</li>
+                        <li class="included">Todas las funciones</li>
+                    </ul>
+                    <a href="https://app.coredental.com.ar/registro" class="btn btn-outline btn-block">Probar 14 días gratis</a>
+                </div>
+                <div class="pricing-card featured">
+                    <div class="popular-badge">El más elegido</div>
+                    <div class="pricing-header">
+                        <h3>Clínica</h3>
+                        <p class="pricing-subtitle">Para consultorios con varios profesionales</p>
+                    </div>
+                    <div class="pricing-cta-box">
+                        <div class="pricing-price">USD 89 <small>/ mes</small></div>
+                    </div>
+                    <ul class="pricing-features">
+                        <li class="included">5 usuarios</li>
+                        <li class="included">Agenda y horarios por profesional</li>
+                        <li class="included">Honorarios por porcentaje</li>
+                        <li class="included">Campañas a pacientes</li>
+                        <li class="included">Todas las funciones</li>
+                    </ul>
+                    <a href="https://app.coredental.com.ar/registro" class="btn btn-primary btn-block">Probar 14 días gratis</a>
+                </div>
+                <div class="pricing-card">
+                    <div class="pricing-header">
+                        <h3>Centro odontológico</h3>
+                        <p class="pricing-subtitle">Para clínicas grandes</p>
+                    </div>
+                    <div class="pricing-cta-box">
+                        <div class="pricing-price">USD 169 <small>/ mes</small></div>
+                    </div>
+                    <ul class="pricing-features">
+                        <li class="included">10 usuarios</li>
+                        <li class="included">Roles a medida para cada puesto</li>
+                        <li class="included">Varios puntos de venta para facturar</li>
+                        <li class="included">Ayuda para migrar tus datos</li>
+                        <li class="included">Todas las funciones</li>
+                    </ul>
+                    <a href="https://app.coredental.com.ar/registro" class="btn btn-outline btn-block">Probar 14 días gratis</a>
+                </div>
+            </div>
+            <p class="pricing-note">¿Necesitás más usuarios? Cada usuario adicional cuesta USD 15 por mes, en cualquier plan.</p>
+        </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="faq" id="faq">
+        <div class="container">
+            <div class="section-header">
+                <h2>Preguntas frecuentes</h2>
+            </div>
+            <div class="faq-list">
+                <div class="faq-item">
+                    <button class="faq-question" onclick="this.parentElement.classList.toggle('open')">¿Tengo que poner la tarjeta para probar?<span class="faq-icon">+</span></button>
+                    <div class="faq-answer"><p>No. Te registrás con tu email y tenés 14 días con todo habilitado. Si querés seguir, elegís un plan y pagás con Mercado Pago, mensual o anual.</p></div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question" onclick="this.parentElement.classList.toggle('open')">¿Cómo funcionan los turnos online?<span class="faq-icon">+</span></button>
+                    <div class="faq-answer"><p>Activás un link y lo ponés en tu web, en la bio de Instagram o en Google. El paciente elige profesional, día y horario libre según los horarios de cada uno, y el turno entra solo a la agenda. Le llega la confirmación con un botón para confirmar o cancelar.</p></div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question" onclick="this.parentElement.classList.toggle('open')">¿Sirve para obras sociales?<span class="faq-icon">+</span></button>
+                    <div class="faq-answer"><p>Sí. Cargás los precios de cada obra social y los de particulares; al registrar una prestación se separa lo que paga el paciente de lo que paga la obra social, y a fin de mes tenés la liquidación lista para exportar a Excel.</p></div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question" onclick="this.parentElement.classList.toggle('open')">¿Puedo facturar electrónicamente?<span class="faq-icon">+</span></button>
+                    <div class="faq-answer"><p>Sí. Emitís factura electrónica ARCA a nombre del paciente, con su DNI, desde cada pago, con tu propio CUIT y certificado. El sistema te guía para conectarlo.</p></div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question" onclick="this.parentElement.classList.toggle('open')">¿Los datos de salud están seguros?<span class="faq-icon">+</span></button>
+                    <div class="faq-answer"><p>Sí. Conexión cifrada, copias de seguridad diarias y cada usuario ve solo lo que su rol permite: la recepción no ve la historia clínica. Las evoluciones no se pueden modificar, como pide la Ley 26.529, y podés exportar tu información cuando quieras.</p></div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question" onclick="this.parentElement.classList.toggle('open')">¿Se puede usar desde el celular?<span class="faq-icon">+</span></button>
+                    <div class="faq-answer"><p>Sí. Funciona en la compu, la tablet y el celular, sin instalar nada.</p></div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question" onclick="this.parentElement.classList.toggle('open')">¿Me puedo dar de baja cuando quiera?<span class="faq-icon">+</span></button>
+                    <div class="faq-answer"><p>Sí, sin costo, desde el sistema o con el botón de baja. Después tenés 60 días para exportar tus datos.</p></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Final -->
+    <section class="cta-final">
+        <div class="container">
+            <div class="cta-content">
+                <h2>Estás a un paso de ordenar tu consultorio</h2>
+                <p>Creá tu cuenta en 5 minutos y probalo 14 días gratis. Si tenés dudas, te ayudamos a arrancar.</p>
+                <a href="https://app.coredental.com.ar/registro" class="btn btn-primary btn-lg">Probar 14 días gratis</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo"><span class="logo-icon">🦷</span> CoreDental</span>
+                    <p>Software de gestión para clínicas y consultorios odontológicos.</p>
+                </div>
+                <div class="footer-links">
+                    <a href="#funcionalidades">Funcionalidades</a>
+                    <a href="#planes">Precios</a>
+                    <a href="https://app.coredental.com.ar/terminos">Términos</a>
+                    <a href="https://app.coredental.com.ar/privacidad">Privacidad</a>
+                    <a href="https://app.coredental.com.ar/arrepentimiento">Botón de arrepentimiento</a>
+                    <a href="https://app.coredental.com.ar/baja">Botón de baja</a>
+                </div>
+                <div class="footer-contact">
+                    <p>📧 <a href="mailto:soporte@prexacode.com">soporte@prexacode.com</a></p>
+                    <p>📍 Argentina</p>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; <span id="anio">2026</span> CoreDental · un producto de Prexacode.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js?v=2"></script>
+</body>
+</html>

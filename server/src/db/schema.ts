@@ -1599,3 +1599,33 @@ export const campanaEnvios = pgTable(
   },
   (t) => [index("campana_envios_campana_idx").on(t.campanaId), index("campana_envios_empresa_idx").on(t.empresaId, t.enviadoEn)],
 );
+
+/* ---------------------------------------------------------------- Interesados (pedidos de demo desde las landings) */
+
+/** Alguien que pidió una demo o que lo contacten, desde la landing de Prexacode o de CoreDental */
+export const interesados = pgTable(
+  "interesados",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    /** gestion | dental */
+    producto: text("producto").notNull(),
+    nombre: text("nombre").notNull(),
+    email: text("email").notNull(),
+    telefono: text("telefono"),
+    /** Nombre de la empresa o del consultorio */
+    empresa: text("empresa"),
+    cargo: text("cargo"),
+    /** Cuántos profesionales o empleados */
+    tamano: text("tamano"),
+    mensaje: text("mensaje"),
+    /** De dónde vino (la página y la campaña, si viene con utm_…) */
+    origen: text("origen"),
+    /** Nuevo | Contactado | Cliente | Descartado */
+    estado: text("estado").notNull().default("Nuevo"),
+    nota: text("nota"),
+    ip: text("ip"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    actualizadoEn: timestamp("actualizado_en", { withTimezone: true }),
+  },
+  (t) => [index("interesados_estado_idx").on(t.estado, t.createdAt)],
+);

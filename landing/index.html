@@ -4,9 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Prexacode · Software de gestión listo para usar</title>
-  <meta name="description" content="Prexacode para empresas y CoreDental para consultorios odontológicos: sistemas de gestión en la nube, con facturación ARCA, pensados para Argentina. 14 días de prueba gratis." />
+  <meta name="description" content="Prexacode: clientes, ventas, stock, facturación electrónica ARCA, cobranzas y sueldos para PyMEs argentinas, en la nube. 14 días de prueba gratis, sin tarjeta." />
   <meta property="og:title" content="Prexacode · Software de gestión listo para usar" />
-  <meta property="og:description" content="Dos sistemas en la nube para PyMEs y consultorios odontológicos de Argentina. Facturación ARCA, cobros y reportes. Probalos 14 días gratis." />
+  <meta property="og:description" content="El sistema de gestión en la nube para PyMEs argentinas: facturación ARCA, stock, cobranzas y reportes. Probalo 14 días gratis." />
   <meta property="og:type" content="website" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%235b3df5'/%3E%3Cpath d='M11 23V9h6a4.5 4.5 0 0 1 0 9h-6' fill='none' stroke='white' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -80,6 +80,19 @@
     .lista { list-style: none; padding: 0; margin: 0 0 28px; display: grid; gap: 11px; }
     .lista li { display: flex; gap: 11px; align-items: flex-start; font-size: 15px; }
     .producto .acciones { margin-top: auto; display: flex; gap: 10px; flex-wrap: wrap; }
+    .nav-ctas { display: flex; gap: 8px; }
+    .demo form { display: grid; gap: 12px; }
+    .demo label { display: grid; gap: 5px; font-size: 13px; font-weight: 600; }
+    .demo input, .demo select { height: 42px; border: 1px solid var(--line); border-radius: 10px; padding: 0 12px; font: inherit; font-weight: 400; background: #fff; color: var(--text); width: 100%; }
+    .demo input:focus, .demo select:focus { outline: 2px solid var(--prexa-soft); border-color: var(--prexa); }
+    .demo .dos { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .demo .error { color: #dc2626; font-size: 13px; margin: 0; min-height: 1em; }
+    .demo .legal { color: var(--muted); font-size: 12px; margin: 0; text-align: center; }
+    .demo .gracias[hidden], .demo form[hidden] { display: none; }
+    .demo .gracias { text-align: center; }
+    .demo .gracias p { color: var(--muted); }
+    .trampa { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+    .producto.demo::before { background: linear-gradient(90deg, #8f7bff, var(--prexa)); }
     .pronto { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--dental); background: var(--dental-soft); padding: 4px 10px; border-radius: 999px; margin-left: auto; }
 
     /* Todo incluido */
@@ -137,6 +150,8 @@
       .producto, .plan { padding: 24px; }
       .hero { padding-top: 56px; }
       .nav .btn { height: 38px; padding: 0 14px; font-size: 14px; }
+      .nav-ctas .btn-line { display: none; }
+      .demo .dos { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -152,12 +167,12 @@
     <div class="wrap nav">
       <a class="marca" href="#"><svg width="32" height="32"><use href="#logo-prexa" /></svg> Prexacode</a>
       <nav class="nav-links" aria-label="Secciones">
-        <a href="#productos">Productos</a>
+        <a href="#productos">Funciones</a>
         <a href="#incluido">Qué incluye</a>
         <a href="#precios">Precios</a>
         <a href="#preguntas">Preguntas</a>
       </nav>
-      <a class="btn btn-dark" href="#productos">Probar gratis</a>
+      <span class="nav-ctas"><a class="btn btn-line" href="https://sistema.prexacode.com/login">Ingresar</a><a class="btn btn-dark" href="https://sistema.prexacode.com/registro">Probar gratis</a></span>
     </div>
   </header>
 
@@ -165,10 +180,10 @@
     <div class="wrap hero">
       <span class="etiqueta"><span class="punto"></span> Hecho en Argentina, para empresas argentinas</span>
       <h1>Software de gestión <span class="grad">listo para usar</span>, sin instalar nada</h1>
-      <p class="bajada">Dos sistemas en la nube, uno para tu empresa y otro para tu consultorio odontológico. Facturación electrónica ARCA, cobros, agenda y reportes en un solo lugar.</p>
+      <p class="bajada">Clientes, ventas, stock, facturación electrónica ARCA, cobranzas y sueldos en un solo sistema en la nube. Sabés en segundos cuánto vendiste, quién te debe y qué hay que reponer.</p>
       <div class="hero-ctas">
-        <a class="btn btn-prexa" href="https://sistema.prexacode.com/registro">Probar Prexacode 14 días gratis</a>
-        <a class="btn btn-line" href="#coredental">Conocer CoreDental</a>
+        <a class="btn btn-prexa" href="https://sistema.prexacode.com/registro">Probar 14 días gratis</a>
+        <a class="btn btn-line" href="#demo">Pedir una demo</a>
       </div>
       <div class="sellos">
         <span><svg class="tilde" style="color:var(--dental-2)"><use href="#tilde" /></svg> 14 días gratis, sin tarjeta</span>
@@ -180,8 +195,8 @@
     <section id="productos">
       <div class="wrap">
         <div class="titulo-seccion">
-          <h2>Elegí el sistema para tu negocio</h2>
-          <p>Los dos comparten la misma base: seguros, con copias de seguridad diarias, usuarios con permisos y soporte en español.</p>
+          <h2>Todo lo que tu PyME necesita, en un solo lugar</h2>
+          <p>Seguro, con copias de seguridad diarias, usuarios con permisos y soporte en español.</p>
         </div>
         <div class="productos">
           <article class="producto prexa">
@@ -207,27 +222,35 @@
             </div>
           </article>
 
-          <article class="producto dental" id="coredental">
+          <article class="producto demo" id="demo">
             <div class="producto-cab">
-              <svg width="48" height="48"><use href="#logo-dental" /></svg>
               <div>
-                <h3>CoreDental</h3>
-                <p class="para">Para consultorios y clínicas odontológicas</p>
+                <h3>¿Preferís que te lo mostremos?</h3>
+                <p class="para">Dejanos tus datos y te contactamos en el día para una demo sin compromiso.</p>
               </div>
-              <span class="pronto">Nueva versión</span>
             </div>
-            <p>La historia clínica, la agenda y los cobros de tu consultorio, ordenados. Menos papel, menos ausencias y las cuentas claras con cada obra social.</p>
-            <ul class="lista" style="color:var(--dental)">
-              <li><svg class="tilde"><use href="#tilde" /></svg><span style="color:var(--text)">Historia clínica digital con odontograma interactivo</span></li>
-              <li><svg class="tilde"><use href="#tilde" /></svg><span style="color:var(--text)">Turnos por profesional, con recordatorios para evitar ausencias</span></li>
-              <li><svg class="tilde"><use href="#tilde" /></svg><span style="color:var(--text)">Obras sociales, prestaciones y precios por cobertura</span></li>
-              <li><svg class="tilde"><use href="#tilde" /></svg><span style="color:var(--text)">Presupuestos por pieza, cobros, caja diaria y deuda de pacientes</span></li>
-              <li><svg class="tilde"><use href="#tilde" /></svg><span style="color:var(--text)">Laboratorios, gastos y sueldos o porcentajes de cada profesional</span></li>
-              <li><svg class="tilde"><use href="#tilde" /></svg><span style="color:var(--text)">Consentimientos informados firmados en pantalla</span></li>
-            </ul>
-            <div class="acciones">
-              <a class="btn btn-dental" href="mailto:soporte@prexacode.com?subject=Quiero%20una%20demo%20de%20CoreDental">Pedir una demo</a>
-              <a class="btn btn-line" href="https://coredental.com.ar">Ver más de CoreDental</a>
+            <form id="formDemo" novalidate>
+              <label>Nombre y apellido *<input name="nombre" required autocomplete="name" /></label>
+              <label>Empresa<input name="empresa" autocomplete="organization" /></label>
+              <div class="dos">
+                <label>Email *<input name="email" type="email" required autocomplete="email" /></label>
+                <label>Celular *<input name="telefono" type="tel" required placeholder="11 1234-5678" autocomplete="tel" /></label>
+              </div>
+              <div class="dos">
+                <label>Rubro<input name="cargo" placeholder="Ej.: distribuidora, ferretería" /></label>
+                <label>Personas que lo usarían
+                  <select name="tamano"><option value="">Elegí</option><option>1-2</option><option>3-5</option><option>6-10</option><option>Más de 10</option></select>
+                </label>
+              </div>
+              <input name="sitio" tabindex="-1" autocomplete="off" class="trampa" aria-hidden="true" />
+              <p class="error" id="errorDemo" role="alert"></p>
+              <button class="btn btn-prexa" type="submit">Quiero una demo</button>
+              <p class="legal">Usamos tus datos solo para contactarte por Prexacode.</p>
+            </form>
+            <div class="gracias" id="graciasDemo" hidden>
+              <h3>¡Gracias! Te contactamos en el día</h3>
+              <p>Mientras tanto, podés crear tu cuenta y empezar a probarlo.</p>
+              <a class="btn btn-prexa" href="https://sistema.prexacode.com/registro">Probar 14 días gratis</a>
             </div>
           </article>
         </div>
@@ -268,13 +291,12 @@
     <section id="precios">
       <div class="wrap">
         <div class="titulo-seccion">
-          <h2>Precios simples, iguales para los dos sistemas</h2>
+          <h2>Precios simples, todo incluido</h2>
           <p>En dólares, que se cobran en pesos al dólar oficial del día. Pagando el año, 12 meses por el precio de 10.</p>
         </div>
         <div class="precios">
           <div class="plan">
             <h3>Básico</h3>
-            <p class="nombres">En CoreDental: Consultorio</p>
             <div class="monto">USD 45 <small>/ mes</small></div>
             <ul>
               <li><svg class="tilde" style="color:var(--dental-2)"><use href="#tilde" /></svg> 2 usuarios</li>
@@ -285,7 +307,6 @@
           <div class="plan destacado">
             <span class="insignia">El más elegido</span>
             <h3>Profesional</h3>
-            <p class="nombres">En CoreDental: Clínica</p>
             <div class="monto">USD 89 <small>/ mes</small></div>
             <ul>
               <li><svg class="tilde" style="color:var(--dental-2)"><use href="#tilde" /></svg> 5 usuarios</li>
@@ -295,7 +316,6 @@
           </div>
           <div class="plan">
             <h3>Empresa</h3>
-            <p class="nombres">En CoreDental: Centro odontológico</p>
             <div class="monto">USD 169 <small>/ mes</small></div>
             <ul>
               <li><svg class="tilde" style="color:var(--dental-2)"><use href="#tilde" /></svg> 10 usuarios</li>
@@ -352,8 +372,8 @@
           <h2>Probalo esta semana, sin compromiso</h2>
           <p>En 5 minutos tenés tu cuenta andando. Si tenés dudas, te ayudamos a arrancar.</p>
           <div class="hero-ctas">
-            <a class="btn btn-prexa" href="https://sistema.prexacode.com/registro">Probar Prexacode gratis</a>
-            <a class="btn btn-line" href="mailto:soporte@prexacode.com?subject=Quiero%20una%20demo%20de%20CoreDental">Pedir demo de CoreDental</a>
+            <a class="btn btn-prexa" href="https://sistema.prexacode.com/registro">Probar 14 días gratis</a>
+            <a class="btn btn-line" href="#demo">Pedir una demo</a>
           </div>
         </div>
       </div>
@@ -362,7 +382,7 @@
 
   <footer>
     <div class="wrap pie">
-      <span>© <span id="anio">2026</span> Prexacode · soporte@prexacode.com</span>
+      <span>© <span id="anio">2026</span> Prexacode · soporte@prexacode.com · ¿Tenés un consultorio odontológico? Conocé <a href="https://coredental.com.ar" style="text-decoration:underline">CoreDental</a></span>
       <nav aria-label="Enlaces">
         <a href="https://sistema.prexacode.com/terminos">Términos y condiciones</a>
         <a href="https://sistema.prexacode.com/privacidad">Privacidad</a>
@@ -373,6 +393,32 @@
   </footer>
   <script>
     document.getElementById("anio").textContent = new Date().getFullYear();
+    // Pedido de demo: se guarda en Prexacode y nos llega el aviso
+    const form = document.getElementById("formDemo");
+    const error = document.getElementById("errorDemo");
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      error.textContent = "";
+      const d = Object.fromEntries(new FormData(form).entries());
+      if (!d.nombre.trim() || !d.email.trim() || d.telefono.replace(/\D/g, "").length < 8) {
+        error.textContent = "Completá tu nombre, un email y un celular con característica.";
+        return;
+      }
+      const boton = form.querySelector("button");
+      boton.disabled = true;
+      boton.textContent = "Enviando…";
+      try {
+        const r = await fetch("https://sistema.prexacode.com/api/publico/interesados", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...d, producto: "gestion", origen: location.href }) });
+        const res = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(res.error || "No se pudo enviar");
+        form.hidden = true;
+        document.getElementById("graciasDemo").hidden = false;
+      } catch (err) {
+        error.textContent = err && err.message && err.message !== "Failed to fetch" ? err.message : "No se pudo enviar. Escribinos a soporte@prexacode.com";
+        boton.disabled = false;
+        boton.textContent = "Quiero una demo";
+      }
+    });
   </script>
 </body>
 </html>

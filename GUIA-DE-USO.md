@@ -177,7 +177,7 @@ Usuarios, roles y plan: solo administradores. El resto (empresa, ARCA, email, Wh
 
 ## 2 bis. CoreDental (consultorios odontológicos)
 
-El mismo sistema, con la marca, los colores y el menú de CoreDental. Se entra por **https://coredental.prexacode.com**: quien se registra desde ahí queda como consultorio. Comparte con Prexacode el registro, la prueba gratis, los planes (Consultorio, Clínica y Centro odontológico, a los mismos precios), el cobro por Mercado Pago, la facturación ARCA, presupuestos, cobranzas, sueldos y reportes.
+El mismo sistema, con la marca, los colores y el menú de CoreDental. Se entra por **https://app.coredental.com.ar** (la dirección vieja coredental.prexacode.com redirige ahí): quien se registra desde ahí queda como consultorio. La landing es **coredental.com.ar**; la de Prexacode, **productos.prexacode.com**. Los pedidos de demo de las dos landings llegan al panel de administración → Interesados. Comparte con Prexacode el registro, la prueba gratis, los planes (Consultorio, Clínica y Centro odontológico, a los mismos precios), el cobro por Mercado Pago, la facturación ARCA, presupuestos, cobranzas, sueldos y reportes.
 
 | Rol | Qué ve y qué hace |
 |---|---|

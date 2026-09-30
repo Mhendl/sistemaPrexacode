@@ -232,6 +232,13 @@
       "when": 1790772587871,
       "tag": "0032_campanas",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1790780055831,
+      "tag": "0033_interesados",
+      "breakpoints": true
     }
   ]
 }
