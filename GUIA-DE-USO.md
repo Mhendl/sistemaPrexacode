@@ -234,7 +234,10 @@ Turnos del día (cada profesional puede ver solo los suyos), pacientes activos y
 - **Bloquear horario** (en la agenda): vacaciones, congreso o feriado, de un profesional o de todo el consultorio, días enteros u horas. Se ve rayado y no deja dar turnos; si ya había turnos, los lista para reprogramarlos.
 - **Honorarios por porcentaje** (menú Honorarios): el porcentaje de cada profesional sobre lo que produjo en el mes (paciente + obra social), descontando su laboratorio si así se acordó. Pagos en partes, que quedan en Gastos y en la caja. Detalle por prestación.
 
-> **Próximamente en CoreDental:** campañas a pacientes y portal del paciente con turnos online.
+### Turnos online
+- **Link de turnos online** (Configuración → Agenda → Turnos online): el paciente elige profesional, día y horario libre, y deja nombre, DNI y celular. El turno entra a la agenda como «Turno online», al consultorio le llega el aviso y al paciente (si dejó email) la confirmación con el link para confirmar o cancelar. Por DNI se usa la ficha existente; si es nuevo se da de alta con «faltan datos». Hasta dos turnos online pendientes por paciente, anticipación mínima y días máximos configurables, link renovable. Ideal para la bio de Instagram, Google y WhatsApp.
+
+> **Próximamente en CoreDental:** campañas a pacientes (recordatorio de control, cumpleaños, deudores).
 
 ---
 

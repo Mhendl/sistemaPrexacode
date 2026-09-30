@@ -365,6 +365,18 @@ export const ARTICULOS: Articulo[] = [
   },
 
   {
+    id: "dental-turnos-online",
+    titulo: "Turnos online: que los pacientes saquen turno solos",
+    seccion: "Pacientes",
+    producto: "dental",
+    path: "/configuracion?tab=agenda",
+    permisos: ["configuracion"],
+    palabras: "turnos online reservar reserva link web instagram whatsapp google pacientes solos 24 horas",
+    texto: "Activás los turnos online y te queda un link para poner en tu web, Instagram, WhatsApp o el perfil de Google. El paciente elige profesional, día y horario libre (según los horarios de atención de cada uno), deja nombre, DNI y celular, y listo: el turno aparece en la agenda y te llega el aviso. Si ya era paciente (por DNI) se usa su ficha; si es nuevo, se da de alta con los datos por completar. Si dejó email, le llega la confirmación con el link para confirmar o cancelar.",
+    pasos: ["Cargá los horarios de cada profesional (Configuración → Agenda → Horarios).", "En Turnos online, activalo y tocá Guardar.", "Copiá el link o compartilo por WhatsApp.", "Elegí qué profesionales aparecen, la anticipación mínima y hasta cuántos días adelante."],
+    consejo: "Si el link se difundió donde no querías, tocá «Crear un link nuevo»: el anterior deja de funcionar.",
+  },
+  {
     id: "dental-honorarios",
     titulo: "Honorarios por porcentaje de los profesionales",
     seccion: "Pacientes",

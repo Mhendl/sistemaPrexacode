@@ -503,6 +503,14 @@ export const configAgenda = pgTable("config_agenda", {
   recordatorioHoras: integer("recordatorio_horas").notNull().default(24),
   /** CoreDental: avisarle al paciente por email cuando se le da un turno */
   avisoAlAgendar: boolean("aviso_al_agendar").notNull().default(false),
+  /** CoreDental: los pacientes reservan su turno desde un link público (/reservar/<codigo>) */
+  reservaOnline: boolean("reserva_online").notNull().default(false),
+  reservaCodigo: text("reserva_codigo").unique(),
+  /** Con cuántas horas de anticipación como mínimo, y hasta cuántos días adelante */
+  reservaAnticipacionHoras: integer("reserva_anticipacion_horas").notNull().default(2),
+  reservaDiasMax: integer("reserva_dias_max").notNull().default(30),
+  /** Un mensaje para el paciente al reservar (ej.: "Traé tu credencial") */
+  reservaMensaje: text("reserva_mensaje"),
   version: version(),
 });
 
@@ -522,6 +530,8 @@ export const agendaRecursos = pgTable(
     horarios: jsonb("horarios").$type<{ dia: number; desde: string; hasta: string }[]>().notNull().default([]),
     /** Duración habitual de un turno, en minutos (para ofrecer los horarios libres) */
     duracionTurno: integer("duracion_turno").notNull().default(30),
+    /** Si aparece para reservar turnos online (hace falta que tenga horarios cargados) */
+    reservaOnline: boolean("reserva_online").notNull().default(true),
     version: version(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -557,6 +567,8 @@ export const eventos = pgTable(
     avisadoWhatsappEn: timestamp("avisado_whatsapp_en", { withTimezone: true }),
     /** Cuándo respondió el paciente desde el link (confirmó o canceló) */
     respuestaPacienteEn: timestamp("respuesta_paciente_en", { withTimezone: true }),
+    /** Lo reservó el paciente desde el link de turnos online */
+    reservadoOnline: boolean("reservado_online").notNull().default(false),
     version: version(),
     usuarioId: uuid("usuario_id").references(() => usuarios.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

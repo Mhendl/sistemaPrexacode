@@ -462,6 +462,15 @@ export function useGuardarHorarios() {
   });
 }
 
+export function useAccionTurnosOnline() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ nuevoLink, recursoId, reservaOnline }: { nuevoLink?: boolean; recursoId?: string; reservaOnline?: boolean }) =>
+      nuevoLink ? api<unknown>("/agenda/config/reserva/nuevo-link", { method: "POST", body: {} }) : api<unknown>(`/agenda/recursos/${recursoId}/reserva`, { method: "PUT", body: { reservaOnline } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["agenda", "config"] }),
+  });
+}
+
 export const useBloqueos = (desde: string, hasta: string) =>
   useQuery({ queryKey: ["agenda", "bloqueos", { desde, hasta }], queryFn: () => api<BloqueoAgendaApi[]>(`/agenda/bloqueos?desde=${desde}&hasta=${hasta}`) });
 

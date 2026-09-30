@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { and, asc, desc, eq, gte, lte, ne, sql, type SQL } from "drizzle-orm";
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
@@ -53,6 +54,11 @@ const configSchema = z
     recordatorioEmail: z.boolean().optional(),
     recordatorioHoras: z.coerce.number().int().min(1, "Entre 1 y 72 horas").max(72, "Entre 1 y 72 horas").optional(),
     avisoAlAgendar: z.boolean().optional(),
+    /** CoreDental: turnos online */
+    reservaOnline: z.boolean().optional(),
+    reservaAnticipacionHoras: z.coerce.number().int().min(0, "Entre 0 y 168 horas").max(168, "Entre 0 y 168 horas").optional(),
+    reservaDiasMax: z.coerce.number().int().min(1, "Entre 1 y 180 días").max(180, "Entre 1 y 180 días").optional(),
+    reservaMensaje: z.string().trim().max(300).optional().nullable().transform((v) => (v === undefined ? undefined : v || null)),
     version: z.number().int().positive().max(2_000_000_000).optional(),
   })
   .refine((c) => aMin(c.horaFin) - aMin(c.horaInicio) >= 60, { message: "El horario tiene que abarcar al menos una hora", path: ["horaFin"] });
@@ -154,11 +160,13 @@ export async function sumarUsuarioALaAgenda(db: Db, empresaId: string, u: { id: 
 }
 
 const soloAdmin = requirePermiso("configuracion");
+/** Código del link de turnos online: difícil de adivinar */
+const nuevoCodigo = () => randomBytes(6).toString("hex");
 
 export const agendaRoutes: FastifyPluginAsync = async (app) => {
   // Todos los roles usan la agenda; la configuración y los recursos los maneja el administrador
   // Consultar la agenda pide "ver"; agendar o mover, "editar" (la configuración, además, "configuracion")
-  app.addHook("preHandler", permisoPorMetodo("agenda.ver", "agenda.editar", { "/config": "configuracion", "/recursos": "configuracion", "/recursos/:id": "configuracion", "/recursos/:id/horarios": "configuracion" }));
+  app.addHook("preHandler", permisoPorMetodo("agenda.ver", "agenda.editar", { "/config": "configuracion", "/config/reserva/nuevo-link": "configuracion", "/recursos": "configuracion", "/recursos/:id": "configuracion", "/recursos/:id/horarios": "configuracion", "/recursos/:id/reserva": "configuracion" }));
 
   const recursosDe = (empresaId: string) => app.db.select().from(agendaRecursos).where(eq(agendaRecursos.empresaId, empresaId)).orderBy(asc(agendaRecursos.createdAt));
 
@@ -185,12 +193,41 @@ export const agendaRoutes: FastifyPluginAsync = async (app) => {
         ...(d.recordatorioEmail !== undefined ? { recordatorioEmail: d.recordatorioEmail } : {}),
         ...(d.recordatorioHoras !== undefined ? { recordatorioHoras: d.recordatorioHoras } : {}),
         ...(d.avisoAlAgendar !== undefined ? { avisoAlAgendar: d.avisoAlAgendar } : {}),
+        ...(d.reservaOnline !== undefined ? { reservaOnline: d.reservaOnline } : {}),
+        ...(d.reservaOnline ? { reservaCodigo: sql`coalesce(${configAgenda.reservaCodigo}, ${nuevoCodigo()})` } : {}),
+        ...(d.reservaAnticipacionHoras !== undefined ? { reservaAnticipacionHoras: d.reservaAnticipacionHoras } : {}),
+        ...(d.reservaDiasMax !== undefined ? { reservaDiasMax: d.reservaDiasMax } : {}),
+        ...(d.reservaMensaje !== undefined ? { reservaMensaje: d.reservaMensaje } : {}),
         version: sql`${configAgenda.version} + 1`,
       })
       .where(and(...filtros))
       .returning();
     if (!c) throw edicionConcurrente("la configuración de la agenda");
     return configApi(c);
+  });
+
+  /** Link nuevo para los turnos online (el anterior deja de funcionar) */
+  app.post("/config/reserva/nuevo-link", { preHandler: soloAdmin }, async (req) => {
+    await asegurarConfig(app.db, req.user.empresaId);
+    const [c] = await app.db
+      .update(configAgenda)
+      .set({ reservaCodigo: nuevoCodigo(), version: sql`${configAgenda.version} + 1` })
+      .where(eq(configAgenda.empresaId, req.user.empresaId))
+      .returning();
+    return configApi(c!);
+  });
+
+  /** Si el profesional aparece en los turnos online */
+  app.put("/recursos/:id/reserva", { preHandler: soloAdmin }, async (req) => {
+    const { id } = parse(idSchema, req.params);
+    const { reservaOnline } = parse(z.object({ reservaOnline: z.boolean() }), req.body);
+    const [r] = await app.db
+      .update(agendaRecursos)
+      .set({ reservaOnline, version: sql`${agendaRecursos.version} + 1` })
+      .where(and(eq(agendaRecursos.id, id), eq(agendaRecursos.empresaId, req.user.empresaId)))
+      .returning();
+    if (!r) throw notFound("No encontrado");
+    return r;
   });
 
   /** El usuario vinculado tiene que ser de la misma empresa */

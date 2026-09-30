@@ -483,6 +483,8 @@ export interface RecursoAgendaApi {
   /** Días y horarios de atención (vacío: sin restricción) */
   horarios: FranjaHorario[];
   duracionTurno: number;
+  /** Si aparece en los turnos online (CoreDental) */
+  reservaOnline: boolean;
   version: number;
 }
 
@@ -525,12 +527,22 @@ export interface ConfigAgendaApi {
   recordatorioEmail: boolean;
   recordatorioHoras: number;
   avisoAlAgendar: boolean;
+  /** CoreDental: turnos online desde un link público */
+  reservaOnline: boolean;
+  reservaCodigo: string | null;
+  reservaAnticipacionHoras: number;
+  reservaDiasMax: number;
+  reservaMensaje: string | null;
   version: number;
   recursos: RecursoAgendaApi[];
   colores: string[];
 }
 
 export interface ConfigAgendaInput {
+  reservaOnline?: boolean;
+  reservaAnticipacionHoras?: number;
+  reservaDiasMax?: number;
+  reservaMensaje?: string | null;
   recordatorioEmail?: boolean;
   recordatorioHoras?: number;
   avisoAlAgendar?: boolean;
@@ -554,6 +566,8 @@ export interface EventoApi {
   pacienteNombre: string | null;
   pacienteTelefono: string | null;
   pacienteDatosPendientes: boolean;
+  /** Lo reservó el paciente desde el link de turnos online */
+  reservadoOnline?: boolean;
   fecha: string;
   inicio: string;
   fin: string;

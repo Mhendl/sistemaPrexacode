@@ -15,6 +15,7 @@ import { QueryState } from "@/components/shared/QueryState";
 import { cn } from "@/lib/utils";
 import { Field, Section } from "./parts";
 import { productoActivo } from "@/config/brand";
+import { TurnosOnline } from "./TurnosOnline";
 
 /** Puntos de partida por rubro: vocabulario y tipos de evento típicos */
 const PLANTILLAS = [
@@ -34,6 +35,7 @@ export function AgendaTab() {
       {data && (
         <div className="grid gap-6 lg:grid-cols-2">
           {productoActivo() === "dental" && <AvisosPacientes config={data} />}
+          {productoActivo() === "dental" && <TurnosOnline config={data} />}
           <Vocabulario config={data} />
           <Recursos config={data} />
         </div>
