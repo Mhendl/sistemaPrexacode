@@ -40,6 +40,13 @@ describe("servir la web compilada", () => {
     }
   });
 
+  it("en el dominio de CoreDental, la página sale con su título (pestaña y vista previa de los links)", async () => {
+    const r = await app.inject({ method: "GET", url: "/reservar/abc123", headers: { host: "app.coredental.com.ar" } });
+    expect(r.statusCode).toBe(200);
+    expect(r.body).toContain("<title>CoreDental · Gestión odontológica</title>");
+    expect((await app.inject({ method: "GET", url: "/", headers: { host: "sistema.prexacode.com" } })).body).toContain("<title>Prexacode</title>");
+  });
+
   it("los archivos con hash se cachean un año; los que faltan son 404", async () => {
     const js = await get("/assets/app-abc123.js");
     expect(js.statusCode).toBe(200);
