@@ -183,6 +183,13 @@
       "when": 1790723942523,
       "tag": "0025_productos",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1790731048699,
+      "tag": "0026_coredental_pacientes",
+      "breakpoints": true
     }
   ]
 }

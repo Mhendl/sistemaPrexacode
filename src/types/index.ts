@@ -1,7 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 
 /** Tipo de rol: los pre armados, o uno creado por la empresa */
-export type Role = "admin" | "ventas" | "operaciones" | "personalizado";
+export type Role = "admin" | "ventas" | "operaciones" | "profesional" | "recepcion" | "personalizado";
 
 /** Lo que puede hacer el usuario en sesión (el administrador, todo) */
 export interface Acceso {

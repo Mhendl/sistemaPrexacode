@@ -27,9 +27,12 @@ test("CoreDental: desde su dirección se registra un consultorio con su marca, s
   await expect(page.getByText("CoreDental").first()).toBeVisible();
 
   // Lo que todavía se está construyendo aparece como "Próximamente", con lo que va a incluir
-  await menu.getByRole("link", { name: "Pacientes" }).click();
+  await menu.getByRole("link", { name: "Laboratorios" }).click();
   await expect(page.getByText("Próximamente")).toBeVisible();
-  await expect(page.getByText(/Odontograma interactivo/)).toBeVisible();
+  await expect(page.getByText(/Saldo con cada laboratorio/)).toBeVisible();
+  // Pacientes ya está construido
+  await menu.getByRole("link", { name: "Pacientes" }).click();
+  await expect(page.getByText("Todavía no cargaste pacientes")).toBeVisible();
 
   // Planes con los nombres de CoreDental
   await page.goto("/configuracion?tab=plan");

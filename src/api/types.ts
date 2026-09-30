@@ -43,7 +43,7 @@ export interface RolApi {
   nombre: string;
   descripcion: string | null;
   esAdmin: boolean;
-  prearmado: "admin" | "ventas" | "operaciones" | null;
+  prearmado: "admin" | "ventas" | "operaciones" | "profesional" | "recepcion" | null;
   permisos: string[];
   version: number;
   usuarios: number;
@@ -465,7 +465,7 @@ export interface LibroIvaApi extends Periodo {
   conPruebas: boolean;
 }
 
-export type EstadoEvento = "Pendiente" | "Confirmado" | "Realizado" | "Cancelado";
+export type EstadoEvento = "Pendiente" | "Confirmado" | "Realizado" | "Ausente" | "Cancelado";
 
 export interface RecursoAgendaApi {
   id: string;
@@ -503,6 +503,11 @@ export interface EventoApi {
   recursoId: string;
   clienteId: string | null;
   clienteRazonSocial: string | null;
+  /** CoreDental: el paciente del turno */
+  pacienteId: string | null;
+  pacienteNombre: string | null;
+  pacienteTelefono: string | null;
+  pacienteDatosPendientes: boolean;
   fecha: string;
   inicio: string;
   fin: string;
@@ -517,6 +522,7 @@ export interface EventoInput {
   tipo: string | null;
   recursoId: string;
   clienteId: string | null;
+  pacienteId?: string | null;
   fecha: string;
   inicio: string;
   fin: string;

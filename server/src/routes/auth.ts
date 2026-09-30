@@ -6,6 +6,7 @@ import { aceptacionesTerminos, empresas, recuperacionesClave, suscripciones, usu
 import { enviarDePlataforma } from "../lib/email/plataforma.js";
 import { hoyAr } from "../lib/cuentas.js";
 import { crearRolesPrearmados, perfilDe } from "../lib/roles.js";
+import { prepararConsultorio } from "../lib/dental.js";
 import { DIAS_PRUEBA, PLAN_IDS, sumarDias } from "../lib/suscripcion.js";
 import { marcaDe, PRODUCTO_IDS, productoDeEmpresa } from "../lib/productos.js";
 import { TERMINOS_VERSION } from "../lib/legal.js";
@@ -65,11 +66,13 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       const ahora = new Date();
       const [empresa] = await tx.insert(empresas).values({ ...body.empresa, producto: body.producto, createdAt: ahora }).returning();
       await tx.insert(suscripciones).values({ empresaId: empresa.id, plan: (PLAN_IDS as string[]).includes(empresa.plan) ? empresa.plan : "profesional", pruebaHasta: sumarDias(hoyAr(), DIAS_PRUEBA) });
-      const rolesEmpresa = await crearRolesPrearmados(tx, empresa.id);
+      const rolesEmpresa = await crearRolesPrearmados(tx, empresa.id, empresa.producto);
       const [usuario] = await tx
         .insert(usuarios)
         .values({ empresaId: empresa.id, nombre: body.usuario.nombre, email: body.usuario.email, passwordHash, rol: "admin", rolId: rolesEmpresa.admin.id, ultimoAcceso: new Date(), sesionId: randomUUID() })
         .returning();
+      // Un consultorio arranca con su nomenclador, obras sociales y la agenda de turnos (el administrador como profesional)
+      if (empresa.producto === "dental") await prepararConsultorio(tx, empresa.id, usuario);
       await tx.insert(aceptacionesTerminos).values({
         empresaId: empresa.id,
         usuarioId: usuario.id,

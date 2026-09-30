@@ -2,7 +2,7 @@ import { and, asc, desc, eq, gte, lte, ne, sql, type SQL } from "drizzle-orm";
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import type { Db } from "../db/client.js";
-import { agendaRecursos, clientes, configAgenda, eventos, usuarios } from "../db/schema.js";
+import { agendaRecursos, clientes, configAgenda, eventos, pacientes, usuarios } from "../db/schema.js";
 import { permisoPorMetodo, requirePermiso } from "../lib/auth.js";
 import { diasEntre, hoyAr } from "../lib/cuentas.js";
 import { badRequest, conflict, edicionConcurrente, esReferenciado, HttpError, notFound, parse } from "../lib/errors.js";
@@ -20,7 +20,8 @@ export const COLORES_RECURSO = [
   "oklch(0.6 0.12 250)",
   "oklch(0.55 0.1 110)",
 ];
-export const ESTADOS_EVENTO = ["Pendiente", "Confirmado", "Realizado", "Cancelado"] as const;
+/** Ausente: el paciente no vino (CoreDental). Como Cancelado, deja el horario libre */
+export const ESTADOS_EVENTO = ["Pendiente", "Confirmado", "Realizado", "Ausente", "Cancelado"] as const;
 const TIPOS_INICIALES = ["Visita", "Reunión", "Llamada", "Tarea interna"];
 
 const fechaIso = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida").refine(fechaValida, "Esa fecha no existe");
@@ -60,10 +61,12 @@ const recursoSchema = z.object({
 
 const eventoSchema = z
   .object({
-    titulo: z.string().trim().min(2, "Poné un título").max(150),
+    /** Con paciente puede venir vacío: se titula con su nombre */
+    titulo: z.string().trim().max(150).default(""),
     tipo: textoOpcional(60),
     recursoId: z.string({ required_error: "Elegí a quién se asigna" }).uuid("Elegí a quién se asigna"),
     clienteId: z.string().uuid().optional().nullable().transform((v) => v || null),
+    pacienteId: z.string().uuid().optional().nullable().transform((v) => v || null),
     fecha: fechaIso,
     inicio: hora,
     fin: hora,
@@ -73,13 +76,15 @@ const eventoSchema = z
     /** Si se sabe que se superpone y se quiere agendar igual (ej. sobreturno) */
     permitirSuperposicion: z.boolean().default(false),
   })
-  .refine((e) => e.fin > e.inicio, { message: "Tiene que terminar después de empezar", path: ["fin"] });
+  .refine((e) => e.fin > e.inicio, { message: "Tiene que terminar después de empezar", path: ["fin"] })
+  .refine((e) => e.titulo.length >= 2 || !!e.pacienteId, { message: "Poné un título", path: ["titulo"] });
 
 const listaSchema = z.object({
   desde: fechaIso.optional(),
   hasta: fechaIso.optional(),
   recursoId: z.string().uuid().optional(),
   clienteId: z.string().uuid().optional(),
+  pacienteId: z.string().uuid().optional(),
 });
 
 type Config = typeof configAgenda.$inferSelect;
@@ -194,17 +199,31 @@ export const agendaRoutes: FastifyPluginAsync = async (app) => {
 
   const conCliente = (filtros: SQL[]) =>
     app.db
-      .select({ evento: eventos, clienteRazonSocial: clientes.razonSocial })
+      .select({
+        evento: eventos,
+        clienteRazonSocial: clientes.razonSocial,
+        pacienteNombre: sql<string | null>`case when ${pacientes.id} is null then null else ${pacientes.apellido} || ', ' || ${pacientes.nombre} end`,
+        pacienteTelefono: pacientes.telefono,
+        pacienteDatosPendientes: pacientes.datosPendientes,
+      })
       .from(eventos)
       .leftJoin(clientes, eq(clientes.id, eventos.clienteId))
+      .leftJoin(pacientes, eq(pacientes.id, eventos.pacienteId))
       .where(and(...filtros));
 
-  const plano = (r: { evento: typeof eventos.$inferSelect; clienteRazonSocial: string | null }) => ({ ...r.evento, clienteRazonSocial: r.clienteRazonSocial });
+  const plano = (r: { evento: typeof eventos.$inferSelect; clienteRazonSocial: string | null; pacienteNombre: string | null; pacienteTelefono: string | null; pacienteDatosPendientes: boolean | null }) => ({
+    ...r.evento,
+    clienteRazonSocial: r.clienteRazonSocial,
+    pacienteNombre: r.pacienteNombre,
+    pacienteTelefono: r.pacienteTelefono,
+    pacienteDatosPendientes: !!r.pacienteDatosPendientes,
+  });
 
   app.get("/eventos", async (req) => {
     const q = parse(listaSchema, req.query);
     const filtros: SQL[] = [eq(eventos.empresaId, req.user.empresaId)];
     if (q.recursoId) filtros.push(eq(eventos.recursoId, q.recursoId));
+    if (q.pacienteId) filtros.push(eq(eventos.pacienteId, q.pacienteId));
     if (q.clienteId) {
       // Historial del cliente: los últimos y los próximos, sin necesidad de período
       filtros.push(eq(eventos.clienteId, q.clienteId));
@@ -237,17 +256,23 @@ export const agendaRoutes: FastifyPluginAsync = async (app) => {
       const [c] = await app.db.select({ id: clientes.id }).from(clientes).where(and(eq(clientes.id, d.clienteId), eq(clientes.empresaId, empresaId)));
       if (!c) throw badRequest("El cliente no existe", { clienteId: "Inválido" });
     }
+    if (d.pacienteId) {
+      const [p] = await app.db.select({ nombre: pacientes.nombre, apellido: pacientes.apellido }).from(pacientes).where(and(eq(pacientes.id, d.pacienteId), eq(pacientes.empresaId, empresaId)));
+      if (!p) throw badRequest("El paciente no existe", { pacienteId: "Inválido" });
+      if (d.titulo.length < 2) d.titulo = `${p.apellido}, ${p.nombre}`;
+    }
     return r;
   }
 
   /** Otro evento del mismo recurso en el mismo horario (los cancelados no cuentan) */
   async function superposicion(empresaId: string, d: z.infer<typeof eventoSchema>, recurso: typeof agendaRecursos.$inferSelect, excluir?: string) {
-    if (d.estado === "Cancelado" || d.permitirSuperposicion) return;
+    if (d.estado === "Cancelado" || d.estado === "Ausente" || d.permitirSuperposicion) return;
     const filtros: SQL[] = [
       eq(eventos.empresaId, empresaId),
       eq(eventos.recursoId, d.recursoId),
       eq(eventos.fecha, d.fecha),
       ne(eventos.estado, "Cancelado"),
+      ne(eventos.estado, "Ausente"),
       sql`${eventos.inicio} < ${d.fin}`,
       sql`${eventos.fin} > ${d.inicio}`,
     ];
@@ -274,6 +299,7 @@ export const agendaRoutes: FastifyPluginAsync = async (app) => {
     const { permitirSuperposicion: _p, ...d } = datos;
     const empresaId = req.user.empresaId;
     const recurso = await validarReferencias(empresaId, datos);
+    d.titulo = datos.titulo;
     await superposicion(empresaId, datos, recurso);
     const [ev] = await app.db.insert(eventos).values({ ...d, empresaId, usuarioId: req.user.sub }).returning();
     await avisar(empresaId, req.user.sub, recurso, "Te agendaron algo nuevo", ev!);
@@ -290,6 +316,7 @@ export const agendaRoutes: FastifyPluginAsync = async (app) => {
     if (!actual) throw notFound("Evento no encontrado");
     if (version && version !== actual.version) throw edicionConcurrente("este evento");
     const recurso = await validarReferencias(empresaId, datos, actual.recursoId);
+    d.titulo = datos.titulo;
     await superposicion(empresaId, datos, recurso, id);
 
     const filtros: SQL[] = [eq(eventos.id, id), eq(eventos.empresaId, empresaId)];
@@ -321,7 +348,8 @@ export const agendaRoutes: FastifyPluginAsync = async (app) => {
     const [actual] = await app.db.select().from(eventos).where(and(eq(eventos.id, id), eq(eventos.empresaId, empresaId)));
     if (!actual) throw notFound("Evento no encontrado");
     // Reactivar uno cancelado vuelve a ocupar el horario: se controla superposición
-    if (actual.estado === "Cancelado" && estado !== "Cancelado") {
+    const libre = (e: string) => e === "Cancelado" || e === "Ausente";
+    if (libre(actual.estado) && !libre(estado)) {
       const [recurso] = await app.db.select().from(agendaRecursos).where(eq(agendaRecursos.id, actual.recursoId));
       await superposicion(empresaId, { ...actual, estado, permitirSuperposicion: false }, recurso!, id);
     }

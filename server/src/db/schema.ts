@@ -527,6 +527,8 @@ export const eventos = pgTable(
       .notNull()
       .references(() => agendaRecursos.id, { onDelete: "restrict" }),
     clienteId: uuid("cliente_id").references(() => clientes.id, { onDelete: "set null" }),
+    /** CoreDental: el paciente del turno */
+    pacienteId: uuid("paciente_id").references(() => pacientes.id, { onDelete: "set null" }),
     fecha: text("fecha").notNull(),
     /** "HH:MM" */
     inicio: text("inicio").notNull(),
@@ -938,4 +940,179 @@ export const avisosEnviados = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("avisos_enviados_uq").on(t.empresaId, t.clave)],
+);
+
+/* ================================================================ CoreDental (odontología) */
+
+/** Obras sociales y prepagas con las que trabaja el consultorio */
+export const obrasSociales = pgTable(
+  "obras_sociales",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    empresaId: uuid("empresa_id")
+      .notNull()
+      .references(() => empresas.id, { onDelete: "cascade" }),
+    nombre: text("nombre").notNull(),
+    activa: boolean("activa").notNull().default(true),
+    version: version(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("obras_sociales_empresa_nombre_uq").on(t.empresaId, t.nombre)],
+);
+
+export const pacientes = pgTable(
+  "pacientes",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    empresaId: uuid("empresa_id")
+      .notNull()
+      .references(() => empresas.id, { onDelete: "cascade" }),
+    nombre: text("nombre").notNull(),
+    apellido: text("apellido").notNull(),
+    /** Solo dígitos. Puede faltar si se dio de alta rápido desde un turno */
+    dni: text("dni"),
+    fechaNacimiento: text("fecha_nacimiento"), // aaaa-mm-dd
+    /** F | M | X */
+    sexo: text("sexo"),
+    telefono: text("telefono"),
+    email: text("email"),
+    domicilio: text("domicilio"),
+    localidad: text("localidad"),
+    obraSocialId: uuid("obra_social_id").references(() => obrasSociales.id, { onDelete: "restrict" }),
+    plan: text("plan"),
+    numeroAfiliado: text("numero_afiliado"),
+    // Antecedentes (datos de salud: los ve quien tiene permiso de historia clínica)
+    alergias: text("alergias"),
+    medicacion: text("medicacion"),
+    antecedentes: text("antecedentes"),
+    intervenciones: text("intervenciones"),
+    notas: text("notas"),
+    /** Alta rápida desde un turno: faltan datos por completar */
+    datosPendientes: boolean("datos_pendientes").notNull().default(false),
+    estado: text("estado").notNull().default("Activo"),
+    version: version(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("pacientes_empresa_dni_uq").on(t.empresaId, t.dni).where(sql`${t.dni} is not null`),
+    index("pacientes_empresa_apellido_idx").on(t.empresaId, t.apellido),
+  ],
+);
+
+/**
+ * Historia clínica: una evolución por consulta. No se modifica ni se borra (Ley 26.529, art. 18: inalterabilidad);
+ * si hubo un error, se agrega otra evolución que lo aclare.
+ */
+export const evoluciones = pgTable(
+  "evoluciones",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    empresaId: uuid("empresa_id")
+      .notNull()
+      .references(() => empresas.id, { onDelete: "cascade" }),
+    pacienteId: uuid("paciente_id")
+      .notNull()
+      .references(() => pacientes.id, { onDelete: "restrict" }),
+    fecha: text("fecha").notNull(),
+    texto: text("texto").notNull(),
+    /** Quién la escribió (queda el nombre aunque después se borre el usuario) */
+    usuarioId: uuid("usuario_id").references(() => usuarios.id, { onDelete: "set null" }),
+    autor: text("autor").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("evoluciones_paciente_idx").on(t.pacienteId, t.createdAt)],
+);
+
+/** Radiografías, fotos y estudios del paciente (el contenido va aparte, para no traerlo en las listas) */
+export const pacienteArchivos = pgTable(
+  "paciente_archivos",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    empresaId: uuid("empresa_id")
+      .notNull()
+      .references(() => empresas.id, { onDelete: "cascade" }),
+    pacienteId: uuid("paciente_id")
+      .notNull()
+      .references(() => pacientes.id, { onDelete: "restrict" }),
+    /** Radiografía | Foto | Estudio | Documento */
+    tipo: text("tipo").notNull(),
+    descripcion: text("descripcion"),
+    nombreArchivo: text("nombre_archivo").notNull(),
+    mime: text("mime").notNull(),
+    tamano: integer("tamano").notNull(),
+    fecha: text("fecha").notNull(),
+    usuarioId: uuid("usuario_id").references(() => usuarios.id, { onDelete: "set null" }),
+    autor: text("autor").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("paciente_archivos_paciente_idx").on(t.pacienteId)],
+);
+
+export const pacienteArchivoDatos = pgTable("paciente_archivo_datos", {
+  archivoId: uuid("archivo_id")
+    .primaryKey()
+    .references(() => pacienteArchivos.id, { onDelete: "cascade" }),
+  datos: text("datos").notNull(), // base64
+});
+
+/** Nomenclador del consultorio: prácticas con su código y cómo se dibujan en el odontograma */
+export const prestaciones = pgTable(
+  "prestaciones",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    empresaId: uuid("empresa_id")
+      .notNull()
+      .references(() => empresas.id, { onDelete: "cascade" }),
+    codigo: text("codigo").notNull(),
+    nombre: text("nombre").notNull(),
+    /** cara (se marca en una o más caras) | pieza (toda la pieza) | general (no va al odontograma) */
+    alcance: text("alcance").notNull(),
+    /** Cómo se dibuja: relleno (pinta las caras) | cruz | circulo | ausente | texto */
+    simbolo: text("simbolo").notNull().default("relleno"),
+    /** Para simbolo = texto: hasta 3 letras (TC, IMP…) */
+    etiqueta: text("etiqueta"),
+    activa: boolean("activa").notNull().default(true),
+    version: version(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("prestaciones_empresa_codigo_uq").on(t.empresaId, t.codigo)],
+);
+
+/**
+ * Odontograma: cada marca es una prestación en una pieza (y caras), con su estado.
+ * existente = ya lo tenía al llegar · a_realizar = plan de tratamiento · realizado = hecho en el consultorio.
+ * No se borra: una marca cargada por error se anula (queda en el historial).
+ */
+export const odontograma = pgTable(
+  "odontograma",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    empresaId: uuid("empresa_id")
+      .notNull()
+      .references(() => empresas.id, { onDelete: "cascade" }),
+    pacienteId: uuid("paciente_id")
+      .notNull()
+      .references(() => pacientes.id, { onDelete: "restrict" }),
+    prestacionId: uuid("prestacion_id")
+      .notNull()
+      .references(() => prestaciones.id, { onDelete: "restrict" }),
+    /** Nomenclatura FDI: 11–48 permanentes, 51–85 temporarias */
+    pieza: integer("pieza").notNull(),
+    /** V (vestibular), L (lingual/palatino), M (mesial), D (distal), O (oclusal/incisal) */
+    caras: jsonb("caras").$type<string[]>().notNull().default([]),
+    estado: text("estado").notNull(),
+    fecha: text("fecha").notNull(),
+    notas: text("notas"),
+    usuarioId: uuid("usuario_id").references(() => usuarios.id, { onDelete: "set null" }),
+    autor: text("autor").notNull(),
+    realizadoEn: text("realizado_en"),
+    realizadoPor: text("realizado_por"),
+    anuladoEn: timestamp("anulado_en", { withTimezone: true }),
+    anuladoPor: text("anulado_por"),
+    motivoAnulacion: text("motivo_anulacion"),
+    version: version(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("odontograma_paciente_idx").on(t.pacienteId)],
 );

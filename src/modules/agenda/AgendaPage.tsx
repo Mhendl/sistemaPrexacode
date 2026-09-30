@@ -51,6 +51,16 @@ function Calendario({ config }: { config: ConfigAgendaApi }) {
   const recursoPorId = useMemo(() => new Map(config.recursos.map((r) => [r.id, r])), [config.recursos]);
   const miRecurso = config.recursos.find((r) => r.activo && r.usuarioId === usuario.id);
 
+  const sinRecursos = !config.recursos.some((r) => r.activo);
+
+  // Desde la ficha de un paciente: /agenda?paciente=… abre un turno nuevo para él
+  const pacienteParam = params.get("paciente");
+  useEffect(() => {
+    if (!pacienteParam || sinRecursos) return;
+    nuevo({ pacienteId: pacienteParam, titulo: "" });
+    setParams({}, { replace: true });
+  }, [pacienteParam]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Link desde una notificación: /agenda?fecha=…&evento=…
   const eventoParam = params.get("evento");
   useEffect(() => {
@@ -91,7 +101,6 @@ function Calendario({ config }: { config: ConfigAgendaApi }) {
     nuevo({ fecha: dia, inicio, fin: sumarMinutos(inicio, 60) });
   };
 
-  const sinRecursos = !config.recursos.some((r) => r.activo);
 
   return (
     <>
@@ -277,8 +286,8 @@ interface BloqueProps {
 function EventoBloque({ evento: e, color, recurso, desdeH, carril, carriles, compacto, onClick }: BloqueProps) {
   const top = ((aMin(e.inicio) - desdeH * 60) / 60) * HORA_PX;
   const height = Math.max(26, ((aMin(e.fin) - aMin(e.inicio)) / 60) * HORA_PX - 3);
-  const cliente = e.clienteRazonSocial ?? "Interno";
-  const cancelado = e.estado === "Cancelado";
+  const cliente = e.pacienteId ? (e.tipo ?? "Turno") : (e.clienteRazonSocial ?? "Interno");
+  const cancelado = e.estado === "Cancelado" || e.estado === "Ausente";
 
   return (
     <button

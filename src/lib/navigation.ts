@@ -91,21 +91,7 @@ const seccionesDental: NavSection[] = [
   {
     title: "Pacientes",
     items: [
-      {
-        path: "/pacientes",
-        label: "Pacientes",
-        icon: Contact,
-        permisos: [],
-        description: "Ficha, historia clínica y odontograma de cada paciente",
-        features: [
-          "Ficha del paciente con DNI, obra social, plan y número de afiliado",
-          "Antecedentes, alergias y medicación habitual",
-          "Historia clínica con notas de evolución por consulta, radiografías e imágenes",
-          "Odontograma interactivo por pieza y cara, con lo realizado y lo que falta",
-          "Periodontograma",
-          "Consentimientos informados firmados en pantalla",
-        ],
-      },
+      { path: "/pacientes", label: "Pacientes", icon: Contact, permisos: ["pacientes.ver"], description: "Ficha, historia clínica y odontograma de cada paciente" },
       { ...item("/agenda"), label: "Turnos", description: "Agenda de turnos por profesional" },
     ],
   },
@@ -199,6 +185,8 @@ export const rolLabel: Record<Role, string> = {
   admin: "Administrador",
   ventas: "Ventas",
   operaciones: "Operaciones",
+  profesional: "Profesional",
+  recepcion: "Recepción",
   personalizado: "Personalizado",
 };
 
@@ -206,5 +194,7 @@ export const descripcionRoles: Record<Role, string> = {
   admin: "Acceso completo, incluida la configuración, los usuarios y el plan",
   ventas: "Clientes, oportunidades, agenda, facturación, presupuestos, cobranzas y reportes",
   operaciones: "Agenda, productos, stock y movimientos",
+  profesional: "Pacientes, historia clínica, odontograma, turnos y presupuestos",
+  recepcion: "Pacientes, turnos, cobros y facturación. No ve la historia clínica",
   personalizado: "Permisos elegidos por el administrador",
 };

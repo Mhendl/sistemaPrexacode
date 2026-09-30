@@ -2,25 +2,26 @@ import { and, count, eq, inArray, ne } from "drizzle-orm";
 import type { Db } from "../db/client.js";
 import { roles, usuarios } from "../db/schema.js";
 import { badRequest } from "./errors.js";
-import { ROLES_PREARMADOS, type Prearmado } from "./permisos.js";
+import { ROLES_PREARMADOS, ROLES_PREARMADOS_DENTAL } from "./permisos.js";
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 export type RolRow = typeof roles.$inferSelect;
 
 /** Los roles con los que arranca una empresa nueva */
-export async function crearRolesPrearmados(db: Db | Tx, empresaId: string) {
+export async function crearRolesPrearmados(db: Db | Tx, empresaId: string, producto = "gestion") {
+  const prearmados = producto === "dental" ? ROLES_PREARMADOS_DENTAL : ROLES_PREARMADOS;
   const filas = await db
     .insert(roles)
-    .values(Object.entries(ROLES_PREARMADOS).map(([clave, r]) => ({ empresaId, nombre: r.nombre, descripcion: r.descripcion, esAdmin: r.esAdmin, prearmado: clave, permisos: [...r.permisos] })))
+    .values(Object.entries(prearmados).map(([clave, r]) => ({ empresaId, nombre: r.nombre, descripcion: r.descripcion, esAdmin: r.esAdmin, prearmado: clave, permisos: [...r.permisos] })))
     .returning();
-  return Object.fromEntries(filas.map((f) => [f.prearmado, f])) as Record<Prearmado, RolRow>;
+  return Object.fromEntries(filas.map((f) => [f.prearmado, f])) as Record<string, RolRow> & { admin: RolRow };
 }
 
 /** Tipo de rol que se guarda en usuarios.rol: el pre armado, o "personalizado" */
 export const tipoDeRol = (r: Pick<RolRow, "prearmado">) => r.prearmado ?? "personalizado";
 
 /**
- * El rol a asignar: por id, o por su clave de pre armado ("admin", "ventas", "operaciones").
+ * El rol a asignar: por id, o por su clave de pre armado ("admin", "ventas", "operaciones", "profesional", "recepcion").
  * Tiene que ser de la misma empresa.
  */
 export async function rolParaAsignar(db: Db, empresaId: string, d: { rolId?: string; rol?: string }) {

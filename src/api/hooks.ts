@@ -141,7 +141,7 @@ export function useEditarUsuario() {
 
 /* ---------- Productos y stock ---------- */
 
-export const useProductos = () => useQuery({ queryKey: ["productos"], queryFn: () => api<ProductoApi[]>("/productos") });
+export const useProductos = (habilitado = true) => useQuery({ queryKey: ["productos"], queryFn: () => api<ProductoApi[]>("/productos"), enabled: habilitado });
 
 export const useProducto = (id: string | undefined) =>
   useQuery({ queryKey: ["productos", id], queryFn: () => api<ProductoApi>(`/productos/${id}`), enabled: !!id });

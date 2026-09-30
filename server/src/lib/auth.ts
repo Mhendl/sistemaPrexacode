@@ -5,7 +5,7 @@ import { forbidden, HttpError, unauthorized } from "./errors.js";
 import type { Permiso } from "./permisos.js";
 
 /** Tipo de rol: los pre armados, o uno creado por la empresa */
-export const ROLES = ["admin", "ventas", "operaciones"] as const;
+export const ROLES = ["admin", "ventas", "operaciones", "profesional", "recepcion"] as const;
 export type Rol = (typeof ROLES)[number] | "personalizado";
 
 /** Datos que viajan firmados dentro del token */

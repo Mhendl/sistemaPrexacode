@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { AgendaHoy } from "@/modules/agenda/AgendaHoy";
 import { formatCantidad } from "@/modules/productos/stock";
 import { VentasChart } from "./VentasChart";
+import { InicioConsultorio } from "./InicioConsultorio";
 
 const fechaLarga = () => {
   const s = new Date().toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
@@ -77,7 +78,13 @@ function Variacion({ actual, anterior }: { actual: number; anterior: number }) {
   );
 }
 
+/** El inicio de cada producto: el de gestión o el del consultorio */
 export function InicioPage() {
+  const { empresa } = useRole();
+  return empresa.producto === "dental" ? <InicioConsultorio /> : <InicioGestion />;
+}
+
+function InicioGestion() {
   const { usuario, puede } = useRole();
   const { data, isLoading, error, refetch } = useInicio();
   const verVentas = puede("facturacion.ver");

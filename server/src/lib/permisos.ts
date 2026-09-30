@@ -3,8 +3,24 @@
  * El rol Administrador tiene todo, incluido lo que no se puede delegar: usuarios, roles, plan y pagos.
  */
 export const SECCIONES_PERMISOS = [
+  {
+    seccion: "Pacientes",
+    producto: "dental",
+    permisos: [
+      { id: "pacientes.ver", nombre: "Ver pacientes y sus datos de contacto" },
+      { id: "pacientes.editar", nombre: "Dar de alta y editar pacientes" },
+    ],
+  },
+  {
+    seccion: "Historia clínica",
+    producto: "dental",
+    permisos: [
+      { id: "historia.ver", nombre: "Ver historia clínica, antecedentes, odontograma e imágenes" },
+      { id: "historia.editar", nombre: "Cargar evoluciones, odontograma e imágenes" },
+    ],
+  },
   { seccion: "Clientes", permisos: [{ id: "clientes.ver", nombre: "Ver clientes y su ficha" }, { id: "clientes.editar", nombre: "Crear, editar y borrar clientes" }] },
-  { seccion: "Oportunidades", permisos: [{ id: "oportunidades.ver", nombre: "Ver el embudo de ventas" }, { id: "oportunidades.editar", nombre: "Crear y mover oportunidades" }] },
+  { seccion: "Oportunidades", producto: "gestion", permisos: [{ id: "oportunidades.ver", nombre: "Ver el embudo de ventas" }, { id: "oportunidades.editar", nombre: "Crear y mover oportunidades" }] },
   { seccion: "Agenda", permisos: [{ id: "agenda.ver", nombre: "Ver la agenda" }, { id: "agenda.editar", nombre: "Agendar, mover y cancelar" }] },
   { seccion: "Presupuestos", permisos: [{ id: "presupuestos.ver", nombre: "Ver presupuestos" }, { id: "presupuestos.editar", nombre: "Crear, editar y facturar presupuestos" }] },
   { seccion: "Facturación", permisos: [{ id: "facturacion.ver", nombre: "Ver facturas y notas de crédito" }, { id: "facturacion.emitir", nombre: "Emitir facturas y notas de crédito" }] },
@@ -18,6 +34,7 @@ export const SECCIONES_PERMISOS = [
   },
   {
     seccion: "Remitos",
+    producto: "gestion",
     permisos: [
       { id: "remitos.ver", nombre: "Ver remitos" },
       { id: "remitos.emitir", nombre: "Emitir remitos" },
@@ -26,6 +43,7 @@ export const SECCIONES_PERMISOS = [
   },
   {
     seccion: "Productos y stock",
+    producto: "gestion",
     permisos: [
       { id: "productos.ver", nombre: "Ver productos, precios y stock" },
       { id: "productos.editar", nombre: "Crear y editar productos y precios" },
@@ -43,6 +61,9 @@ export const PERMISOS: Permiso[] = SECCIONES_PERMISOS.flatMap((s) => s.permisos.
 
 /** Para editar hace falta poder ver: al guardar un rol se agregan solos */
 export const REQUIERE: Partial<Record<Permiso, Permiso[]>> = {
+  "pacientes.editar": ["pacientes.ver"],
+  "historia.ver": ["pacientes.ver"],
+  "historia.editar": ["historia.ver", "pacientes.ver"],
   "clientes.editar": ["clientes.ver"],
   "oportunidades.editar": ["oportunidades.ver"],
   "agenda.editar": ["agenda.ver"],
@@ -65,6 +86,9 @@ export function completarPermisos(lista: string[]): Permiso[] {
   return PERMISOS.filter((p) => s.has(p));
 }
 
+/** Las secciones de permisos que tiene cada producto (las que no dicen producto son de los dos) */
+export const seccionesDe = (producto: string) => SECCIONES_PERMISOS.filter((s) => !("producto" in s) || s.producto === producto);
+
 /** Roles que trae cada empresa nueva (los de siempre). El de administrador no se puede recortar ni borrar */
 export const ROLES_PREARMADOS = {
   admin: { nombre: "Administrador", descripcion: "Acceso completo, incluidos usuarios, roles, plan y pagos", esAdmin: true, permisos: PERMISOS },
@@ -82,3 +106,20 @@ export const ROLES_PREARMADOS = {
   },
 } as const;
 export type Prearmado = keyof typeof ROLES_PREARMADOS;
+
+/** Roles que trae un consultorio (CoreDental): la recepción no ve la historia clínica (datos de salud) */
+export const ROLES_PREARMADOS_DENTAL = {
+  admin: ROLES_PREARMADOS.admin,
+  profesional: {
+    nombre: "Profesional",
+    descripcion: "Pacientes, historia clínica, odontograma, turnos y presupuestos",
+    esAdmin: false,
+    permisos: completarPermisos(["pacientes.editar", "historia.editar", "agenda.editar", "presupuestos.editar", "facturacion.ver", "cobranzas.ver", "reportes.ver"]),
+  },
+  recepcion: {
+    nombre: "Recepción",
+    descripcion: "Pacientes, turnos, presupuestos, cobros y facturación. No ve la historia clínica",
+    esAdmin: false,
+    permisos: completarPermisos(["pacientes.editar", "agenda.editar", "presupuestos.ver", "facturacion.emitir", "cobranzas.cobrar"]),
+  },
+} as const;

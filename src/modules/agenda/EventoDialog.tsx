@@ -12,9 +12,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { productoActivo } from "@/config/brand";
+import { PacienteSelector } from "@/modules/pacientes/PacienteSelector";
 
 const NINGUNO = "__ninguno";
 const ESTADOS: EstadoEvento[] = ["Pendiente", "Confirmado", "Realizado", "Cancelado"];
+/** En un consultorio además se marca si el paciente no vino */
+const ESTADOS_DENTAL: EstadoEvento[] = ["Pendiente", "Confirmado", "Realizado", "Ausente", "Cancelado"];
 
 export const sumarMinutos = (h: string, m: number) => {
   const t = Math.min(23 * 60 + 59, Number(h.slice(0, 2)) * 60 + Number(h.slice(3, 5)) + m);
@@ -47,7 +51,8 @@ const vacio = (config: ConfigAgendaApi, inicial?: Partial<EventoInput>): EventoI
 /** Alta y edición de un evento de la agenda (turno, visita, orden…) */
 export function EventoDialog({ open, onOpenChange, config, evento, inicial }: Props) {
   const qc = useQueryClient();
-  const { data: clientes = [] } = useClientes(open);
+  const dental = productoActivo() === "dental";
+  const { data: clientes = [] } = useClientes(open && !dental);
   const guardar = useGuardarEvento();
   const accion = useAccionEvento();
   const [d, setD] = useState<EventoInput>(() => vacio(config, inicial));
@@ -81,6 +86,10 @@ export function EventoDialog({ open, onOpenChange, config, evento, inicial }: Pr
 
   const submit = async (permitirSuperposicion = false) => {
     setErrores({});
+    if (dental && !d.pacienteId && d.titulo.trim().length < 2) {
+      setErrores({ pacienteId: "Elegí el paciente (o escribí un título si es algo interno)" });
+      return;
+    }
     try {
       await guardar.mutateAsync({ id: evento?.id, datos: { ...d, permitirSuperposicion } });
       toast.success(evento ? "Cambios guardados" : "Quedó agendado", { description: `${d.titulo} · ${d.inicio} a ${d.fin}` });
@@ -121,11 +130,24 @@ export function EventoDialog({ open, onOpenChange, config, evento, inicial }: Pr
             submit();
           }}
         >
-          <div className="grid gap-1.5 sm:col-span-2">
-            <Label htmlFor="ev-titulo">Título</Label>
-            <Input id="ev-titulo" value={d.titulo} onChange={(e) => set("titulo", e.target.value)} aria-invalid={!!errores.titulo} autoFocus />
-            {errores.titulo && <p className="text-xs text-destructive">{errores.titulo}</p>}
-          </div>
+          {dental && (
+            <div className="grid gap-1.5 sm:col-span-2">
+              <Label htmlFor="ev-paciente">Paciente</Label>
+              <PacienteSelector
+                value={d.pacienteId ?? null}
+                invalido={!!errores.pacienteId}
+                onChange={(id, nombrePaciente) => setD((x) => ({ ...x, pacienteId: id, titulo: nombrePaciente ?? (x.pacienteId ? "" : x.titulo) }))}
+              />
+              {errores.pacienteId && <p className="text-xs text-destructive">{errores.pacienteId}</p>}
+            </div>
+          )}
+          {(!dental || !d.pacienteId) && (
+            <div className="grid gap-1.5 sm:col-span-2">
+              <Label htmlFor="ev-titulo">{dental ? "O un título (bloqueo, reunión…)" : "Título"}</Label>
+              <Input id="ev-titulo" value={d.titulo} onChange={(e) => set("titulo", e.target.value)} aria-invalid={!!errores.titulo} autoFocus={!dental} />
+              {errores.titulo && <p className="text-xs text-destructive">{errores.titulo}</p>}
+            </div>
+          )}
           <div className="grid gap-1.5">
             <Label htmlFor="ev-recurso">{config.nombreRecurso}</Label>
             <Select value={d.recursoId} onValueChange={(v) => set("recursoId", v)}>
@@ -159,6 +181,7 @@ export function EventoDialog({ open, onOpenChange, config, evento, inicial }: Pr
               </SelectContent>
             </Select>
           </div>
+          {!dental && (
           <div className="grid gap-1.5 sm:col-span-2">
             <Label htmlFor="ev-cliente">Cliente</Label>
             <Select value={d.clienteId ?? NINGUNO} onValueChange={(v) => set("clienteId", v === NINGUNO ? null : v)}>
@@ -176,6 +199,7 @@ export function EventoDialog({ open, onOpenChange, config, evento, inicial }: Pr
               </SelectContent>
             </Select>
           </div>
+          )}
           <div className="grid grid-cols-[1.4fr_1fr_1fr] gap-3 sm:col-span-2">
             <div className="grid gap-1.5">
               <Label htmlFor="ev-fecha">Fecha</Label>
@@ -198,7 +222,7 @@ export function EventoDialog({ open, onOpenChange, config, evento, inicial }: Pr
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {ESTADOS.map((e) => (
+                {(dental ? ESTADOS_DENTAL : ESTADOS).map((e) => (
                   <SelectItem key={e} value={e}>
                     {e}
                   </SelectItem>
@@ -207,8 +231,8 @@ export function EventoDialog({ open, onOpenChange, config, evento, inicial }: Pr
             </Select>
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="ev-lugar">Lugar</Label>
-            <Input id="ev-lugar" value={d.lugar ?? ""} onChange={(e) => set("lugar", e.target.value || null)} placeholder="Dirección, sala, link…" />
+            <Label htmlFor="ev-lugar">{dental ? "Consultorio / sillón" : "Lugar"}</Label>
+            <Input id="ev-lugar" value={d.lugar ?? ""} onChange={(e) => set("lugar", e.target.value || null)} placeholder={dental ? "Ej.: Sillón 2" : "Dirección, sala, link…"} />
           </div>
           <div className="grid gap-1.5 sm:col-span-2">
             <Label htmlFor="ev-notas">Notas</Label>

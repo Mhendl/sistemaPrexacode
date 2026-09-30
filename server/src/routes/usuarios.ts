@@ -4,10 +4,11 @@ import { z } from "zod";
 import { roles, usuarios } from "../db/schema.js";
 import { exigirCupo } from "../lib/suscripcion.js";
 import { sumarUsuarioALaAgenda } from "./agenda.js";
-import { requireAdmin } from "../lib/auth.js";
+import { requireAdmin, ROLES } from "../lib/auth.js";
 import { badRequest, conflict, edicionConcurrente, notFound, parse } from "../lib/errors.js";
 import { hashPassword } from "../lib/password.js";
-import { completarPermisos, PERMISOS, SECCIONES_PERMISOS } from "../lib/permisos.js";
+import { completarPermisos, PERMISOS, seccionesDe } from "../lib/permisos.js";
+import { productoDeEmpresa } from "../lib/productos.js";
 import { administradoresActivos, rolParaAsignar, tipoDeRol } from "../lib/roles.js";
 import { emailSchema, passwordSchema } from "../lib/validation.js";
 import { usuarioPublico } from "./auth.js";
@@ -15,7 +16,7 @@ import { usuarioPublico } from "./auth.js";
 /** El rol se elige por id (roles creados por la empresa) o por su clave de pre armado ("ventas") */
 const rolElegido = {
   rolId: z.string().uuid("Rol inválido").optional(),
-  rol: z.enum(["admin", "ventas", "operaciones"], { errorMap: () => ({ message: "Rol inválido" }) }).optional(),
+  rol: z.enum(ROLES, { errorMap: () => ({ message: "Rol inválido" }) }).optional(),
 };
 
 const crearSchema = z
@@ -112,7 +113,7 @@ export const rolesRoutes: FastifyPluginAsync = async (app) => {
   app.addHook("preHandler", requireAdmin);
 
   /** Catálogo de permisos, por sección, para armar la lista de casillas */
-  app.get("/permisos", async () => SECCIONES_PERMISOS);
+  app.get("/permisos", async (req) => seccionesDe(await productoDeEmpresa(app.db, req.user.empresaId)));
 
   app.get("/", async (req) => {
     const lista = await app.db.select().from(roles).where(eq(roles.empresaId, req.user.empresaId)).orderBy(asc(roles.createdAt));

@@ -22,7 +22,7 @@ function useArticulos() {
       const base = `/${path.split(/[/?]/)[1] ?? ""}`;
       return base === "/" || base === "/configuracion" || base === "/cuenta" || modulos.has(base);
     };
-    return ARTICULOS.filter((a) => puede(acceso, ...a.permisos) && existe(a.path));
+    return ARTICULOS.filter((a) => (!a.producto || a.producto === empresa.producto) && puede(acceso, ...a.permisos) && existe(a.path));
   }, [acceso, empresa.producto]);
 }
 

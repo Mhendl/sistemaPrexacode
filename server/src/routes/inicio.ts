@@ -1,6 +1,7 @@
-import { and, count, desc, eq, gte, inArray } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, lte, ne, sql } from "drizzle-orm";
 import type { FastifyPluginAsync } from "fastify";
-import { clientes, comprobantes, empresas, productos, remitos, usuarios } from "../db/schema.js";
+import { agendaRecursos, clientes, comprobantes, empresas, eventos, pacientes, productos, recibos, remitos, usuarios } from "../db/schema.js";
+import { sumarDias } from "../lib/suscripcion.js";
 import { describirTipo } from "../lib/arca/codigos.js";
 import { r2 } from "../lib/arca/montos.js";
 import { requireAuth, tienePermiso } from "../lib/auth.js";
@@ -103,6 +104,75 @@ export const inicioRoutes: FastifyPluginAsync = async (app) => {
         fecha: c.fecha,
         total: TIPOS_NC.includes(c.tipoCbte) ? -c.total : c.total,
       })),
+    };
+  });
+
+  /** Inicio de un consultorio (CoreDental): los turnos del día, los pacientes y lo cobrado */
+  app.get("/consultorio", async (req) => {
+    const empresaId = req.user.empresaId;
+    const hoy = hoyAr();
+    const mes = `${hoy.slice(0, 7)}-01`;
+    const verAgenda = tienePermiso(req, "agenda.ver");
+    const verPacientes = tienePermiso(req, "pacientes.ver");
+    const verCobros = tienePermiso(req, "cobranzas.ver");
+
+    const turnosHoy = verAgenda
+      ? await app.db
+          .select({
+            id: eventos.id,
+            inicio: eventos.inicio,
+            fin: eventos.fin,
+            estado: eventos.estado,
+            tipo: eventos.tipo,
+            titulo: eventos.titulo,
+            pacienteId: eventos.pacienteId,
+            paciente: sql<string | null>`case when ${pacientes.id} is null then null else ${pacientes.apellido} || ', ' || ${pacientes.nombre} end`,
+            datosPendientes: pacientes.datosPendientes,
+            profesional: agendaRecursos.nombre,
+            color: agendaRecursos.color,
+            esMio: sql<boolean>`${agendaRecursos.usuarioId} = ${req.user.sub}`,
+          })
+          .from(eventos)
+          .innerJoin(agendaRecursos, eq(agendaRecursos.id, eventos.recursoId))
+          .leftJoin(pacientes, eq(pacientes.id, eventos.pacienteId))
+          .where(and(eq(eventos.empresaId, empresaId), eq(eventos.fecha, hoy), ne(eventos.estado, "Cancelado")))
+          .orderBy(asc(eventos.inicio))
+      : null;
+    const [{ n: proximos }] = verAgenda
+      ? await app.db
+          .select({ n: count() })
+          .from(eventos)
+          .where(and(eq(eventos.empresaId, empresaId), gte(eventos.fecha, sumarDias(hoy, 1)), lte(eventos.fecha, sumarDias(hoy, 7)), ne(eventos.estado, "Cancelado")))
+      : [{ n: 0 }];
+    const [{ n: ausentesMes }] = verAgenda ? await app.db.select({ n: count() }).from(eventos).where(and(eq(eventos.empresaId, empresaId), gte(eventos.fecha, mes), eq(eventos.estado, "Ausente"))) : [{ n: 0 }];
+
+    const [{ n: nPacientes }] = await app.db.select({ n: count() }).from(pacientes).where(and(eq(pacientes.empresaId, empresaId), eq(pacientes.estado, "Activo")));
+    const [{ n: nuevosMes }] = await app.db.select({ n: count() }).from(pacientes).where(and(eq(pacientes.empresaId, empresaId), gte(pacientes.createdAt, new Date(`${mes}T03:00:00Z`))));
+    const [{ n: pendientes }] = await app.db.select({ n: count() }).from(pacientes).where(and(eq(pacientes.empresaId, empresaId), eq(pacientes.datosPendientes, true), eq(pacientes.estado, "Activo")));
+
+    let cobros: { mes: number; porCobrar: number } | null = null;
+    if (verCobros) {
+      const [{ total }] = await app.db
+        .select({ total: sql<number>`coalesce(sum(${recibos.total}), 0)::float` })
+        .from(recibos)
+        .where(and(eq(recibos.empresaId, empresaId), eq(recibos.estado, "Emitido"), gte(recibos.fecha, mes)));
+      const saldos = (await saldosFacturas(app.db, empresaId)).filter((s) => s.saldo > 0);
+      cobros = { mes: r2(Number(total)), porCobrar: r2(saldos.reduce((a, s) => a + s.saldo, 0)) };
+    }
+
+    // Primeros pasos de un consultorio
+    const [emp] = await app.db.select({ logo: empresas.logoActualizado }).from(empresas).where(eq(empresas.id, empresaId));
+    const [{ n: nUsuarios }] = await app.db.select({ n: count() }).from(usuarios).where(eq(usuarios.empresaId, empresaId));
+    const [{ n: nTurnos }] = await app.db.select({ n: count() }).from(eventos).where(eq(eventos.empresaId, empresaId));
+    const primerosPasos = { logo: !!emp?.logo, pacientes: Number(nPacientes) > 0, turno: Number(nTurnos) > 0, equipo: Number(nUsuarios) > 1 };
+
+    return {
+      turnosHoy,
+      proximos: Number(proximos),
+      ausentesMes: Number(ausentesMes),
+      pacientes: verPacientes ? { activos: Number(nPacientes), nuevosMes: Number(nuevosMes), datosPendientes: Number(pendientes) } : null,
+      cobros,
+      primerosPasos,
     };
   });
 };

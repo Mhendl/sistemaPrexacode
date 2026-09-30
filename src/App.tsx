@@ -1,3 +1,5 @@
+import { PacientesPage } from "@/modules/pacientes/PacientesPage";
+import { PacienteDetallePage } from "@/modules/pacientes/PacienteDetallePage";
 import { AyudaPage } from "@/modules/ayuda/Ayuda";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
@@ -112,6 +114,8 @@ export default function App() {
                 <Route element={<Protegido><AppLayout /></Protegido>}>
                   <Route index element={<InicioPage />} />
                   <Route path="clientes" element={<ClientesPage />} />
+                  <Route path="pacientes" element={<PacientesPage />} />
+                  <Route path="pacientes/:id" element={<PacienteDetallePage />} />
                   <Route path="clientes/:id" element={<ClienteDetallePage />} />
                   <Route path="oportunidades" element={<OportunidadesPage />} />
                   <Route path="agenda" element={<AgendaPage />} />

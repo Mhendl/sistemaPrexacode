@@ -175,6 +175,45 @@ Usuarios, roles y plan: solo administradores. El resto (empresa, ARCA, email, Wh
 
 ---
 
+## 2 bis. CoreDental (consultorios odontológicos)
+
+El mismo sistema, con la marca, los colores y el menú de CoreDental. Se entra por **https://coredental.prexacode.com**: quien se registra desde ahí queda como consultorio. Comparte con Prexacode el registro, la prueba gratis, los planes (Consultorio, Clínica y Centro odontológico, a los mismos precios), el cobro por Mercado Pago, la facturación ARCA, presupuestos, cobranzas, sueldos y reportes.
+
+| Rol | Qué ve y qué hace |
+|---|---|
+| **Administrador** | Todo |
+| **Profesional** | Pacientes, historia clínica, odontograma, imágenes, turnos y presupuestos |
+| **Recepción** | Pacientes (contacto y cobertura), turnos, cobros y facturación. **No ve la historia clínica** ni los antecedentes de salud |
+
+### Pacientes
+- Ficha con DNI, fecha de nacimiento (calcula la edad), contacto, **obra social, plan y número de afiliado**. Si la obra social no está en la lista, se agrega en el momento.
+- **Antecedentes de salud:** alergias, medicación, enfermedades e intervenciones. Si tiene alergias, aparece un aviso rojo arriba de la ficha.
+- Buscador por nombre y apellido en cualquier orden, DNI o teléfono, y filtro por obra social.
+- Un paciente con historia clínica o turnos no se puede borrar (la ley obliga a conservarla): se pasa a inactivo.
+
+### Historia clínica
+- **Evoluciones** por consulta, con fecha, profesional y hora de carga. **No se modifican ni se borran** (Ley 26.529): un error se aclara con otra evolución.
+- **Imágenes:** radiografías, fotos, estudios y PDF de hasta 8 MB. Solo las ve quien tiene permiso de historia clínica, y nunca quedan guardadas en el navegador.
+
+### Odontograma
+- Numeración FDI (11 a 48 y las temporarias 51 a 85), cada pieza con sus 5 caras.
+- **Rojo:** lo que hay que hacer. **Azul:** lo realizado o lo que el paciente ya tenía.
+- Símbolos: caras pintadas (caries, obturaciones, selladores), **cruz** (extracción), **círculo** (corona), **pieza gris** (ausente), letras (TC conducto, IMP implante, PR prótesis).
+- Se marca una prestación en varias piezas a la vez. Lo pendiente pasa a "Realizado" con un clic. Lo cargado por error se **anula con el motivo** y queda en el historial.
+- El nomenclador (prestaciones y códigos) viene cargado y cada consultorio lo puede ajustar.
+
+### Turnos
+- La agenda con **una columna por profesional**. El turno se da a un paciente: se lo busca por nombre, DNI o teléfono, y si es nuevo se lo da de alta en el momento (queda marcado "faltan datos").
+- Estado **Ausente** cuando el paciente no viene: queda en su ficha y en el Inicio, y el horario queda libre.
+- Desde la ficha del paciente, **Dar turno** abre la agenda con el paciente elegido.
+
+### Inicio del consultorio
+Turnos del día (cada profesional puede ver solo los suyos), pacientes activos y nuevos del mes, lo cobrado en el mes y lo que falta cobrar, y los ausentes del mes.
+
+> **Próximamente en CoreDental:** precios por obra social en cada prestación, caja diaria, gastos, laboratorios, periodontograma, consentimientos firmados y portal del paciente.
+
+---
+
 ## 3. Planes y cobro
 
 | Plan | Precio | Usuarios | Puntos de venta |

@@ -13,6 +13,7 @@ const statusTone: Record<string, Tone> = {
   Confirmado: "info",
   Realizado: "success",
   Cancelado: "neutral",
+  Ausente: "danger",
   // ARCA
   Autorizado: "success",
   Rechazado: "danger",

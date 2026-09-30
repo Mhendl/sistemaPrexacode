@@ -165,7 +165,7 @@ export function UsuariosTab() {
 
 function NuevoUsuarioDialog({ open, onOpenChange, lleno, limite, sus, roles }: { open: boolean; onOpenChange: (o: boolean) => void; lleno: boolean; limite: number; sus?: SuscripcionApi; roles: RolApi[] }) {
   const crear = useCrearUsuario();
-  const porDefecto = roles.find((r) => r.prearmado === "ventas")?.id ?? roles.find((r) => !r.esAdmin)?.id ?? "";
+  const porDefecto = roles.find((r) => r.prearmado === "ventas" || r.prearmado === "recepcion")?.id ?? roles.find((r) => !r.esAdmin)?.id ?? "";
   const [datos, setDatos] = useState({ nombre: "", email: "", rolId: "", password: "" });
   const rolId = datos.rolId || porDefecto;
   const [errores, setErrores] = useState<Record<string, string>>({});

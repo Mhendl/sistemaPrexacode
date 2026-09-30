@@ -1,3 +1,5 @@
+import { pacientesRoutes } from "./routes/pacientes.js";
+import { prestacionesRoutes } from "./routes/prestaciones.js";
 import { productoDe } from "./lib/productos.js";
 import "./lib/zod-es.js";
 import cors from "@fastify/cors";
@@ -242,6 +244,8 @@ export async function buildApp({ db, jwtSecret, logger = false, conectorArca, ca
   await app.register(adminRoutes, { prefix: "/api/admin" });
   await app.register(soporteRoutes, { prefix: "/api/soporte" });
   await app.register(empleadosRoutes, { prefix: "/api/empleados" });
+  await app.register(pacientesRoutes, { prefix: "/api/pacientes" });
+  await app.register(prestacionesRoutes, { prefix: "/api/prestaciones" });
   if (adminInicial) await crearAdminInicial(db, adminInicial.email, adminInicial.password);
 
   // La web compilada, en la misma pieza que la API

@@ -7,6 +7,8 @@ import { useRole } from "@/context/AuthProvider";
 import { formatCuit } from "@/lib/format";
 import { canAccess, itemsDe, puede } from "@/lib/navigation";
 import { numeroComprobante } from "@/lib/facturacion";
+import { productoActivo } from "@/config/brand";
+import { nombreCompleto, usePacientes } from "@/modules/pacientes/api";
 
 const normalize = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
@@ -23,8 +25,10 @@ export function GlobalSearch() {
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const { acceso } = useRole();
-  const { data: clientes = [] } = useClientes(canAccess(acceso, "/clientes"));
-  const { data: productos = [] } = useProductos();
+  const dental = productoActivo() === "dental";
+  const { data: clientes = [] } = useClientes(!dental && canAccess(acceso, "/clientes"));
+  const { data: productos = [] } = useProductos(!dental);
+  const { data: pacientes = [] } = usePacientes(undefined, dental && canAccess(acceso, "/pacientes"));
   const { data: comprobantes = [] } = useComprobantes(undefined, canAccess(acceso, "/facturacion"));
 
   useEffect(() => {
@@ -45,13 +49,14 @@ export function GlobalSearch() {
       .filter((i) => puede(acceso, ...i.permisos) && normalize(i.label).includes(q))
       .map((i) => ({ tipo: "Módulo", titulo: i.label, detalle: i.description, path: i.path }));
     const indice: Resultado[] = [
+      ...pacientes.map((p) => ({ tipo: "Paciente", titulo: nombreCompleto(p), detalle: [p.dni && `DNI ${p.dni}`, p.telefono].filter(Boolean).join(" · "), path: `/pacientes/${p.id}` })),
       ...clientes.map((c) => ({ tipo: "Cliente", titulo: c.razonSocial, detalle: `CUIT ${formatCuit(c.cuit)}`, path: `/clientes/${c.id}` })),
       ...productos.map((p) => ({ tipo: "Producto", titulo: p.descripcion, detalle: p.codigo, path: `/productos/${p.id}` })),
       ...comprobantes.map((c) => ({ tipo: "Comprobante", titulo: `${c.tipo} ${numeroComprobante(c.puntoVenta, c.numero)}`, detalle: c.receptor.razonSocial, path: `/facturacion/${c.id}` })),
     ];
     const datos = indice.filter((r) => canAccess(acceso, r.path) && normalize(`${r.titulo} ${r.detalle}`).includes(q));
     return [...modulos, ...datos].slice(0, 8);
-  }, [query, acceso, clientes, productos, comprobantes]);
+  }, [query, acceso, clientes, productos, comprobantes, pacientes]);
 
   const go = (path: string) => {
     navigate(path);
@@ -76,7 +81,7 @@ export function GlobalSearch() {
           if (e.key === "Enter" && results[0]) go(results[0].path);
           if (e.key === "Escape") inputRef.current?.blur();
         }}
-        placeholder="Buscar clientes, productos, comprobantes…"
+        placeholder={dental ? "Buscar pacientes, comprobantes…" : "Buscar clientes, productos, comprobantes…"}
         className="h-9 bg-muted/60 pr-14 pl-9 shadow-none"
       />
       <kbd className="pointer-events-none absolute top-1/2 right-2.5 hidden -translate-y-1/2 rounded border bg-background px-1.5 text-[10px] text-muted-foreground sm:block">
