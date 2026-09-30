@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Loader2, Pause, Play, Plus, Upload } from "lucide-react";
+import { AlertTriangle, Download, Loader2, Pause, Play, Plus, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { ApiError } from "@/api/client";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -99,7 +99,12 @@ export function AdminProspeccion() {
           )}
         </QueryState>
         <Card className="gap-2 p-4 text-sm shadow-none">
-          <h3 className="font-semibold">Cómo armar la lista</h3>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="font-semibold">Cómo armar la lista</h3>
+            <Button size="sm" variant="outline" onClick={descargarModelo}>
+              <Download className="size-4" /> Planilla modelo
+            </Button>
+          </div>
           <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
             <li>Un Excel o CSV con una columna <b>email</b>, y si podés <b>nombre</b>, <b>empresa</b>, <b>ciudad</b> y <b>rubro</b>: con esos datos cada email sale personalizado.</li>
             <li>Usá datos de contacto de negocios que sean públicos (su web, su perfil de Google, directorios). No compres bases de datos personales (Ley 25.326).</li>
@@ -324,6 +329,21 @@ function Campana({ c }: { c: CampanaApi }) {
       <CampanaDialog open={editar} onOpenChange={setEditar} campana={c} />
     </Card>
   );
+}
+
+/** Planilla modelo (CSV con punto y coma, se abre directo en Excel): en "ciudad" va el barrio o la ciudad */
+function descargarModelo() {
+  const filas = [
+    "email;nombre;empresa;rubro;ciudad;web;telefono",
+    "contacto@consultoriosonrisas.com.ar;Ana López;Consultorio Sonrisas;Odontología;Palermo;consultoriosonrisas.com.ar;11 5555-1234",
+    "ventas@distribuidoranorte.com.ar;;Distribuidora Norte;Distribuidora de alimentos;Villa Urquiza;;",
+  ];
+  const url = URL.createObjectURL(new Blob(["﻿" + filas.join("\r\n")], { type: "text/csv;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "lista-prospeccion-modelo.csv";
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 /** Reconoce las columnas del archivo, se llamen como se llamen */
