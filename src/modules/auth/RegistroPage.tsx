@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
@@ -8,7 +8,19 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { brand } from "@/config/brand";
+import { brand, productoActivo } from "@/config/brand";
+import { conversionRegistro } from "@/lib/medicion";
+
+/** Código de quien lo recomendó: viene en el link (?ref=) y se recuerda aunque pase por otras pantallas */
+function codigoReferido(): string | null {
+  try {
+    const ref = new URLSearchParams(window.location.search).get("ref");
+    if (ref) sessionStorage.setItem("prexacode-ref", ref);
+    return ref ?? sessionStorage.getItem("prexacode-ref");
+  } catch {
+    return null;
+  }
+}
 import { useAuth } from "@/context/AuthProvider";
 import { AuthLayout } from "./AuthLayout";
 
@@ -22,6 +34,10 @@ export function RegistroPage() {
   const [error, setError] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [acepta, setAcepta] = useState(false);
+  // Si vino con un link de recomendación, se recuerda desde que abre la página
+  useEffect(() => {
+    codigoReferido();
+  }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +49,9 @@ export function RegistroPage() {
         empresa: { razonSocial: f.razonSocial, cuit: f.cuit, condicionIva: f.condicionIva },
         usuario: { nombre: f.nombre, email: f.email, password: f.password },
         aceptaTerminos: acepta,
+        ref: codigoReferido(),
       });
+      conversionRegistro(productoActivo());
       toast.success(`¡Bienvenido a ${brand.nombre}!`);
       navigate("/", { replace: true });
     } catch (err) {

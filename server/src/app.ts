@@ -1,3 +1,4 @@
+import { turnosPublicosRoutes } from "./routes/turnosPublicos.js";
 import { presupuestosDentalesRoutes } from "./routes/presupuestosDentales.js";
 import { consultorioRoutes } from "./routes/consultorio.js";
 import { pacientesRoutes } from "./routes/pacientes.js";
@@ -84,6 +85,8 @@ export interface AppOptions {
   appUrl?: string;
   /** Dirección de CoreDental (si no, la misma que appUrl) */
   appUrlDental?: string;
+  /** Google Analytics y píxel de Meta para las pantallas públicas (login y registro) */
+  medicion?: { ga: string | null; metaPixel: string | null };
   smtpUrl?: string;
   emailRemitente?: string;
   secretsKey?: string;
@@ -107,7 +110,7 @@ export interface AppOptions {
   tareas?: boolean;
 }
 
-export async function buildApp({ db, jwtSecret, logger = false, conectorArca, cartero, appUrl = "http://localhost:5173", appUrlDental, smtpUrl, emailRemitente = "notificaciones@prexacode.com.ar", secretsKey, arca = {}, pagos, cotizacion, mpWebhookSecret, urlApi, modoPruebas = false, adminInicial, limitarIntentos = true, produccion = false, web, trustProxy = false, tareas = false }: AppOptions) {
+export async function buildApp({ db, jwtSecret, logger = false, conectorArca, cartero, appUrl = "http://localhost:5173", appUrlDental, medicion, smtpUrl, emailRemitente = "notificaciones@prexacode.com.ar", secretsKey, arca = {}, pagos, cotizacion, mpWebhookSecret, urlApi, modoPruebas = false, adminInicial, limitarIntentos = true, produccion = false, web, trustProxy = false, tareas = false }: AppOptions) {
   // Al apagar, cortar también las conexiones keep-alive activas (si no, close() puede esperar indefinidamente)
   const app = Fastify({ logger, forceCloseConnections: true, trustProxy, bodyLimit: 5 * 1024 * 1024 });
 
@@ -250,6 +253,8 @@ export async function buildApp({ db, jwtSecret, logger = false, conectorArca, ca
   await app.register(prestacionesRoutes, { prefix: "/api/prestaciones" });
   await app.register(presupuestosDentalesRoutes, { prefix: "/api/presupuestos-dentales" });
   await app.register(consultorioRoutes, { prefix: "/api/consultorio" });
+  await app.register(turnosPublicosRoutes, { prefix: "/api/publico/turnos" });
+  app.get("/api/publico/medicion", async () => medicion ?? { ga: null, metaPixel: null });
   if (adminInicial) await crearAdminInicial(db, adminInicial.email, adminInicial.password);
 
   // La web compilada, en la misma pieza que la API

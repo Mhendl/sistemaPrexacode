@@ -1,6 +1,6 @@
-import { and, asc, count, desc, eq, gte, inArray, lte, ne, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, isNull, lte, ne, sql } from "drizzle-orm";
 import type { FastifyPluginAsync } from "fastify";
-import { agendaRecursos, clientes, comprobantes, empresas, eventos, pacientes, productos, recibos, remitos, usuarios } from "../db/schema.js";
+import { agendaRecursos, cargosPaciente, clientes, comprobantes, empresas, eventos, pacientes, pagosPaciente, productos, remitos, usuarios } from "../db/schema.js";
 import { sumarDias } from "../lib/suscripcion.js";
 import { describirTipo } from "../lib/arca/codigos.js";
 import { r2 } from "../lib/arca/montos.js";
@@ -152,12 +152,16 @@ export const inicioRoutes: FastifyPluginAsync = async (app) => {
 
     let cobros: { mes: number; porCobrar: number } | null = null;
     if (verCobros) {
-      const [{ total }] = await app.db
-        .select({ total: sql<number>`coalesce(sum(${recibos.total}), 0)::float` })
-        .from(recibos)
-        .where(and(eq(recibos.empresaId, empresaId), eq(recibos.estado, "Emitido"), gte(recibos.fecha, mes)));
-      const saldos = (await saldosFacturas(app.db, empresaId)).filter((s) => s.saldo > 0);
-      cobros = { mes: r2(Number(total)), porCobrar: r2(saldos.reduce((a, s) => a + s.saldo, 0)) };
+      // Lo que pagaron los pacientes este mes, y lo que deben (lo realizado menos lo pagado, de cada uno)
+      const [[pagado], cargados, pagados] = await Promise.all([
+        app.db.select({ t: sql<number>`coalesce(sum(${pagosPaciente.importe}), 0)::float` }).from(pagosPaciente).where(and(eq(pagosPaciente.empresaId, empresaId), isNull(pagosPaciente.anuladoEn), gte(pagosPaciente.fecha, mes))),
+        app.db.select({ id: cargosPaciente.pacienteId, t: sql<number>`sum(${cargosPaciente.importePaciente})::float` }).from(cargosPaciente).where(and(eq(cargosPaciente.empresaId, empresaId), isNull(cargosPaciente.anuladoEn))).groupBy(cargosPaciente.pacienteId),
+        app.db.select({ id: pagosPaciente.pacienteId, t: sql<number>`sum(${pagosPaciente.importe})::float` }).from(pagosPaciente).where(and(eq(pagosPaciente.empresaId, empresaId), isNull(pagosPaciente.anuladoEn))).groupBy(pagosPaciente.pacienteId),
+      ]);
+      const pagadoPor = new Map(pagados.map((x) => [x.id, Number(x.t)]));
+      // Solo lo que deben (el saldo a favor de un paciente no descuenta la deuda de otro)
+      const porCobrar = cargados.reduce((a, x) => a + Math.max(0, Number(x.t) - (pagadoPor.get(x.id) ?? 0)), 0);
+      cobros = { mes: r2(Number(pagado?.t ?? 0)), porCobrar: r2(porCobrar) };
     }
 
     // Primeros pasos de un consultorio

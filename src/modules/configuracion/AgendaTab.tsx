@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { QueryState } from "@/components/shared/QueryState";
 import { cn } from "@/lib/utils";
 import { Field, Section } from "./parts";
+import { productoActivo } from "@/config/brand";
 
 /** Puntos de partida por rubro: vocabulario y tipos de evento típicos */
 const PLANTILLAS = [
@@ -31,11 +32,65 @@ export function AgendaTab() {
     <QueryState isLoading={isLoading} error={error} onRetry={refetch}>
       {data && (
         <div className="grid gap-6 lg:grid-cols-2">
+          {productoActivo() === "dental" && <AvisosPacientes config={data} />}
           <Vocabulario config={data} />
           <Recursos config={data} />
         </div>
       )}
     </QueryState>
+  );
+}
+
+/** CoreDental: email al paciente al darle el turno y recordatorio automático antes */
+function AvisosPacientes({ config }: { config: ConfigAgendaApi }) {
+  const qc = useQueryClient();
+  const guardar = useGuardarConfigAgenda();
+  const [d, setD] = useState({ recordatorioEmail: config.recordatorioEmail, recordatorioHoras: String(config.recordatorioHoras), avisoAlAgendar: config.avisoAlAgendar });
+  const [errores, setErrores] = useState<Record<string, string>>({});
+  useEffect(() => setD({ recordatorioEmail: config.recordatorioEmail, recordatorioHoras: String(config.recordatorioHoras), avisoAlAgendar: config.avisoAlAgendar }), [config]);
+
+  const submit = async () => {
+    setErrores({});
+    try {
+      await guardar.mutateAsync({ nombreEvento: config.nombreEvento, nombreRecurso: config.nombreRecurso, horaInicio: config.horaInicio, horaFin: config.horaFin, tiposEvento: config.tiposEvento, recordatorioEmail: d.recordatorioEmail, recordatorioHoras: Number(d.recordatorioHoras), avisoAlAgendar: d.avisoAlAgendar, version: config.version });
+      toast.success("Avisos a los pacientes guardados");
+    } catch (err) {
+      manejarErrorGuardado(err, { setErrores, qc, recargar: ["agenda", "config"] });
+    }
+  };
+
+  return (
+    <Section title="Avisos a los pacientes" description="Menos ausencias: el paciente recibe su turno y un recordatorio por email, con un botón para confirmar o cancelar. Necesita tener el email cargado.">
+      <div className="grid gap-4">
+        <label className="flex items-start gap-3 text-sm">
+          <Switch checked={d.avisoAlAgendar} onCheckedChange={(v) => setD({ ...d, avisoAlAgendar: v })} aria-label="Avisar al paciente cuando se le da un turno" className="mt-0.5" />
+          <span>
+            <b className="font-medium">Avisar al darle el turno</b>
+            <span className="block text-muted-foreground">Le llega un email con el día, la hora y el profesional.</span>
+          </span>
+        </label>
+        <label className="flex items-start gap-3 text-sm">
+          <Switch checked={d.recordatorioEmail} onCheckedChange={(v) => setD({ ...d, recordatorioEmail: v })} aria-label="Recordatorio automático por email" className="mt-0.5" />
+          <span>
+            <b className="font-medium">Recordatorio automático</b>
+            <span className="block text-muted-foreground">Sale solo antes del turno. Cuando el paciente confirma o cancela, le llega el aviso al profesional.</span>
+          </span>
+        </label>
+        {d.recordatorioEmail && (
+          <Field label="Cuántas horas antes" htmlFor="ag-horas" hint="Entre 1 y 72. Lo habitual: 24 (el día anterior).">
+            <Input id="ag-horas" inputMode="numeric" className="w-28" value={d.recordatorioHoras} onChange={(e) => setD({ ...d, recordatorioHoras: e.target.value.replace(/\D/g, "") })} aria-invalid={!!errores.recordatorioHoras} />
+            {errores.recordatorioHoras && <p className="text-xs text-destructive">{errores.recordatorioHoras}</p>}
+          </Field>
+        )}
+        <p className="text-xs text-muted-foreground">Por WhatsApp: desde Turnos → Recordatorios mandás el mensaje con un clic a cada paciente.</p>
+        <div className="flex justify-end">
+          <Button onClick={submit} disabled={guardar.isPending}>
+            {guardar.isPending && <Loader2 className="size-4 animate-spin" />}
+            Guardar avisos
+          </Button>
+        </div>
+      </div>
+    </Section>
   );
 }
 

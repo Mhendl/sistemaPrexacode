@@ -15,6 +15,8 @@ export const config = {
   isProduction: process.env.NODE_ENV === "production",
   /** Dirección pública de la web: se usa en los links que reciben los clientes */
   appUrl: (process.env.APP_URL ?? "http://localhost:5173").replace(/\/$/, ""),
+  /** Medición de visitas y registros en las pantallas públicas (vacío: no se carga nada) */
+  medicion: { ga: process.env.GA_ID || null, metaPixel: process.env.META_PIXEL_ID || null },
   /** Dirección pública de CoreDental (si no, la misma que APP_URL) */
   appUrlDental: process.env.APP_URL_DENTAL?.replace(/\/$/, ""),
   /** Servidor de correo de la plataforma (smtp[s]://usuario:clave@host:puerto). Sin él, los envíos "por Prexacode" se simulan. */

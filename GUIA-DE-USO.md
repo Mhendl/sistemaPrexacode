@@ -219,7 +219,20 @@ Turnos del día (cada profesional puede ver solo los suyos), pacientes activos y
 - **Gastos y resultado:** gastos por categoría (insumos, laboratorio, alquiler, servicios…) y el **resultado del mes**: lo cobrado menos lo gastado.
 - **Liquidación a obras sociales:** por obra social y mes, todas las prestaciones hechas a sus afiliados, con número de afiliado, código e importe a facturarle. **Exportar a Excel** para presentarla.
 
-> **Próximamente en CoreDental:** facturación electrónica al paciente con su DNI desde el cobro, laboratorios, periodontograma, consentimientos firmados en pantalla, recordatorios de turnos y portal del paciente.
+### Recordatorios y factura al paciente
+- **Avisos por email** (Configuración → Agenda → Avisos a los pacientes): cuando se le da el turno y un **recordatorio automático** antes (por defecto, 24 horas). El email trae un botón para **confirmar o cancelar**; al profesional le llega el aviso en la campanita. Si cancela, el horario queda libre.
+- **Recordatorios por WhatsApp** (Turnos → Recordatorios): los turnos de mañana, cada uno con el botón WhatsApp que abre el chat del paciente con el mensaje y el link ya escritos. Queda marcado a quién se le avisó.
+- **Factura electrónica al paciente:** en la Cuenta del paciente, cada pago tiene **Facturar**. Sale a su nombre y con su DNI: factura C (monotributo) o B exenta (responsable inscripto: las prestaciones de salud no llevan IVA). Un pago facturado se anula recién después de hacer la nota de crédito.
+
+> **Próximamente en CoreDental:** laboratorios, periodontograma, consentimientos firmados en pantalla y portal del paciente.
+
+---
+
+## 2 ter. Para vender más
+
+- **Recomendá y ganá** (Configuración → Plan y suscripción): cada empresa tiene su link. Por cada empresa que se registra con ese link y paga su primer mes, suma **30 días gratis**. Se copia o se manda por WhatsApp.
+- **Emails de acompañamiento** durante la prueba gratis (días 1, 3, 7 y 10), distintos para Prexacode y CoreDental: cómo cargar los datos, lo más útil de cada producto y cómo elegir el plan. Dejan de salir si la empresa ya pagó.
+- **Medición:** con `GA_ID` (Google Analytics 4) y `META_PIXEL_ID` en el servidor, las pantallas de ingreso y registro miden visitas y registros (evento de conversión al crear la cuenta). Dentro del sistema no se carga nada.
 
 ---
 

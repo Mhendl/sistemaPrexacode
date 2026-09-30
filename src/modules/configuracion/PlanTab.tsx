@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, CreditCard, Loader2, Minus, Plus, Sparkles } from "lucide-react";
+import { Check, Copy, CreditCard, Gift, Loader2, MessageCircle, Minus, Plus, Sparkles } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/api/client";
+import { Input } from "@/components/ui/input";
 import { useNavigate, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { ApiError } from "@/api/client";
@@ -266,9 +269,67 @@ export function PlanTab() {
               </div>
             </Section>
           )}
+          <Referidos />
         </div>
       )}
     </QueryState>
+  );
+}
+
+interface ReferidosApi {
+  codigo: string;
+  link: string;
+  diasPorReferido: number;
+  mesesGanados: number;
+  referidos: { razonSocial: string; alta: string; pago: boolean }[];
+}
+
+/** Recomendá y ganá: un mes gratis por cada empresa que se suma con tu link y paga */
+function Referidos() {
+  const { data } = useQuery({ queryKey: ["suscripcion", "referidos"], queryFn: () => api<ReferidosApi>("/suscripcion/referidos") });
+  if (!data) return null;
+  const copiar = async () => {
+    try {
+      await navigator.clipboard.writeText(data.link);
+      toast.success("Link copiado");
+    } catch {
+      toast.error("No se pudo copiar: seleccioná el link y copialo a mano");
+    }
+  };
+  const whatsapp = `https://wa.me/?text=${encodeURIComponent(`Te recomiendo este sistema, lo uso y me simplifica todo. Tenés 14 días gratis: ${data.link}`)}`;
+  return (
+    <Section title="Recomendá y ganá" description={`Por cada empresa que se suma con tu link y paga, te regalamos ${data.diasPorReferido} días.`} action={<Gift className="size-5 text-primary" />}>
+      <div className="grid gap-4" data-testid="referidos">
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Input readOnly value={data.link} aria-label="Tu link para recomendar" onFocus={(e) => e.target.select()} className="font-mono text-xs" />
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={copiar}>
+              <Copy className="size-4" /> Copiar
+            </Button>
+            <Button variant="outline" asChild>
+              <a href={whatsapp} target="_blank" rel="noopener noreferrer">
+                <MessageCircle className="size-4" /> WhatsApp
+              </a>
+            </Button>
+          </div>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          {data.referidos.length === 0
+            ? "Todavía nadie se sumó con tu link."
+            : `${data.referidos.length} ${data.referidos.length === 1 ? "empresa se sumó" : "empresas se sumaron"} con tu link · ${data.mesesGanados} ${data.mesesGanados === 1 ? "mes ganado" : "meses ganados"}.`}
+        </p>
+        {data.referidos.length > 0 && (
+          <ul className="divide-y rounded-md border text-sm">
+            {data.referidos.map((r) => (
+              <li key={`${r.razonSocial}-${r.alta}`} className="flex items-center justify-between gap-3 px-3 py-2">
+                <span>{r.razonSocial}</span>
+                <span className={cn("text-xs", r.pago ? "text-success" : "text-muted-foreground")}>{r.pago ? "Pagó: ganaste el mes" : "En prueba"}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </Section>
   );
 }
 

@@ -34,6 +34,18 @@ const emitirSchema = z.object({
   clienteId: z.string().uuid("Elegí un cliente").optional(),
   /** Venta de mostrador a un consumidor final sin identificar (en lugar de clienteId) */
   consumidorFinal: z.boolean().optional(),
+  /** CoreDental: factura a un paciente (consumidor final con su nombre y, si lo tiene, su DNI) */
+  paciente: z
+    .object({
+      nombre: z.string().trim().min(2).max(160),
+      dni: z
+        .string()
+        .regex(/^\d{7,8}$/, "DNI inválido")
+        .nullable()
+        .optional()
+        .transform((v) => v ?? null),
+    })
+    .optional(),
   puntoVenta: z.coerce.number().int().min(1).max(99998).default(1),
   fecha: fechaIso.optional(),
   condicionVenta: z.enum(["Contado", "Cuenta corriente"]).default("Contado"),
@@ -80,8 +92,8 @@ export function urlQr(c: Comprobante, cuitEmisor: string) {
     importe: c.total,
     moneda: "PES",
     ctz: 1,
-    tipoDocRec: c.receptor.cuit ? DOC_TIPO.CUIT : DOC_TIPO.SIN_IDENTIFICAR,
-    nroDocRec: Number(c.receptor.cuit || 0),
+    tipoDocRec: c.receptor.cuit ? DOC_TIPO.CUIT : c.receptor.dni ? DOC_TIPO.DNI : DOC_TIPO.SIN_IDENTIFICAR,
+    nroDocRec: Number(c.receptor.cuit || c.receptor.dni || 0),
     tipoCodAut: "E",
     codAut: Number(c.cae),
   };
@@ -204,12 +216,14 @@ export const comprobantesRoutes: FastifyPluginAsync = async (app) => {
     const totales = calcularTotales(renglones, letra);
     if (totales.total <= 0) throw badRequest("El total tiene que ser mayor a cero");
 
+    // A nombre de un paciente: consumidor final, identificado con DNI si lo tiene
+    const paciente = cliente.sinIdentificar && d.paciente ? d.paciente : null;
     // Consumidor final sin identificar: venta de mostrador, se cobra en el momento y tiene un tope
     if (cliente.sinIdentificar && d.clase === "factura") {
       if (d.condicionVenta !== "Contado" || !d.cobro) {
         throw badRequest("La venta a un consumidor final sin identificar tiene que ser de contado y cobrada en el momento. Para venderle en cuenta corriente, cargalo como cliente.", { clienteId: "Solo de contado" });
       }
-      if (totales.total >= TOPE_CONSUMIDOR_SIN_IDENTIFICAR) {
+      if (totales.total >= TOPE_CONSUMIDOR_SIN_IDENTIFICAR && !paciente?.dni) {
         throw badRequest(
           `En ventas de $ ${TOPE_CONSUMIDOR_SIN_IDENTIFICAR.toLocaleString("es-AR")} o más ARCA pide identificar al comprador: cargalo como cliente con su CUIT o CUIL.`,
           { clienteId: "Hay que identificar al comprador" },
@@ -278,8 +292,8 @@ export const comprobantesRoutes: FastifyPluginAsync = async (app) => {
           tipoCbte,
           numero,
           concepto,
-          docTipo: cliente.sinIdentificar ? DOC_TIPO.SIN_IDENTIFICAR : DOC_TIPO.CUIT,
-          docNro: cliente.sinIdentificar ? "0" : cliente.cuit,
+          docTipo: paciente?.dni ? DOC_TIPO.DNI : cliente.sinIdentificar ? DOC_TIPO.SIN_IDENTIFICAR : DOC_TIPO.CUIT,
+          docNro: paciente?.dni ? paciente.dni : cliente.sinIdentificar ? "0" : cliente.cuit,
           condicionIvaReceptor: CONDICION_IVA_RECEPTOR[cliente.condicionIva] ?? 5,
           fecha,
           importeTotal: totales.total,
@@ -306,7 +320,9 @@ export const comprobantesRoutes: FastifyPluginAsync = async (app) => {
           numero: autorizado ? numero : null,
           fecha,
           clienteId: cliente.id,
-          receptor: { razonSocial: cliente.razonSocial, cuit: cliente.cuit, condicionIva: cliente.condicionIva, domicilio: [cliente.domicilio, cliente.localidad].filter(Boolean).join(", ") || null },
+          receptor: paciente
+            ? { razonSocial: paciente.nombre, cuit: "", dni: paciente.dni, condicionIva: "Consumidor Final", domicilio: null }
+            : { razonSocial: cliente.razonSocial, cuit: cliente.cuit, condicionIva: cliente.condicionIva, domicilio: [cliente.domicilio, cliente.localidad].filter(Boolean).join(", ") || null },
           concepto,
           fechaServicioDesde: concepto !== 1 ? (d.fechaServicioDesde ?? fecha) : null,
           fechaServicioHasta: concepto !== 1 ? (d.fechaServicioHasta ?? fecha) : null,

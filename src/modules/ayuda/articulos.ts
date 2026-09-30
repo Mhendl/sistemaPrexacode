@@ -322,6 +322,48 @@ export const ARTICULOS: Articulo[] = [
     texto: "En Liquidación a obras sociales elegís la obra social y el mes, y ves todas las prestaciones hechas a sus afiliados con el número de afiliado, el código y el importe a facturarle. Con Exportar a Excel tenés la planilla para presentar.",
   },
 
+  {
+    id: "dental-recordatorios",
+    titulo: "Recordatorios de turnos (menos ausencias)",
+    seccion: "Pacientes",
+    producto: "dental",
+    path: "/configuracion?tab=agenda",
+    permisos: ["agenda.ver"],
+    palabras: "recordatorio recordar turno ausencias email mail aviso confirmar cancelar automatico",
+    texto:
+      "En Configuración → Agenda, en Avisos a los pacientes, activá el aviso al darle el turno y el recordatorio automático (por ejemplo, 24 horas antes). Le llega un email con un botón para confirmar o cancelar; cuando responde, al profesional le llega el aviso en la campanita. Hace falta que el paciente tenga el email cargado.",
+  },
+  {
+    id: "dental-whatsapp",
+    titulo: "Mandar el recordatorio por WhatsApp",
+    seccion: "Pacientes",
+    producto: "dental",
+    path: "/agenda",
+    permisos: ["agenda.editar"],
+    palabras: "whatsapp wsp recordatorio mensaje turno mañana avisar paciente",
+    texto: "En Turnos tocá Recordatorios: aparecen los turnos del día elegido (por defecto, mañana). Con WhatsApp se abre el chat del paciente con el mensaje ya escrito, incluido el link para confirmar o cancelar. Queda marcado a quién ya le avisaste.",
+  },
+  {
+    id: "dental-factura",
+    titulo: "Hacerle la factura electrónica a un paciente",
+    seccion: "Pacientes",
+    producto: "dental",
+    path: "/pacientes",
+    permisos: ["facturacion.emitir"],
+    palabras: "factura facturar paciente arca afip comprobante dni monotributo recibo pago",
+    texto:
+      "Abrí el paciente, pestaña Cuenta, y en el pago tocá Facturar. Sale la factura a su nombre y con su DNI (C si sos monotributista; B exenta si sos responsable inscripto, porque las prestaciones de salud no llevan IVA). Queda en Facturación para imprimir o enviar. Si hay que anular un pago facturado, primero hacé la nota de crédito.",
+  },
+  {
+    id: "referidos",
+    titulo: "Recomendar el sistema y ganar meses gratis",
+    seccion: "Plan y pagos",
+    path: "/configuracion?tab=plan",
+    permisos: ["configuracion"],
+    palabras: "recomendar referido invitar amigo colega mes gratis descuento link",
+    texto: "En Configuración → Plan y suscripción, en Recomendá y ganá, está tu link. Por cada empresa que se registra con ese link y paga su primer mes, te sumamos 30 días gratis. Lo podés copiar o mandar por WhatsApp.",
+  },
+
   // ------------------------------------------------------------------ Clientes
   {
     id: "cliente-nuevo",

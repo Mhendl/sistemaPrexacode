@@ -222,7 +222,7 @@ export interface ComprobanteApi {
   numero: number | null;
   fecha: string;
   clienteId: string;
-  receptor: { razonSocial: string; cuit: string; condicionIva: string; domicilio: string | null };
+  receptor: { razonSocial: string; cuit: string; condicionIva: string; domicilio: string | null; dni?: string | null };
   concepto: number;
   fechaServicioDesde: string | null;
   fechaServicioHasta: string | null;
@@ -482,12 +482,19 @@ export interface ConfigAgendaApi {
   horaInicio: string;
   horaFin: string;
   tiposEvento: string[];
+  /** CoreDental: avisos por email al paciente */
+  recordatorioEmail: boolean;
+  recordatorioHoras: number;
+  avisoAlAgendar: boolean;
   version: number;
   recursos: RecursoAgendaApi[];
   colores: string[];
 }
 
 export interface ConfigAgendaInput {
+  recordatorioEmail?: boolean;
+  recordatorioHoras?: number;
+  avisoAlAgendar?: boolean;
   nombreEvento: string;
   nombreRecurso: string;
   horaInicio: string;

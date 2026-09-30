@@ -30,6 +30,11 @@ export const empresas = pgTable("empresas", {
   /** Suspendida por el administrador de la plataforma (uso indebido, fraude…): nadie de la empresa puede entrar */
   suspendidaEn: timestamp("suspendida_en", { withTimezone: true }),
   motivoSuspension: text("motivo_suspension"),
+  /** Código para recomendar el sistema: quien se registra con él suma un mes gratis a esta empresa cuando paga */
+  codigoReferido: text("codigo_referido").unique(),
+  referidaPor: uuid("referida_por"),
+  /** Cuándo se le dio el mes gratis a quien la recomendó (una sola vez) */
+  referidoRecompensadoEn: timestamp("referido_recompensado_en", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -332,7 +337,7 @@ export const comprobantes = pgTable(
       .notNull()
       .references(() => clientes.id, { onDelete: "restrict" }),
     /** Copia de los datos del receptor al momento de emitir */
-    receptor: jsonb("receptor").$type<{ razonSocial: string; cuit: string; condicionIva: string; domicilio: string | null }>().notNull(),
+    receptor: jsonb("receptor").$type<{ razonSocial: string; cuit: string; condicionIva: string; domicilio: string | null; /** Paciente o consumidor final identificado con DNI */ dni?: string | null }>().notNull(),
     concepto: integer("concepto").notNull(),
     fechaServicioDesde: text("fecha_servicio_desde"),
     fechaServicioHasta: text("fecha_servicio_hasta"),
@@ -493,6 +498,11 @@ export const configAgenda = pgTable("config_agenda", {
   horaInicio: integer("hora_inicio").notNull().default(480),
   horaFin: integer("hora_fin").notNull().default(1140),
   tiposEvento: jsonb("tipos_evento").$type<string[]>().notNull().default([]),
+  /** CoreDental: recordatorio por email al paciente, tantas horas antes del turno */
+  recordatorioEmail: boolean("recordatorio_email").notNull().default(false),
+  recordatorioHoras: integer("recordatorio_horas").notNull().default(24),
+  /** CoreDental: avisarle al paciente por email cuando se le da un turno */
+  avisoAlAgendar: boolean("aviso_al_agendar").notNull().default(false),
   version: version(),
 });
 
@@ -537,6 +547,12 @@ export const eventos = pgTable(
     estado: text("estado").notNull().default("Pendiente"),
     lugar: text("lugar"),
     notas: text("notas"),
+    /** Link para que el paciente confirme o cancele desde el email o WhatsApp */
+    confirmacionToken: text("confirmacion_token").unique(),
+    recordatorioEnviadoEn: timestamp("recordatorio_enviado_en", { withTimezone: true }),
+    avisadoWhatsappEn: timestamp("avisado_whatsapp_en", { withTimezone: true }),
+    /** Cuándo respondió el paciente desde el link (confirmó o canceló) */
+    respuestaPacienteEn: timestamp("respuesta_paciente_en", { withTimezone: true }),
     version: version(),
     usuarioId: uuid("usuario_id").references(() => usuarios.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -1263,6 +1279,8 @@ export const pagosPaciente = pgTable(
     notas: text("notas"),
     usuarioId: uuid("usuario_id").references(() => usuarios.id, { onDelete: "set null" }),
     cobradoPor: text("cobrado_por").notNull(),
+    /** Factura electrónica emitida por este pago (si se facturó) */
+    comprobanteId: uuid("comprobante_id").references(() => comprobantes.id, { onDelete: "set null" }),
     anuladoEn: timestamp("anulado_en", { withTimezone: true }),
     anuladoPor: text("anulado_por"),
     motivoAnulacion: text("motivo_anulacion"),

@@ -1,12 +1,13 @@
 import { and, asc, count, desc, eq, ilike, isNull, or, sql, type SQL } from "drizzle-orm";
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { agendaRecursos, cargosPaciente, presupuestoDentalItems, eventos, evoluciones, obrasSociales, odontograma, pacienteArchivoDatos, pacienteArchivos, pacientes, pagosPaciente, prestaciones, usuarios } from "../db/schema.js";
+import { agendaRecursos, cargosPaciente, comprobantes, presupuestoDentalItems, eventos, evoluciones, obrasSociales, odontograma, pacienteArchivoDatos, pacienteArchivos, pacientes, pagosPaciente, prestaciones, usuarios } from "../db/schema.js";
 import { anularCargoDeMarca, coberturaDe, exigirCajaAbierta, MEDIOS_DENTAL, precioDe, prestacionDe, registrarRealizada, saldoPaciente } from "../lib/cuentasDental.js";
 import { siguienteNumero } from "../lib/numeracion.js";
 import { MAX_IMPORTE } from "../lib/validation.js";
 import { requireAuth, requirePermiso, tienePermiso } from "../lib/auth.js";
 import { hoyAr } from "../lib/cuentas.js";
+import { sumarDias } from "../lib/suscripcion.js";
 import { CARAS, edad, ESTADOS_ODONTOGRAMA, PIEZAS, TIPOS_ARCHIVO } from "../lib/dental.js";
 import { badRequest, conflict, edicionConcurrente, esReferenciado, forbidden, notFound, parse } from "../lib/errors.js";
 import { productoDeEmpresa } from "../lib/productos.js";
@@ -592,9 +593,53 @@ export const pacientesRoutes: FastifyPluginAsync = async (app) => {
     const [p] = await app.db.select().from(pagosPaciente).where(and(eq(pagosPaciente.id, pagoId), eq(pagosPaciente.pacienteId, id), eq(pagosPaciente.empresaId, req.user.empresaId)));
     if (!p) throw notFound("Pago no encontrado");
     if (p.anuladoEn) throw conflict("Ya estaba anulado");
+    if (p.comprobanteId) {
+      const [nc] = await app.db
+        .select({ t: sql<number>`coalesce(sum(${comprobantes.total}), 0)::float` })
+        .from(comprobantes)
+        .where(and(eq(comprobantes.asociadoId, p.comprobanteId), eq(comprobantes.estado, "Autorizado")));
+      if (Number(nc?.t ?? 0) + 0.001 < p.importe) throw conflict("Este pago está facturado: primero hacé la nota de crédito de esa factura (desde Facturación) y después anulá el pago.");
+    }
     await exigirCajaAbierta(app.db, req.user.empresaId, p.fecha, p.medio);
     const [r] = await app.db.update(pagosPaciente).set({ anuladoEn: new Date(), anuladoPor: await autorDe(req), motivoAnulacion: motivo }).where(and(eq(pagosPaciente.id, pagoId), isNull(pagosPaciente.anuladoEn))).returning();
     if (!r) throw conflict("Otra persona lo modificó recién. Actualizá la pantalla.");
     return r;
+  });
+
+  /**
+   * Factura electrónica (ARCA) de un pago: a nombre del paciente, con su DNI si lo tiene.
+   * Las prestaciones de salud van exentas de IVA (alícuota 0); un monotributista hace factura C.
+   */
+  app.post("/:id/pagos/:pagoId/facturar", { preHandler: requirePermiso("facturacion.emitir") }, async (req, reply) => {
+    const { id, pagoId } = parse(z.object({ id: z.string().uuid(), pagoId: z.string().uuid() }), req.params);
+    const d = parse(z.object({ puntoVenta: z.coerce.number().int().min(1).max(99998).optional(), detalle: texto(200) }), req.body ?? {});
+    const [p] = await app.db.select().from(pagosPaciente).where(and(eq(pagosPaciente.id, pagoId), eq(pagosPaciente.pacienteId, id), eq(pagosPaciente.empresaId, req.user.empresaId)));
+    if (!p) throw notFound("Pago no encontrado");
+    if (p.anuladoEn) throw conflict("El pago está anulado");
+    if (p.comprobanteId) throw conflict("Este pago ya está facturado");
+    const pac = await pacienteDe(req.user.empresaId, id);
+    // ARCA acepta servicios con fecha de hasta 10 días atrás: si el pago es más viejo, sale con fecha de hoy
+    const hoy = hoyAr();
+    const fecha = p.fecha >= sumarDias(hoy, -10) ? p.fecha : hoy;
+    const r = await app.inject({
+      method: "POST",
+      url: "/api/comprobantes",
+      headers: { authorization: req.headers.authorization ?? "" },
+      payload: {
+        consumidorFinal: true,
+        paciente: { nombre: `${pac.apellido}, ${pac.nombre}`, dni: pac.dni },
+        condicionVenta: "Contado",
+        cobro: { medio: p.medio, referencia: p.referencia },
+        fecha,
+        ...(d.puntoVenta ? { puntoVenta: d.puntoVenta } : {}),
+        observaciones: [`Recibo interno N° ${String(p.numero).padStart(8, "0")}`, pac.obraSocial ? `Cobertura: ${pac.obraSocial}` : null].filter(Boolean).join(" · "),
+        items: [{ descripcion: d.detalle ?? "Prestaciones odontológicas", cantidad: 1, precioUnitario: p.importe, alicuotaIva: 0 }],
+      },
+    });
+    const comp = r.json();
+    if (r.statusCode >= 300) return reply.status(r.statusCode).send(comp);
+    if (comp.estado !== "Autorizado") return reply.status(502).send({ error: `ARCA rechazó la factura: ${(comp.errores ?? []).map((e: { mensaje: string }) => e.mensaje).join("; ") || "sin detalle"}`, comprobante: comp });
+    await app.db.update(pagosPaciente).set({ comprobanteId: comp.id }).where(eq(pagosPaciente.id, p.id));
+    return reply.status(201).send(comp);
   });
 };

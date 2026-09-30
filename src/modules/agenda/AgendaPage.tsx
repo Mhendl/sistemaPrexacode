@@ -1,3 +1,5 @@
+import { Recordatorios } from "./Recordatorios";
+import { productoActivo } from "@/config/brand";
 import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { CalendarPlus, ChevronLeft, ChevronRight, Plus, Settings2 } from "lucide-react";
 import { Link, useSearchParams } from "react-router";
@@ -109,6 +111,7 @@ function Calendario({ config }: { config: ConfigAgendaApi }) {
         description={`Tocá un horario libre para agendar. Cada color es un/a ${config.nombreRecurso.toLowerCase()}.`}
         actions={
           <>
+            {productoActivo() === "dental" && puede("agenda.editar") && <Recordatorios />}
             {puede("configuracion") && (
               <Button variant="outline" asChild>
                 <Link to="/configuracion?tab=agenda">

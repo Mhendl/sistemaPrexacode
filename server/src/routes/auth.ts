@@ -9,6 +9,7 @@ import { crearRolesPrearmados, perfilDe } from "../lib/roles.js";
 import { prepararConsultorio } from "../lib/dental.js";
 import { DIAS_PRUEBA, PLAN_IDS, sumarDias } from "../lib/suscripcion.js";
 import { marcaDe, PRODUCTO_IDS, productoDeEmpresa } from "../lib/productos.js";
+import { empresaDeCodigo, nuevoCodigo } from "../lib/referidos.js";
 import { TERMINOS_VERSION } from "../lib/legal.js";
 import { requireAuth, type SessionUser } from "../lib/auth.js";
 import { badRequest, conflict, HttpError, notFound, parse, unauthorized } from "../lib/errors.js";
@@ -26,6 +27,8 @@ const registroSchema = z.object({
     email: emailSchema,
     password: passwordSchema,
   }),
+  /** Código de quien lo recomendó (link /registro?ref=…) */
+  ref: z.string().trim().max(20).optional().nullable(),
   /** Qué producto contrata (lo define la dirección web desde la que se registra) */
   producto: z.enum(PRODUCTO_IDS).default("gestion"),
   aceptaTerminos: z.literal(true, { errorMap: () => ({ message: "Tenés que aceptar los Términos y Condiciones y la Política de Privacidad" }) }),
@@ -64,7 +67,8 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     const { empresa, usuario } = await app.db.transaction(async (tx) => {
       // Fechas con el reloj de la aplicación (el mismo con el que se calculan vencimientos)
       const ahora = new Date();
-      const [empresa] = await tx.insert(empresas).values({ ...body.empresa, producto: body.producto, createdAt: ahora }).returning();
+      const referidaPor = await empresaDeCodigo(tx, body.ref);
+      const [empresa] = await tx.insert(empresas).values({ ...body.empresa, producto: body.producto, referidaPor, codigoReferido: nuevoCodigo(), createdAt: ahora }).returning();
       await tx.insert(suscripciones).values({ empresaId: empresa.id, plan: (PLAN_IDS as string[]).includes(empresa.plan) ? empresa.plan : "profesional", pruebaHasta: sumarDias(hoyAr(), DIAS_PRUEBA) });
       const rolesEmpresa = await crearRolesPrearmados(tx, empresa.id, empresa.producto);
       const [usuario] = await tx

@@ -133,7 +133,7 @@ export function ComprobanteHoja({ c, empresa }: { c: HojaComprobante; empresa: E
           <b>Cliente:</b> {c.receptor.razonSocial || "—"}
         </div>
         <div>
-          <b>CUIT:</b> {c.receptor.cuit ? formatCuit(c.receptor.cuit) : "—"}
+          {c.receptor.dni ? <><b>DNI:</b> {Number(c.receptor.dni).toLocaleString("es-AR")}</> : <><b>CUIT:</b> {c.receptor.cuit ? formatCuit(c.receptor.cuit) : "—"}</>}
         </div>
         <div>
           <b>Condición IVA:</b> {c.receptor.condicionIva || "—"}

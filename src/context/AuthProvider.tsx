@@ -28,6 +28,8 @@ export interface RegistroInput {
   empresa: { razonSocial: string; cuit: string; condicionIva: string };
   usuario: { nombre: string; email: string; password: string };
   aceptaTerminos: boolean;
+  /** Código de quien lo recomendó (link /registro?ref=…) */
+  ref?: string | null;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);

@@ -1,3 +1,4 @@
+import { TurnoPublicoPage } from "@/modules/agenda/TurnoPublicoPage";
 import { useRole } from "@/context/AuthProvider";
 import { PrestacionesPage } from "@/modules/consultorio/PrestacionesPage";
 import { PresupuestoDentalPage, PresupuestosDentalesPage } from "@/modules/consultorio/Presupuestos";
@@ -119,6 +120,7 @@ export default function App() {
                 <Route path="arrepentimiento" element={<SolicitudLegalPage tipo="arrepentimiento" />} />
                 {/* Documento que abre el cliente con el link (sin iniciar sesión) */}
                 <Route path="ver/:token" element={<DocumentoPublicoPage />} />
+                <Route path="turno/:token" element={<TurnoPublicoPage />} />
                 {/* Panel de administración de Prexacode: login y sesión propios */}
                 <Route path="admin/*" element={<AdminApp />} />
                 <Route element={<Protegido><AppLayout /></Protegido>}>

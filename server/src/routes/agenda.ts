@@ -7,6 +7,7 @@ import { permisoPorMetodo, requirePermiso } from "../lib/auth.js";
 import { diasEntre, hoyAr } from "../lib/cuentas.js";
 import { badRequest, conflict, edicionConcurrente, esReferenciado, HttpError, notFound, parse } from "../lib/errors.js";
 import { notificarUsuario } from "../lib/notificaciones.js";
+import { datosDelTurno, enviarEmailTurno, textoWhatsappTurno } from "../lib/turnos.js";
 import { versionSchema, fechaValida } from "../lib/validation.js";
 
 /** Paleta de colores para los recursos (se asignan en orden) */
@@ -47,6 +48,10 @@ const configSchema = z
     horaInicio: hora,
     horaFin: z.string().regex(/^(([01]\d|2[0-3]):[0-5]\d|24:00)$/, "Hora inválida (HH:MM)"),
     tiposEvento: z.array(z.string().trim().min(1).max(60)).max(40, "Hasta 40 tipos"),
+    /** CoreDental: avisos por email al paciente */
+    recordatorioEmail: z.boolean().optional(),
+    recordatorioHoras: z.coerce.number().int().min(1, "Entre 1 y 72 horas").max(72, "Entre 1 y 72 horas").optional(),
+    avisoAlAgendar: z.boolean().optional(),
     version: z.number().int().positive().max(2_000_000_000).optional(),
   })
   .refine((c) => aMin(c.horaFin) - aMin(c.horaInicio) >= 60, { message: "El horario tiene que abarcar al menos una hora", path: ["horaFin"] });
@@ -143,7 +148,17 @@ export const agendaRoutes: FastifyPluginAsync = async (app) => {
     if (version) filtros.push(eq(configAgenda.version, version));
     const [c] = await app.db
       .update(configAgenda)
-      .set({ nombreEvento: d.nombreEvento, nombreRecurso: d.nombreRecurso, horaInicio: aMin(d.horaInicio), horaFin: aMin(d.horaFin), tiposEvento: tipos, version: sql`${configAgenda.version} + 1` })
+      .set({
+        nombreEvento: d.nombreEvento,
+        nombreRecurso: d.nombreRecurso,
+        horaInicio: aMin(d.horaInicio),
+        horaFin: aMin(d.horaFin),
+        tiposEvento: tipos,
+        ...(d.recordatorioEmail !== undefined ? { recordatorioEmail: d.recordatorioEmail } : {}),
+        ...(d.recordatorioHoras !== undefined ? { recordatorioHoras: d.recordatorioHoras } : {}),
+        ...(d.avisoAlAgendar !== undefined ? { avisoAlAgendar: d.avisoAlAgendar } : {}),
+        version: sql`${configAgenda.version} + 1`,
+      })
       .where(and(...filtros))
       .returning();
     if (!c) throw edicionConcurrente("la configuración de la agenda");
@@ -303,6 +318,11 @@ export const agendaRoutes: FastifyPluginAsync = async (app) => {
     await superposicion(empresaId, datos, recurso);
     const [ev] = await app.db.insert(eventos).values({ ...d, empresaId, usuarioId: req.user.sub }).returning();
     await avisar(empresaId, req.user.sub, recurso, "Te agendaron algo nuevo", ev!);
+    // CoreDental: si el consultorio lo activó, el paciente recibe su turno por email (no frena el alta)
+    if (ev!.pacienteId) {
+      const [cfg] = await app.db.select({ aviso: configAgenda.avisoAlAgendar }).from(configAgenda).where(eq(configAgenda.empresaId, empresaId));
+      if (cfg?.aviso) void enviarEmailTurno(app, ev!.id, "agendado", req.user.sub).catch((e) => app.log.warn(e, "No se pudo avisar el turno"));
+    }
     return reply.status(201).send(ev);
   });
 
@@ -375,5 +395,48 @@ export const agendaRoutes: FastifyPluginAsync = async (app) => {
       await avisar(empresaId, req.user.sub, recurso, "Se quitó de la agenda", ev);
     }
     return reply.status(204).send();
+  });
+
+  // ---------------------------------------------------------------- avisos al paciente (CoreDental)
+
+  /** Turnos de un día con paciente, para mandar los recordatorios (WhatsApp con un clic, o email) */
+  app.get("/recordatorios", async (req) => {
+    const { fecha } = parse(z.object({ fecha: fechaIso }), req.query);
+    const filas = await conCliente([eq(eventos.empresaId, req.user.empresaId), eq(eventos.fecha, fecha), sql`${eventos.pacienteId} is not null`]).orderBy(asc(eventos.inicio));
+    const recursos = new Map((await recursosDe(req.user.empresaId)).map((r) => [r.id, r.nombre]));
+    return Promise.all(
+      filas.map(async (f) => {
+        const [p] = await app.db.select({ email: pacientes.email }).from(pacientes).where(eq(pacientes.id, f.evento.pacienteId!));
+        return { ...plano(f), profesional: recursos.get(f.evento.recursoId) ?? "", pacienteEmail: p?.email ?? null };
+      }),
+    );
+  });
+
+  const eventoDeEmpresa = async (empresaId: string, id: string) => {
+    const [ev] = await app.db.select().from(eventos).where(and(eq(eventos.id, id), eq(eventos.empresaId, empresaId)));
+    if (!ev) throw notFound("Turno no encontrado");
+    if (!ev.pacienteId) throw badRequest("Este evento no tiene paciente");
+    return ev;
+  };
+
+  /** Arma el mensaje de WhatsApp (con el link para confirmar) y lo deja marcado como avisado */
+  app.post("/eventos/:id/whatsapp", async (req) => {
+    const { id } = parse(idSchema, req.params);
+    await eventoDeEmpresa(req.user.empresaId, id);
+    const t = await datosDelTurno(app, id);
+    const w = await textoWhatsappTurno(app, t!);
+    await app.db.update(eventos).set({ avisadoWhatsappEn: new Date() }).where(eq(eventos.id, id));
+    return w;
+  });
+
+  /** Manda ahora el email del turno al paciente */
+  app.post("/eventos/:id/email", async (req) => {
+    const { id } = parse(idSchema, req.params);
+    const ev = await eventoDeEmpresa(req.user.empresaId, id);
+    if (["Cancelado", "Ausente", "Realizado"].includes(ev.estado)) throw conflict(`El turno está ${ev.estado.toLowerCase()}`);
+    const r = await enviarEmailTurno(app, id, "recordatorio", req.user.sub);
+    if (!r) throw badRequest("El paciente no tiene email cargado");
+    if (r.estado === "Error") throw new HttpError(502, `No se pudo enviar: ${r.error}`);
+    return r;
   });
 };

@@ -17,7 +17,8 @@ import { formatDate, formatMoney } from "@/lib/format";
 import { aNumero } from "@/lib/numeros";
 import { cn } from "@/lib/utils";
 import { usePrestaciones, type PacienteApi } from "@/modules/pacientes/api";
-import { hoyIso, MEDIOS_DENTAL, useAnularEnCuenta, useCargarPrestacion, useCuenta, usePrecios, useRegistrarPago, type MedioDental } from "./api";
+import { hoyIso, MEDIOS_DENTAL, useAnularEnCuenta, useCargarPrestacion, useCuenta, useFacturarPago, usePrecios, useRegistrarPago, type MedioDental, type PagoApi } from "./api";
+import { numeroComprobante } from "@/lib/facturacion";
 import { numeroDoc } from "./Hojas";
 
 /** Registrar un pago del paciente (también se usa desde Cobros) */
@@ -187,6 +188,15 @@ export function CuentaPaciente({ paciente }: { paciente: PacienteApi }) {
   const { puede } = useRole();
   const cuenta = useCuenta(paciente.id);
   const anular = useAnularEnCuenta(paciente.id);
+  const facturar = useFacturarPago(paciente.id);
+  const emitirFactura = async (p: PagoApi) => {
+    try {
+      const f = await facturar.mutateAsync(p.id);
+      toast.success(`${f.tipo} ${numeroComprobante(f.puntoVenta, f.numero)} emitida`, { description: "Queda en Facturación, lista para imprimir o enviar." });
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : "No se pudo facturar", { duration: 10000 });
+    }
+  };
   const [pagando, setPagando] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [verAnulados, setVerAnulados] = useState(false);
@@ -316,7 +326,19 @@ export function CuentaPaciente({ paciente }: { paciente: PacienteApi }) {
                         </TableCell>
                         <TableCell>{p.medio}</TableCell>
                         <TableCell className={cn("text-right tabular", p.anuladoEn && "line-through")}>{formatMoney(p.importe)}</TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right whitespace-nowrap">
+                          {p.comprobanteId ? (
+                            <Button size="sm" variant="ghost" asChild>
+                              <Link to={`/facturacion/${p.comprobanteId}`}>Ver factura</Link>
+                            </Button>
+                          ) : (
+                            !p.anuladoEn &&
+                            puede("facturacion.emitir") && (
+                              <Button size="sm" variant="outline" onClick={() => emitirFactura(p)} disabled={facturar.isPending}>
+                                Facturar
+                              </Button>
+                            )
+                          )}
                           {!p.anuladoEn && puede("cobranzas.anular") && (
                             <Button size="icon-sm" variant="ghost" onClick={() => setAnulando({ tipo: "pagos", id: p.id, titulo: `el recibo ${numeroDoc(p.numero)}` })} aria-label={`Anular recibo ${numeroDoc(p.numero)}`}>
                               <Ban className="size-4" />

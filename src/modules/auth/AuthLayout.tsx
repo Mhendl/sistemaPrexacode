@@ -1,5 +1,6 @@
 import { LinksLegales } from "@/modules/legal/SolicitudLegalPage";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
+import { cargarMedicion } from "@/lib/medicion";
 import { CheckCircle2 } from "lucide-react";
 import { LogoMark } from "@/components/layout/Logo";
 import { brand, productoActivo } from "@/config/brand";
@@ -17,6 +18,10 @@ const TEXTOS = {
 
 export function AuthLayout({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
   const { titular, beneficios } = TEXTOS[productoActivo()];
+  // Medición de visitas (si está configurada): solo en estas pantallas públicas
+  useEffect(() => {
+    void cargarMedicion();
+  }, []);
   return (
     <div className="grid min-h-svh lg:grid-cols-[1fr_1.1fr]">
       <div className="relative hidden flex-col justify-between overflow-hidden bg-sidebar p-10 text-white lg:flex">

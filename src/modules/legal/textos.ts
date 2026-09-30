@@ -252,7 +252,8 @@ export function privacidadDe(producto: ProductoId): Seccion[] {
   {
     titulo: "6. Cookies y almacenamiento local",
     parrafos: [
-      `Usamos el almacenamiento local del navegador para mantener la sesión iniciada y recordar preferencias (por ejemplo, el tema claro u oscuro). No usamos cookies de publicidad ni de seguimiento de terceros.`,
+      `Usamos el almacenamiento local del navegador para mantener la sesión iniciada y recordar preferencias (por ejemplo, el tema claro u oscuro).`,
+      `En las páginas públicas (el sitio, el ingreso y el registro) podemos usar herramientas de medición de terceros, como Google Analytics o el píxel de Meta, para saber cómo llegan las visitas y cuántas terminan creando una cuenta. Dentro del sistema no se usan, y nunca reciben la información que cargás.`,
     ],
   },
   {

@@ -2,9 +2,10 @@ import { randomBytes } from "node:crypto";
 import { desc, eq, sql } from "drizzle-orm";
 import type { FastifyInstance, FastifyPluginAsync, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { pagosSuscripcion, solicitudesLegales, suscripciones, usuarios } from "../db/schema.js";
+import { empresas, pagosSuscripcion, solicitudesLegales, suscripciones, usuarios } from "../db/schema.js";
 import { codigoConstancia, ipDe } from "./legal.js";
 import { marcaDe, nombrePlan, productoDeEmpresa } from "../lib/productos.js";
+import { codigoDe, DIAS_REGALO, recompensarReferido } from "../lib/referidos.js";
 import { requireAdmin, requireAuth } from "../lib/auth.js";
 import { hoyAr } from "../lib/cuentas.js";
 import { badRequest, conflict, edicionConcurrente, HttpError, notFound, parse, unauthorized } from "../lib/errors.js";
@@ -35,6 +36,13 @@ const r2 = (n: number) => Math.round(n * 100) / 100;
  * Aprobado: extiende la suscripción desde el vencimiento vigente y deja el plan pagado.
  */
 export async function aplicarPago(app: FastifyInstance, referencia: string, estado: EstadoPago, proveedorPagoId?: string) {
+  const r = await aplicarPagoTx(app, referencia, estado, proveedorPagoId);
+  // Si llegó recomendada y es su primer pago aprobado, quien la recomendó gana un mes
+  if (r.estado === "Aprobado") await recompensarReferido(app, r.empresaId);
+  return r;
+}
+
+async function aplicarPagoTx(app: FastifyInstance, referencia: string, estado: EstadoPago, proveedorPagoId?: string) {
   return app.db.transaction(async (tx) => {
     const [p] = await tx.select().from(pagosSuscripcion).where(eq(pagosSuscripcion.referencia, referencia)).for("update");
     if (!p) throw notFound("Pago no encontrado");
@@ -123,6 +131,24 @@ export const suscripcionRoutes: FastifyPluginAsync = async (app) => {
       usos: await usosActuales(app.db, req.user.empresaId),
       proveedor: app.pagos.nombre,
       pagos: pagos.map(({ urlPago: _u, ...p }) => p),
+    };
+  });
+
+  /** Programa de referidos: el link para recomendar y a quiénes recomendó */
+  app.get("/referidos", { preHandler: soloAdmin }, async (req) => {
+    const empresaId = req.user.empresaId;
+    const [codigo, producto] = await Promise.all([codigoDe(app.db, empresaId), productoDeEmpresa(app.db, empresaId)]);
+    const lista = await app.db
+      .select({ razonSocial: empresas.razonSocial, alta: empresas.createdAt, recompensado: empresas.referidoRecompensadoEn })
+      .from(empresas)
+      .where(eq(empresas.referidaPor, empresaId))
+      .orderBy(desc(empresas.createdAt));
+    return {
+      codigo,
+      link: `${app.urlDe(producto)}/registro?ref=${codigo}`,
+      diasPorReferido: DIAS_REGALO,
+      referidos: lista.map((x) => ({ razonSocial: x.razonSocial, alta: x.alta, pago: !!x.recompensado })),
+      mesesGanados: lista.filter((x) => x.recompensado).length,
     };
   });
 

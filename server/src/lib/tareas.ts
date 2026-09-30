@@ -11,6 +11,8 @@ import { hoyAr, saldosFacturas } from "./cuentas.js";
 import { enviarDocumentoPorEmail } from "./documentos.js";
 import { enviarDePlataforma } from "./email/plataforma.js";
 import { marcaDe } from "./productos.js";
+import { recordatoriosDeTurnos } from "./turnos.js";
+import { emailsDePrueba } from "./acompanamiento.js";
 import { estadoDe, obtenerSuscripcion, sumarDias } from "./suscripcion.js";
 
 const fecha = (f: string) => f.split("-").reverse().join("/");
@@ -22,7 +24,7 @@ async function primeraVez(app: FastifyInstance, empresaId: string, clave: string
   return r.length > 0;
 }
 
-async function administradores(app: FastifyInstance, empresaId: string) {
+export async function administradores(app: FastifyInstance, empresaId: string) {
   return app.db
     .select({ email: usuarios.email, nombre: usuarios.nombre })
     .from(usuarios)
@@ -121,5 +123,7 @@ export async function recordatoriosDeFacturas(app: FastifyInstance, hoy = hoyAr(
 export async function tareasAutomaticas(app: FastifyInstance) {
   const avisos = await avisosDeSuscripcion(app);
   const recordatorios = await recordatoriosDeFacturas(app);
-  if (avisos || recordatorios) app.log.info({ avisos, recordatorios }, "Tareas automáticas: emails enviados");
+  const turnos = await recordatoriosDeTurnos(app);
+  const acompanamiento = await emailsDePrueba(app);
+  if (avisos || recordatorios || turnos || acompanamiento) app.log.info({ avisos, recordatorios, turnos, acompanamiento }, "Tareas automáticas: emails enviados");
 }

@@ -9,7 +9,7 @@ export interface Envio {
   asunto: string;
   html: string;
   texto: string;
-  tipo: "comprobante" | "presupuesto" | "prueba";
+  tipo: "comprobante" | "presupuesto" | "prueba" | "turno";
   refId?: string | null;
   usuarioId?: string | null;
   automatico?: boolean;

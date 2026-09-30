@@ -31,6 +31,8 @@ export interface CargoApi {
 
 export interface PagoApi {
   id: string;
+  /** Factura electrónica emitida por este pago */
+  comprobanteId: string | null;
   numero: number;
   fecha: string;
   importe: number;
@@ -239,6 +241,17 @@ export function useAnularEnCuenta(pacienteId: string) {
   return useMutation({
     mutationFn: ({ tipo, id, motivo }: { tipo: "cargos" | "pagos"; id: string; motivo: string }) => api(`/pacientes/${pacienteId}/${tipo}/${id}/anular`, { method: "POST", body: { motivo } }),
     onSuccess: () => invalidarCuenta(qc, pacienteId),
+  });
+}
+
+export function useFacturarPago(pacienteId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (pagoId: string) => api<{ id: string; tipo: string; numero: number; puntoVenta: number }>(`/pacientes/${pacienteId}/pagos/${pagoId}/facturar`, { method: "POST", body: {} }),
+    onSuccess: () => {
+      invalidarCuenta(qc, pacienteId);
+      qc.invalidateQueries({ queryKey: ["comprobantes"] });
+    },
   });
 }
 

@@ -3,4 +3,4 @@
  * Al cambiar los textos (src/modules/legal/textos.ts en la web), actualizar esta fecha
  * para que quede registrado qué versión aceptó cada empresa.
  */
-export const TERMINOS_VERSION = "2026-09-29";
+export const TERMINOS_VERSION = "2026-09-30";
