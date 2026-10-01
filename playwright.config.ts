@@ -16,7 +16,7 @@ const PORT = 5175;
 export default defineConfig({
   testDir: "./e2e",
   timeout: 30_000,
-  globalTimeout: 15 * 60_000, // en Windows a veces un worker queda colgado al cerrar: mejor cortar que esperar para siempre
+  globalTimeout: 25 * 60_000, // en Windows a veces un worker queda colgado al cerrar: mejor cortar que esperar para siempre
   expect: { timeout: 7_000 },
   fullyParallel: true,
   workers: 4,

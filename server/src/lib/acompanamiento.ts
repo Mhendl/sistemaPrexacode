@@ -7,7 +7,7 @@ import type { FastifyInstance } from "fastify";
 import { avisosEnviados, empresas } from "../db/schema.js";
 import { diasEntre, hoyAr } from "./cuentas.js";
 import { enviarDePlataforma } from "./email/plataforma.js";
-import { MESES_COBRADOS_ANUAL } from "./precios.js";
+import { precios } from "./precios.js";
 import { marcaDe, productoDe, type ProductoId } from "./productos.js";
 import { estadoDe, obtenerSuscripcion } from "./suscripcion.js";
 import { administradores } from "./tareas.js";
@@ -50,7 +50,7 @@ const MENSAJES: Record<ProductoId, Record<number, Mensaje>> = {
       asunto: "Elegí tu plan y no pierdas nada de lo cargado",
       parrafos: [
         "Tu prueba gratis está por terminar. Todo lo que cargaste queda tal cual cuando elegís un plan.",
-        `Pagando el año, pagás ${MESES_COBRADOS_ANUAL} meses: 2 gratis.`,
+        `Pagando el año, pagás ${precios.mesesCobradosAnual} meses: ${12 - precios.mesesCobradosAnual} gratis.`,
       ],
       boton: { texto: "Ver los planes", ruta: "/configuracion?tab=plan" },
     },
@@ -84,7 +84,7 @@ const MENSAJES: Record<ProductoId, Record<number, Mensaje>> = {
       asunto: "Elegí tu plan y no pierdas nada de lo cargado",
       parrafos: [
         "Tu prueba gratis está por terminar. Las historias clínicas y todo lo que cargaste quedan tal cual cuando elegís un plan.",
-        `Pagando el año, pagás ${MESES_COBRADOS_ANUAL} meses: 2 gratis.`,
+        `Pagando el año, pagás ${precios.mesesCobradosAnual} meses: ${12 - precios.mesesCobradosAnual} gratis.`,
       ],
       boton: { texto: "Ver los planes", ruta: "/configuracion?tab=plan" },
     },

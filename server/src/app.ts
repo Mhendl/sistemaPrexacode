@@ -1,3 +1,6 @@
+import { cobrosRoutes } from "./routes/cobros.js";
+import { configPlataforma } from "./lib/facturacionPropia.js";
+import { aplicarPrecios, PLAN_IDS, PLANES, preciosVigentes, type PreciosGuardados } from "./lib/precios.js";
 import { facturacionPropiaRoutes } from "./routes/facturacionPropia.js";
 import { buzonImap, tickProspeccion, type Buzon } from "./lib/prospeccion.js";
 import { prospeccionAdminRoutes, prospeccionPublicaRoutes } from "./routes/prospeccion.js";
@@ -268,6 +271,11 @@ export async function buildApp({ db, jwtSecret, logger = false, conectorArca, ca
   await app.register(plataformaRoutes, { prefix: "/api/plataforma" });
   await app.register(interesadosAdminRoutes, { prefix: "/api/plataforma/interesados" });
   await app.register(facturacionPropiaRoutes, { prefix: "/api/plataforma/facturacion" });
+  await app.register(cobrosRoutes, { prefix: "/api/plataforma/cobros" });
+  // Precios vigentes para las landings (sin usuario)
+  app.get("/api/publico/precios", async () => ({ planes: PLAN_IDS.map((id) => ({ id, precioUsd: PLANES[id].precioUsd, usuarios: PLANES[id].usuarios })), usuarioAdicionalUsd: preciosVigentes().usuarioAdicionalUsd, mesesCobradosAnual: preciosVigentes().mesesCobradosAnual }));
+  // Los precios que se cambiaron desde el panel
+  aplicarPrecios((await configPlataforma(app)).precios as PreciosGuardados | null);
   await app.register(interesadosPublicosRoutes, { prefix: "/api/publico/interesados" });
   await app.register(prospeccionAdminRoutes, { prefix: "/api/plataforma/prospeccion" });
   await app.register(prospeccionPublicaRoutes, { prefix: "/api/publico/baja-prospecto" });

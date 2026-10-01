@@ -1741,5 +1741,9 @@ export const plataformaConfig = pgTable("plataforma_config", {
   id: integer("id").primaryKey().default(1),
   emisorEmpresaId: uuid("emisor_empresa_id").references(() => empresas.id, { onDelete: "set null" }),
   facturarSuscripciones: boolean("facturar_suscripciones").notNull().default(false),
+  /** Precios vigentes (si no hay, los de fábrica): por plan, el usuario adicional y cuántos meses se cobran pagando el año */
+  precios: jsonb("precios").$type<{ planes: Record<string, number>; usuarioAdicionalUsd: number; mesesCobradosAnual: number }>(),
+  /** Datos para que los clientes paguen por transferencia (si no hay, esa opción no aparece) */
+  transferencia: jsonb("transferencia").$type<{ titular: string; cuit: string | null; banco: string | null; cbu: string | null; alias: string | null }>(),
   version: integer("version").notNull().default(1),
 });

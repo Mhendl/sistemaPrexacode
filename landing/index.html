@@ -292,12 +292,12 @@
       <div class="wrap">
         <div class="titulo-seccion">
           <h2>Precios simples, todo incluido</h2>
-          <p>En dólares, que se cobran en pesos al dólar oficial del día. Pagando el año, 12 meses por el precio de 10.</p>
+          <p>En dólares, que se cobran en pesos al dólar oficial del día. Pagando el año, 12 meses por el precio de <span data-precio="meses">10</span>.</p>
         </div>
         <div class="precios">
           <div class="plan">
             <h3>Básico</h3>
-            <div class="monto">USD 45 <small>/ mes</small></div>
+            <div class="monto">USD <span data-precio="basico">45</span> <small>/ mes</small></div>
             <ul>
               <li><svg class="tilde" style="color:var(--dental-2)"><use href="#tilde" /></svg> 2 usuarios</li>
               <li><svg class="tilde" style="color:var(--dental-2)"><use href="#tilde" /></svg> 1 punto de venta</li>
@@ -307,7 +307,7 @@
           <div class="plan destacado">
             <span class="insignia">El más elegido</span>
             <h3>Profesional</h3>
-            <div class="monto">USD 89 <small>/ mes</small></div>
+            <div class="monto">USD <span data-precio="profesional">89</span> <small>/ mes</small></div>
             <ul>
               <li><svg class="tilde" style="color:var(--dental-2)"><use href="#tilde" /></svg> 5 usuarios</li>
               <li><svg class="tilde" style="color:var(--dental-2)"><use href="#tilde" /></svg> 3 puntos de venta</li>
@@ -316,7 +316,7 @@
           </div>
           <div class="plan">
             <h3>Empresa</h3>
-            <div class="monto">USD 169 <small>/ mes</small></div>
+            <div class="monto">USD <span data-precio="empresa">169</span> <small>/ mes</small></div>
             <ul>
               <li><svg class="tilde" style="color:var(--dental-2)"><use href="#tilde" /></svg> 10 usuarios</li>
               <li><svg class="tilde" style="color:var(--dental-2)"><use href="#tilde" /></svg> Puntos de venta ilimitados</li>
@@ -324,7 +324,7 @@
             </ul>
           </div>
         </div>
-        <p class="nota-precios">¿Necesitás más usuarios? Cada usuario adicional cuesta USD 15 por mes, en cualquier plan.</p>
+        <p class="nota-precios">¿Necesitás más usuarios? Cada usuario adicional cuesta USD <span data-precio="adicional">15</span> por mes, en cualquier plan.</p>
       </div>
     </section>
 
@@ -410,6 +410,18 @@
             u.searchParams.set('p', r);
             a.href = u.toString();
         });
+    })();
+
+    // ===== Precios: los vigentes salen del sistema (se cambian desde el panel) =====
+    (function () {
+        fetch('https://sistema.prexacode.com/api/publico/precios').then(function (r) { return r.ok ? r.json() : null; }).then(function (p) {
+            if (!p || !p.planes) return;
+            p.planes.forEach(function (plan) {
+                document.querySelectorAll('[data-precio="' + plan.id + '"]').forEach(function (el) { el.textContent = String(plan.precioUsd); });
+            });
+            document.querySelectorAll('[data-precio="adicional"]').forEach(function (el) { el.textContent = String(p.usuarioAdicionalUsd); });
+            document.querySelectorAll('[data-precio="meses"]').forEach(function (el) { el.textContent = String(p.mesesCobradosAnual); });
+        }).catch(function () {});
     })();
     // Pedido de demo: se guarda en Prexacode y nos llega el aviso
     const form = document.getElementById("formDemo");

@@ -107,3 +107,15 @@ document.querySelectorAll('.feature-block, .benefit-card, .pricing-card, .faq-it
         a.href = u.toString();
     });
 })();
+
+// ===== Precios: los vigentes salen del sistema (se cambian desde el panel) =====
+(function () {
+    fetch('https://app.coredental.com.ar/api/publico/precios').then(function (r) { return r.ok ? r.json() : null; }).then(function (p) {
+        if (!p || !p.planes) return;
+        p.planes.forEach(function (plan) {
+            document.querySelectorAll('[data-precio="' + plan.id + '"]').forEach(function (el) { el.textContent = String(plan.precioUsd); });
+        });
+        document.querySelectorAll('[data-precio="adicional"]').forEach(function (el) { el.textContent = String(p.usuarioAdicionalUsd); });
+        document.querySelectorAll('[data-precio="meses"]').forEach(function (el) { el.textContent = String(p.mesesCobradosAnual); });
+    }).catch(function () {});
+})();

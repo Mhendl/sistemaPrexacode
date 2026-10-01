@@ -267,6 +267,13 @@
       "when": 1790858329414,
       "tag": "0037_prospeccion_casillas",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1790881247393,
+      "tag": "0038_precios_y_transferencias",
+      "breakpoints": true
     }
   ]
 }

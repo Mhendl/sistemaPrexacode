@@ -4,7 +4,7 @@ import { empresas, puntosVenta, suscripciones, usuarios } from "../db/schema.js"
 import { hoyAr } from "./cuentas.js";
 import { HttpError } from "./errors.js";
 
-import { MESES_COBRADOS_ANUAL, PLAN_IDS, PLANES, PRECIO_USUARIO_ADICIONAL_USD, type PlanId } from "./precios.js";
+import { MESES_COBRADOS_ANUAL, PLAN_IDS, PLANES, precios, PRECIO_USUARIO_ADICIONAL_USD, type PlanId } from "./precios.js";
 export { MESES_COBRADOS_ANUAL, PLAN_IDS, PLANES, PRECIO_USUARIO_ADICIONAL_USD, type PlanId };
 export const DIAS_PRUEBA = 14;
 export const DIAS_GRACIA = 7;
@@ -70,8 +70,8 @@ export function limitesDe(s: Pick<Suscripcion, "plan" | "usuariosAdicionales">) 
 }
 
 export function precioUsd(plan: PlanId, adicionales: number, periodo: Periodo) {
-  const mensual = PLANES[plan].precioUsd + adicionales * PRECIO_USUARIO_ADICIONAL_USD;
-  return periodo === "anual" ? mensual * MESES_COBRADOS_ANUAL : mensual;
+  const mensual = PLANES[plan].precioUsd + adicionales * precios.usuarioAdicionalUsd;
+  return periodo === "anual" ? mensual * precios.mesesCobradosAnual : mensual;
 }
 
 /** Período que cubre un pago aprobado hoy: sigue desde el vencimiento vigente (no se pierden días) */
@@ -133,7 +133,7 @@ export const diasPagosRestantes = (s: Pick<Suscripcion, "pruebaHasta" | "pagoHas
 
 /** Precio por día en USD (pagando anual, cada mes sale 10/12 del mensual) */
 export const precioDiaUsd = (plan: PlanId, adicionales: number, periodo: Periodo) =>
-  (precioUsd(plan, adicionales, "mensual") * (periodo === "anual" ? MESES_COBRADOS_ANUAL / 12 : 1)) / 30;
+  (precioUsd(plan, adicionales, "mensual") * (periodo === "anual" ? precios.mesesCobradosAnual / 12 : 1)) / 30;
 
 /**
  * Qué compra un pago de "cambio" al acreditarse. Todo peso cobrado se convierte en días de servicio a precio de lista:

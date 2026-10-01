@@ -1,9 +1,11 @@
-import { alAprobarPago } from "../lib/facturacionPropia.js";
+import { precios } from "../lib/precios.js";
+import { alAprobarPago, configPlataforma } from "../lib/facturacionPropia.js";
+import { enviarDePlataforma } from "../lib/email/plataforma.js";
 import { randomBytes } from "node:crypto";
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import type { FastifyInstance, FastifyPluginAsync, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { empresas, pagosSuscripcion, solicitudesLegales, suscripciones, usuarios } from "../db/schema.js";
+import { adminsPlataforma, empresas, pagosSuscripcion, solicitudesLegales, suscripciones, usuarios } from "../db/schema.js";
 import { codigoConstancia, ipDe } from "./legal.js";
 import { marcaDe, nombrePlan, productoDeEmpresa } from "../lib/productos.js";
 import { codigoDe, DIAS_REGALO, recompensarReferido } from "../lib/referidos.js";
@@ -16,12 +18,10 @@ import {
   cotizarCambio,
   estadoDe,
   limitesDe,
-  MESES_COBRADOS_ANUAL,
   obtenerSuscripcion,
   periodoCubierto,
   PLAN_IDS,
   PLANES,
-  PRECIO_USUARIO_ADICIONAL_USD,
   precioUsd,
   usosActuales,
   aplicarCambioPagado,
@@ -167,8 +167,8 @@ export const suscripcionRoutes: FastifyPluginAsync = async (app) => {
     }
     return {
       planes: PLAN_IDS.map((id) => ({ id, ...PLANES[id], nombre: nombrePlan(producto, id) })),
-      precioUsuarioAdicionalUsd: PRECIO_USUARIO_ADICIONAL_USD,
-      mesesCobradosAnual: MESES_COBRADOS_ANUAL,
+      precioUsuarioAdicionalUsd: precios.usuarioAdicionalUsd,
+      mesesCobradosAnual: precios.mesesCobradosAnual,
       dolar,
     };
   });
@@ -284,6 +284,91 @@ export const suscripcionRoutes: FastifyPluginAsync = async (app) => {
       usd: precioUsd(plan, adicionales, periodo),
       titulo: `${marcaDe(producto).nombre} plan ${nombrePlan(producto, plan)} ${periodo === "anual" ? "(12 meses)" : "(1 mes)"}${detalleUsuarios(adicionales)}`,
     });
+  });
+
+  // ---------------------------------------------------------------- pago por transferencia
+
+  /** Los datos para transferir (si la plataforma los cargó) y si hay una transferencia avisada esperando confirmación */
+  app.get("/transferencia", { preHandler: requireAuth }, async (req) => {
+    const c = await configPlataforma(app);
+    const [pendiente] = await app.db
+      .select()
+      .from(pagosSuscripcion)
+      .where(and(eq(pagosSuscripcion.empresaId, req.user.empresaId), eq(pagosSuscripcion.proveedor, "transferencia"), eq(pagosSuscripcion.estado, "Pendiente")))
+      .orderBy(desc(pagosSuscripcion.createdAt))
+      .limit(1);
+    return { datos: c.transferencia ?? null, pendiente: pendiente ?? null };
+  });
+
+  /**
+   * "Ya transferí": queda el pago avisado, en pesos al dólar del día, esperando que la plataforma confirme que llegó.
+   * Recién ahí se extiende la suscripción.
+   */
+  app.post("/transferencia", { preHandler: soloAdmin }, async (req, reply) => {
+    const d = parse(
+      z.object({
+        periodo: z.enum(["mensual", "anual"]).default("mensual"),
+        comprobante: z
+          .string()
+          .trim()
+          .max(200)
+          .optional()
+          .nullable()
+          .transform((v) => v || null),
+      }),
+      req.body ?? {},
+    );
+    const c = await configPlataforma(app);
+    if (!c.transferencia) throw badRequest("El pago por transferencia no está habilitado");
+    const [ya] = await app.db
+      .select()
+      .from(pagosSuscripcion)
+      .where(and(eq(pagosSuscripcion.empresaId, req.user.empresaId), eq(pagosSuscripcion.proveedor, "transferencia"), eq(pagosSuscripcion.estado, "Pendiente")));
+    if (ya) throw conflict("Ya avisaste una transferencia: la estamos confirmando");
+    let dolar: number;
+    try {
+      dolar = await app.cotizacion();
+    } catch (e) {
+      throw new HttpError(503, e instanceof Error ? e.message : "No se pudo obtener la cotización");
+    }
+    const s = await obtenerSuscripcion(app.db, req.user.empresaId);
+    const plan = (s.planProximo ?? s.plan) as PlanId;
+    const adicionales = s.adicionalesProximos ?? s.usuariosAdicionales;
+    const usdTotal = precioUsd(plan, adicionales, d.periodo);
+    const [p] = await app.db
+      .insert(pagosSuscripcion)
+      .values({
+        empresaId: req.user.empresaId,
+        referencia: `TRF-${randomBytes(9).toString("base64url")}`,
+        plan,
+        periodo: d.periodo,
+        usuariosAdicionales: adicionales,
+        importeUsd: usdTotal,
+        tipoCambio: dolar,
+        importeArs: r2(usdTotal * dolar),
+        proveedor: "transferencia",
+        proveedorPagoId: d.comprobante,
+        usuarioId: req.user.sub,
+      })
+      .returning();
+    // Aviso a la plataforma para que mire la cuenta y lo confirme
+    const [e] = await app.db.select({ razonSocial: empresas.razonSocial, producto: empresas.producto }).from(empresas).where(eq(empresas.id, req.user.empresaId));
+    const admins = await app.db.select({ email: adminsPlataforma.email }).from(adminsPlataforma).where(eq(adminsPlataforma.activo, true));
+    const marca = marcaDe(e?.producto).nombre;
+    for (const a of admins) {
+      void enviarDePlataforma(app, {
+        para: a.email,
+        asunto: `Transferencia avisada: ${e?.razonSocial} · $ ${p!.importeArs.toLocaleString("es-AR", { minimumFractionDigits: 2 })}`,
+        saludo: "Hola,",
+        parrafos: [
+          `${e?.razonSocial} avisó que transfirió el pago de ${marca} (${d.periodo === "anual" ? "12 meses" : "1 mes"}, plan ${nombrePlan(e?.producto, plan)}).`,
+          `Importe: $ ${p!.importeArs.toLocaleString("es-AR", { minimumFractionDigits: 2 })}${d.comprobante ? `\nComprobante: ${d.comprobante}` : ""}`,
+          "Cuando veas la plata en la cuenta, confirmala en el panel: se le extiende la suscripción y se factura sola.",
+        ],
+        boton: { texto: "Confirmar en el panel", url: `${app.urlDe("gestion")}/admin/precios` },
+      });
+    }
+    return reply.status(201).send(p);
   });
 
   const pagoDe = async (empresaId: string, referencia: string) => {

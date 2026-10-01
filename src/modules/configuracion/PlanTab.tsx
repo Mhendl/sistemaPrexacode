@@ -18,6 +18,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { formatDate, formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Section } from "./parts";
+import { PagoTransferencia } from "./PagoTransferencia";
 
 const INCLUYE = ["Clientes, oportunidades y agenda", "Facturación electrónica ARCA", "Presupuestos, remitos y cobranzas", "Productos y stock", "Reportes y Libro IVA", "Envío por email y WhatsApp"];
 export const nombreEstado: Record<SuscripcionApi["estado"], string> = { Prueba: "Prueba gratis", Activa: "Activa", Gracia: "Vencida (en gracia)", SoloLectura: "Solo lectura" };
@@ -143,8 +144,9 @@ export function PlanTab() {
                 Pagar 1 mes
               </Button>
               <Button variant="outline" onClick={() => irAPagar("anual")} disabled={pagar.isPending}>
-                Pagar 12 meses <span className="text-success">(2 gratis)</span>
+                Pagar 12 meses <span className="text-success">({12 - (catalogo?.mesesCobradosAnual ?? 10)} gratis)</span>
               </Button>
+              <PagoTransferencia s={s} catalogo={catalogo} />
               {s.proveedor === "simulado" && <span className="self-center text-xs text-muted-foreground">Mercado Pago todavía no está configurado: el pago es de prueba.</span>}
               {s.proveedor === "deshabilitado" && (
                 <span className="self-center text-xs text-muted-foreground" data-testid="pago-por-transferencia">
