@@ -4,7 +4,7 @@ import { z } from "zod";
 import { empresas, interesados, prospeccionCampanas, prospeccionConfig, prospeccionEnvios, prospectos, usuarios } from "../db/schema.js";
 import { requirePlataforma } from "../lib/auth.js";
 import { badRequest, conflict, notFound, parse } from "../lib/errors.js";
-import { configProspeccion, enviarProspeccion, nuevoToken, PLANTILLAS, registrarVisita, topeDelDia } from "../lib/prospeccion.js";
+import { configProspeccion, enviarProspeccion, nuevoToken, PLANTILLAS, registrarVisita, topeDelDia, type ProductoCasilla } from "../lib/prospeccion.js";
 import { ahoraAr } from "../lib/turnos.js";
 
 const idSchema = z.object({ id: z.string().uuid("Id inválido") });
@@ -55,6 +55,9 @@ const filaSchema = z.object({
   telefono: texto(40),
 });
 
+/** De qué casilla se habla (Prexacode por defecto) */
+const casillaDe = (q: unknown): ProductoCasilla => (parse(z.object({ casilla: z.enum(["gestion", "dental"]).default("gestion") }), q ?? {}).casilla);
+
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 /** Direcciones genéricas que no son de una persona ni de un negocio (no se les escribe) */
 const NO_ESCRIBIR = /^(no-?reply|noreply|mailer-daemon|postmaster|abuse|spam)@/i;
@@ -63,32 +66,35 @@ const NO_ESCRIBIR = /^(no-?reply|noreply|mailer-daemon|postmaster|abuse|spam)@/i
 export const prospeccionAdminRoutes: FastifyPluginAsync = async (app) => {
   app.addHook("preHandler", requirePlataforma);
 
-  const publica = async () => {
-    const c = await configProspeccion(app);
+  const publica = async (producto: ProductoCasilla = "gestion") => {
+    const c = await configProspeccion(app, producto);
     const { passwordCifrada, ...resto } = c;
     const hoy = ahoraAr().slice(0, 10);
     const [{ n }] = await app.db
       .select({ n: sql<number>`count(*)::int` })
       .from(prospeccionEnvios)
-      .where(and(eq(prospeccionEnvios.estado, "Enviado"), gte(prospeccionEnvios.enviadoEn, new Date(`${hoy}T03:00:00Z`))));
+      .where(and(eq(prospeccionEnvios.casillaId, c.id), eq(prospeccionEnvios.estado, "Enviado"), gte(prospeccionEnvios.enviadoEn, new Date(`${hoy}T03:00:00Z`))));
     return { ...resto, tienePassword: !!passwordCifrada, enviadosHoy: Number(n), topeHoy: topeDelDia(c.maxPorDia, c.primerEnvioEn) };
   };
 
-  app.get("/config", async () => publica());
+  app.get("/config", async (req) => publica(casillaDe(req.query)));
+  /** Las dos casillas (Prexacode y CoreDental) */
+  app.get("/casillas", async () => ({ gestion: await publica("gestion"), dental: await publica("dental") }));
 
   app.post("/config", async (req) => {
+    const producto = casillaDe(req.query);
     const { password, ...d } = parse(configSchema, req.body);
-    await configProspeccion(app);
+    const c = await configProspeccion(app, producto);
     await app.db
       .update(prospeccionConfig)
       .set({ ...d, ...(password ? { passwordCifrada: app.cifrador.cifrar(password) } : {}), version: sql`${prospeccionConfig.version} + 1` })
-      .where(eq(prospeccionConfig.id, 1));
-    return publica();
+      .where(eq(prospeccionConfig.id, c.id));
+    return publica(producto);
   });
 
   /** Prueba la casilla: se manda un email a sí misma y se lee la bandeja */
-  app.post("/config/probar", async () => {
-    const c = await configProspeccion(app);
+  app.post("/config/probar", async (req) => {
+    const c = await configProspeccion(app, casillaDe(req.query));
     if (!c.passwordCifrada || !c.remitenteEmail) throw badRequest("Primero guardá el alias y la contraseña");
     let smtp = "Bien";
     let imap = "Bien";
@@ -107,15 +113,16 @@ export const prospeccionAdminRoutes: FastifyPluginAsync = async (app) => {
 
   /** Arrancar o pausar el envío */
   app.post("/config/activa", async (req) => {
+    const producto = casillaDe(req.query);
     const { activa } = parse(z.object({ activa: z.boolean() }), req.body);
-    const c = await configProspeccion(app);
+    const c = await configProspeccion(app, producto);
     if (activa) {
       if (!c.passwordCifrada || !c.remitenteEmail) throw badRequest("Primero configurá la casilla y probala");
       const [{ n }] = await app.db.select({ n: sql<number>`count(*)::int` }).from(prospectos).where(inArray(prospectos.estado, ["Pendiente", "En curso"]));
       if (!Number(n)) throw badRequest("No hay a quién escribirle: importá una lista primero");
     }
-    await app.db.update(prospeccionConfig).set({ activa, ...(activa ? { ultimoError: null } : {}) }).where(eq(prospeccionConfig.id, 1));
-    return publica();
+    await app.db.update(prospeccionConfig).set({ activa, ...(activa ? { ultimoError: null } : {}) }).where(eq(prospeccionConfig.id, c.id));
+    return publica(producto);
   });
 
   // ---------------------------------------------------------------- campañas

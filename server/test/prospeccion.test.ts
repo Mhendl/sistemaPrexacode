@@ -246,4 +246,46 @@ describe("prospección de punta a punta", () => {
     expect(destinos.filter((d) => d === "pyme")).toHaveLength(2);
     for (let i = 1; i < destinos.length; i++) expect(destinos[i]).not.toBe(destinos[i - 1]);
   });
+
+  it("cada producto sale de su casilla (con su propio ritmo); sin casilla de CoreDental, sale de la de Prexacode", async () => {
+    bandeja.length = 0;
+    const plantillas = (await api("GET", "/plantillas")).json();
+    // Se pausan las campañas de las pruebas anteriores
+    for (const c of (await api("GET", "/campanas")).json()) await api("PUT", `/campanas/${c.id}`, { nombre: c.nombre, producto: c.producto, pasos: c.pasos, activa: false });
+    const dental = (await api("POST", "/campanas", { nombre: "Casillas consultorios", producto: "dental", pasos: plantillas.dental })).json().id;
+    const pymes = (await api("POST", "/campanas", { nombre: "Casillas pymes", producto: "gestion", pasos: plantillas.gestion })).json().id;
+    await api("POST", `/campanas/${dental}/importar`, { confirmar: true, filas: [1, 2].map((n) => ({ email: `odonto${n}@casillas.com` })) });
+    await api("POST", `/campanas/${pymes}/importar`, { confirmar: true, filas: [1, 2].map((n) => ({ email: `pyme${n}@casillas.com` })) });
+    await api("POST", "/config/activa", { activa: true });
+
+    // Todavía sin casilla de CoreDental: la de Prexacode manda las dos campañas, de a una
+    const lunes = new Date("2026-11-09T13:00:00Z");
+    const antes = correo.enviados.length;
+    expect(await tickProspeccion(app, lunes)).toBe("enviado");
+    expect(correo.enviados.length).toBe(antes + 1);
+    expect(correo.enviados.at(-1)!.mensaje.de).toContain("martin@prexacode.com");
+
+    // Se configura la casilla de CoreDental (su dominio)
+    const casillas = (await api("GET", "/casillas")).json();
+    expect(casillas.dental).toMatchObject({ tienePassword: false, activa: false });
+    const cfg = await app.inject({ method: "POST", url: "/api/plataforma/prospeccion/config?casilla=dental", headers: auth(token), payload: { remitenteEmail: "martin@coredental.com.ar", remitenteNombre: "Martín de CoreDental", password: "clave-dental", smtpHost: "smtp.hostinger.com", smtpPuerto: 465, imapHost: "imap.hostinger.com", imapPuerto: 993, maxPorDia: 30, horaDesde: 9, horaHasta: 18 } });
+    expect(cfg.statusCode, cfg.body).toBe(200);
+    expect((await app.inject({ method: "POST", url: "/api/plataforma/prospeccion/config/activa?casilla=dental", headers: auth(token), payload: { activa: true } })).json()).toMatchObject({ activa: true, topeHoy: 10 });
+
+    // Ahora en la misma vuelta salen dos: uno de cada casilla, cada uno de su producto
+    const n = correo.enviados.length;
+    expect(await tickProspeccion(app, new Date("2026-11-09T14:00:00Z"))).toBe("enviado");
+    const nuevos = correo.enviados.slice(n);
+    expect(nuevos).toHaveLength(2);
+    const deDental = nuevos.find((e) => e.mensaje.de.includes("coredental.com.ar"))!;
+    const dePrexa = nuevos.find((e) => e.mensaje.de.includes("prexacode.com"))!;
+    expect(deDental.mensaje.para).toMatch(/^odonto/);
+    expect(deDental.transporte).toMatchObject({ usuario: "martin@coredental.com.ar", password: "clave-dental" });
+    expect(deDental.mensaje.texto).toContain("Martín de CoreDental");
+    expect(dePrexa.mensaje.para).toMatch(/^pyme/);
+    // Cada casilla lleva su cuenta del día
+    const despues = (await api("GET", "/casillas")).json();
+    expect(despues.dental.enviadosHoy).toBe(1);
+    expect(despues.gestion.enviadosHoy).toBeGreaterThanOrEqual(1);
+  });
 });

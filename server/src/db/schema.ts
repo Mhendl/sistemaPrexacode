@@ -1636,9 +1636,14 @@ export const interesados = pgTable(
 
 /* ---------------------------------------------------------------- Prospección (emails comerciales de Prexacode a posibles clientes) */
 
-/** Casilla desde la que salen los emails de prospección (un alias de prexacode.com) y el ritmo de envío. Una sola fila */
+/**
+ * Casillas desde las que salen los emails de prospección y su ritmo de envío: una por producto
+ * (1 = Prexacode, 2 = CoreDental). Cada dominio tiene su propia reputación, su tope y su arranque de a poco.
+ */
 export const prospeccionConfig = pgTable("prospeccion_config", {
   id: integer("id").primaryKey().default(1),
+  /** gestion | dental: las campañas de qué producto salen de esta casilla */
+  producto: text("producto").notNull().default("gestion"),
   remitenteEmail: text("remitente_email"),
   remitenteNombre: text("remitente_nombre"),
   /** Usuario de la casilla (el alias puede mandar con el usuario de la casilla principal) */
@@ -1716,6 +1721,8 @@ export const prospeccionEnvios = pgTable(
       .references(() => prospectos.id, { onDelete: "cascade" }),
     paso: integer("paso").notNull(),
     asunto: text("asunto").notNull(),
+    /** Desde qué casilla salió (1 Prexacode, 2 CoreDental): el tope diario es por casilla */
+    casillaId: integer("casilla_id").notNull().default(1),
     /** Enviado | Error */
     estado: text("estado").notNull(),
     error: text("error"),

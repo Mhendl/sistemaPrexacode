@@ -122,13 +122,35 @@ export const aHtml = (texto: string) =>
     .map((p) => `<p>${esc(p).replace(/\n/g, "<br>").replace(/(https:\/\/[^\s<]+)/g, '<a href="$1">$1</a>')}</p>`)
     .join("")}</div>`;
 
-export async function configProspeccion(app: FastifyInstance) {
-  await app.db.insert(prospeccionConfig).values({ id: 1 }).onConflictDoNothing();
-  const [c] = await app.db.select().from(prospeccionConfig).where(eq(prospeccionConfig.id, 1));
+/** Una casilla por producto: 1 = Prexacode (gestión), 2 = CoreDental */
+export const CASILLA = { gestion: 1, dental: 2 } as const;
+export type ProductoCasilla = keyof typeof CASILLA;
+
+export async function configProspeccion(app: FastifyInstance, producto: ProductoCasilla = "gestion") {
+  const id = CASILLA[producto];
+  await app.db.insert(prospeccionConfig).values({ id, producto }).onConflictDoNothing();
+  const [c] = await app.db.select().from(prospeccionConfig).where(eq(prospeccionConfig.id, id));
   return c!;
 }
 
 type Config = Awaited<ReturnType<typeof configProspeccion>>;
+
+const lista = (c: Config) => !!c.passwordCifrada && !!c.remitenteEmail;
+
+/**
+ * De qué casilla sale cada producto. CoreDental usa la suya si está configurada; si no, la de Prexacode
+ * (así nada se frena mientras se prepara el dominio nuevo).
+ */
+export async function casillasEnUso(app: FastifyInstance) {
+  const gestion = await configProspeccion(app, "gestion");
+  const dental = await configProspeccion(app, "dental");
+  return lista(dental)
+    ? [
+        { c: gestion, productos: ["gestion"] },
+        { c: dental, productos: ["dental"] },
+      ]
+    : [{ c: gestion, productos: ["gestion", "dental"] }];
+}
 
 const transporteDe = (app: FastifyInstance, c: Config) => ({
   tipo: "smtp" as const,
@@ -176,7 +198,7 @@ const ES_REBOTE = (r: Respuesta) => /mailer-daemon|postmaster/i.test(r.de) || /u
 export async function revisarRespuestas(app: FastifyInstance, c: Config, ahora = new Date()) {
   const desde = c.imapRevisadoEn ? new Date(c.imapRevisadoEn.getTime() - 3600_000) : new Date(ahora.getTime() - 14 * 86_400_000);
   const respuestas = await app.buzon.leer({ host: c.imapHost, puerto: c.imapPuerto, usuario: c.usuario || c.remitenteEmail!, password: app.cifrador.descifrar(c.passwordCifrada!) }, desde);
-  await app.db.update(prospeccionConfig).set({ imapRevisadoEn: ahora }).where(eq(prospeccionConfig.id, 1));
+  await app.db.update(prospeccionConfig).set({ imapRevisadoEn: ahora }).where(eq(prospeccionConfig.id, c.id));
   if (!respuestas.length) return { respondieron: 0, bajas: 0, rebotes: 0 };
 
   const activos = await app.db
@@ -227,12 +249,17 @@ export async function revisarRespuestas(app: FastifyInstance, c: Config, ahora =
 }
 
 /**
- * Una vuelta del envío (corre cada 5 minutos): revisa las respuestas y, si toca, manda UN email.
- * Devuelve qué hizo, para el panel y las pruebas.
+ * Una vuelta del envío (corre cada 5 minutos): en cada casilla revisa las respuestas y, si toca, manda UN email.
+ * Devuelve qué hizo (si alguna mandó, "enviado"), para el panel y las pruebas.
  */
 export async function tickProspeccion(app: FastifyInstance, ahora = new Date()): Promise<string> {
-  const c = await configProspeccion(app);
-  if (!c.activa || !c.passwordCifrada || !c.remitenteEmail) return "inactiva";
+  const resultados: string[] = [];
+  for (const { c, productos } of await casillasEnUso(app)) resultados.push(await tickCasilla(app, c, productos, ahora));
+  return resultados.includes("enviado") ? "enviado" : resultados[0]!;
+}
+
+async function tickCasilla(app: FastifyInstance, c: Config, productos: string[], ahora: Date): Promise<string> {
+  if (!c.activa || !lista(c)) return "inactiva";
 
   // Primero las respuestas: que nadie reciba un recordatorio después de haber contestado
   if (!c.imapRevisadoEn || ahora.getTime() - c.imapRevisadoEn.getTime() >= 10 * 60_000) {
@@ -240,7 +267,7 @@ export async function tickProspeccion(app: FastifyInstance, ahora = new Date()):
       await revisarRespuestas(app, c, ahora);
     } catch (e) {
       // Sin poder leer la casilla no se manda nada (podría escribirle a alguien que ya respondió)
-      await app.db.update(prospeccionConfig).set({ ultimoError: `No se pudo leer la casilla: ${(e as Error).message}`, activa: false }).where(eq(prospeccionConfig.id, 1));
+      await app.db.update(prospeccionConfig).set({ ultimoError: `No se pudo leer la casilla: ${(e as Error).message}`, activa: false }).where(eq(prospeccionConfig.id, c.id));
       return "error-imap";
     }
   }
@@ -249,10 +276,13 @@ export async function tickProspeccion(app: FastifyInstance, ahora = new Date()):
   const tope = topeDelDia(c.maxPorDia, c.primerEnvioEn, ahora);
   const hoy = ahoraAr(ahora.getTime()).slice(0, 10);
   const inicioDia = new Date(`${hoy}T03:00:00Z`);
-  const [{ n }] = await app.db.select({ n: sql<number>`count(*)::int` }).from(prospeccionEnvios).where(and(eq(prospeccionEnvios.estado, "Enviado"), gte(prospeccionEnvios.enviadoEn, inicioDia)));
+  const [{ n }] = await app.db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(prospeccionEnvios)
+    .where(and(eq(prospeccionEnvios.casillaId, c.id), eq(prospeccionEnvios.estado, "Enviado"), gte(prospeccionEnvios.enviadoEn, inicioDia)));
   if (Number(n) >= tope) return "tope-del-dia";
   // Espaciados a lo largo del horario
-  const [ultimo] = await app.db.select({ en: prospeccionEnvios.enviadoEn }).from(prospeccionEnvios).orderBy(desc(prospeccionEnvios.enviadoEn)).limit(1);
+  const [ultimo] = await app.db.select({ en: prospeccionEnvios.enviadoEn }).from(prospeccionEnvios).where(eq(prospeccionEnvios.casillaId, c.id)).orderBy(desc(prospeccionEnvios.enviadoEn)).limit(1);
   const intervalo = (((c.horaHasta - c.horaDesde) * 60) / tope) * 0.8 * 60_000;
   if (ultimo && ahora.getTime() - ultimo.en.getTime() < intervalo) return "espaciando";
 
@@ -261,7 +291,7 @@ export async function tickProspeccion(app: FastifyInstance, ahora = new Date()):
     .selectDistinct({ id: prospectos.campanaId })
     .from(prospectos)
     .innerJoin(prospeccionCampanas, eq(prospeccionCampanas.id, prospectos.campanaId))
-    .where(and(inArray(prospectos.estado, ["Pendiente", "En curso"]), eq(prospeccionCampanas.activa, true), lte(prospectos.proximoEnvio, ahora)));
+    .where(and(inArray(prospectos.estado, ["Pendiente", "En curso"]), eq(prospeccionCampanas.activa, true), inArray(prospeccionCampanas.producto, productos), lte(prospectos.proximoEnvio, ahora)));
   if (!listas.length) return "sin-pendientes";
   const ultimos = await app.db
     .select({ id: prospectos.campanaId, en: sql<Date>`max(${prospeccionEnvios.enviadoEn})` })
@@ -298,12 +328,12 @@ export async function tickProspeccion(app: FastifyInstance, ahora = new Date()):
   } catch (e) {
     const err = e as { code?: string; responseCode?: number; message?: string };
     const msg = err.code === "EAUTH" || err.responseCode === 535 ? "La casilla rechazó el usuario o la contraseña" : (err.message ?? "Error al enviar");
-    await app.db.insert(prospeccionEnvios).values({ prospectoId: p.id, paso: p.paso, asunto, estado: "Error", error: msg });
+    await app.db.insert(prospeccionEnvios).values({ prospectoId: p.id, paso: p.paso, asunto, estado: "Error", error: msg, casillaId: c.id });
     // Ante cualquier error se pausa: mejor revisar que insistir y que la casilla quede marcada
-    await app.db.update(prospeccionConfig).set({ ultimoError: msg, activa: false }).where(eq(prospeccionConfig.id, 1));
+    await app.db.update(prospeccionConfig).set({ ultimoError: msg, activa: false }).where(eq(prospeccionConfig.id, c.id));
     return "error-envio";
   }
-  await app.db.insert(prospeccionEnvios).values({ prospectoId: p.id, paso: p.paso, asunto, estado: "Enviado", enviadoEn: ahora });
+  await app.db.insert(prospeccionEnvios).values({ prospectoId: p.id, paso: p.paso, asunto, estado: "Enviado", enviadoEn: ahora, casillaId: c.id });
   const siguientePaso = campana.pasos[p.paso + 1];
   await app.db
     .update(prospectos)
@@ -314,7 +344,7 @@ export async function tickProspeccion(app: FastifyInstance, ahora = new Date()):
       proximoEnvio: siguientePaso ? sumarDiasHabiles(ahora, Math.max(1, siguientePaso.dias)) : ahora,
     })
     .where(eq(prospectos.id, p.id));
-  if (!c.primerEnvioEn) await app.db.update(prospeccionConfig).set({ primerEnvioEn: ahora }).where(eq(prospeccionConfig.id, 1));
+  if (!c.primerEnvioEn) await app.db.update(prospeccionConfig).set({ primerEnvioEn: ahora }).where(eq(prospeccionConfig.id, c.id));
   return "enviado";
 }
 

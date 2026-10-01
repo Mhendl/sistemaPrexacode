@@ -6,7 +6,7 @@ test("prospección: se configura la casilla, se arma la campaña con la secuenci
   await page.getByRole("link", { name: "Prospección" }).click();
 
   // Casilla (sin probarla: en las pruebas no se sale a internet)
-  const casilla = page.getByTestId("casilla-prospeccion");
+  const casilla = page.getByTestId("casilla-gestion");
   await casilla.getByLabel("Alias desde el que salen (ej.: martin@prexacode.com)").fill("martin@prexacode.com");
   await casilla.getByLabel("Tu nombre (firma y remitente)").fill("Martín de Prexacode");
   await casilla.getByLabel("Contraseña de la casilla").fill("clave-casilla");

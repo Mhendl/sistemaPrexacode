@@ -73,7 +73,8 @@ interface ProspectoApi {
   visitoEn: string | null;
 }
 
-const useConfig = () => useQuery({ queryKey: ["admin", "prospeccion", "config"], queryFn: () => apiAdmin<ConfigApi>("/plataforma/prospeccion/config"), refetchInterval: 60_000 });
+const useConfig = (casilla: Producto) =>
+  useQuery({ queryKey: ["admin", "prospeccion", "config", casilla], queryFn: () => apiAdmin<ConfigApi>(`/plataforma/prospeccion/config?casilla=${casilla}`), refetchInterval: 60_000 });
 const useCampanas = () => useQuery({ queryKey: ["admin", "prospeccion", "campanas"], queryFn: () => apiAdmin<CampanaApi[]>("/plataforma/prospeccion/campanas") });
 const mensaje = (e: unknown) => (e instanceof ApiError ? (Object.values(e.details)[0] ?? e.message) : "No se pudo");
 
@@ -93,7 +94,8 @@ export function AdminProspeccion() {
         }
       />
       <div className="grid gap-6">
-        <Casilla />
+        <Casilla producto="gestion" />
+        <Casilla producto="dental" />
         <QueryState isLoading={campanas.isLoading} error={campanas.error} onRetry={campanas.refetch}>
           {campanas.data?.length === 0 ? (
             <Card className="gap-2 p-6 text-center text-sm text-muted-foreground shadow-none">Todavía no hay campañas. Creá una (por ejemplo «Consultorios de Rosario») e importá la lista.</Card>
@@ -125,8 +127,11 @@ export function AdminProspeccion() {
   );
 }
 
-function Casilla() {
-  const { data: c, isLoading, error, refetch } = useConfig();
+/** La casilla de un producto: las campañas de ese producto salen de acá (cada dominio con su propio ritmo) */
+function Casilla({ producto }: { producto: Producto }) {
+  const { data: c, isLoading, error, refetch } = useConfig(producto);
+  const q = `?casilla=${producto}`;
+  const marca = producto === "dental" ? "CoreDental" : "Prexacode";
   const accion = useAccionAdmin();
   const [d, setD] = useState<Record<string, string>>({});
   const [password, setPassword] = useState("");
@@ -138,7 +143,7 @@ function Casilla() {
 
   const guardar = async () => {
     try {
-      await accion.mutateAsync({ url: "/plataforma/prospeccion/config", body: { ...d, password: password || null } });
+      await accion.mutateAsync({ url: `/plataforma/prospeccion/config${q}`, body: { ...d, password: password || null } });
       setPassword("");
       toast.success("Casilla guardada");
     } catch (e) {
@@ -149,7 +154,7 @@ function Casilla() {
     setProbando(true);
     setPrueba(null);
     try {
-      setPrueba(await apiAdmin<{ smtp: string; imap: string }>("/plataforma/prospeccion/config/probar", { method: "POST", body: {} }));
+      setPrueba(await apiAdmin<{ smtp: string; imap: string }>(`/plataforma/prospeccion/config/probar${q}`, { method: "POST", body: {} }));
     } catch (e) {
       toast.error(mensaje(e));
     } finally {
@@ -158,7 +163,7 @@ function Casilla() {
   };
   const activar = async (activa: boolean) => {
     try {
-      await accion.mutateAsync({ url: "/plataforma/prospeccion/config/activa", body: { activa } });
+      await accion.mutateAsync({ url: `/plataforma/prospeccion/config/activa${q}`, body: { activa } });
       toast.success(activa ? "Envío en marcha: salen de a uno, en horario laboral" : "Envío pausado");
     } catch (e) {
       toast.error(mensaje(e));
@@ -166,18 +171,19 @@ function Casilla() {
   };
   const campo = (k: string, label: string, extra: React.ComponentProps<typeof Input> = {}) => (
     <div className="grid gap-1.5">
-      <Label htmlFor={`pr-${k}`}>{label}</Label>
-      <Input id={`pr-${k}`} value={d[k] ?? ""} onChange={(e) => setD({ ...d, [k]: e.target.value })} {...extra} />
+      <Label htmlFor={`pr-${producto}-${k}`}>{label}</Label>
+      <Input id={`pr-${producto}-${k}`} value={d[k] ?? ""} onChange={(e) => setD({ ...d, [k]: e.target.value })} {...extra} />
     </div>
   );
 
   return (
     <QueryState isLoading={isLoading} error={error} onRetry={refetch}>
       {c && (
-        <Card className="gap-4 p-4 shadow-none" data-testid="casilla-prospeccion">
+        <Card className="gap-4 p-4 shadow-none" data-testid={`casilla-${producto}`}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h3 className="font-semibold">Casilla de envío</h3>
+              <h3 className="font-semibold">Casilla de {marca}</h3>
+              {producto === "dental" && !c.tienePassword && <p className="text-xs text-muted-foreground">Mientras no la configures, las campañas de CoreDental salen de la casilla de Prexacode.</p>}
               <p className="text-sm text-muted-foreground">
                 {c.activa ? (
                   <span className="text-success">● Enviando</span>
@@ -208,8 +214,8 @@ function Casilla() {
             {campo("remitenteNombre", "Tu nombre (firma y remitente)")}
             {campo("usuario", "Usuario de la casilla (si el alias usa el de otra casilla)", { placeholder: "Vacío: el mismo alias" })}
             <div className="grid gap-1.5">
-              <Label htmlFor="pr-password">Contraseña de la casilla</Label>
-              <Input id="pr-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={c.tienePassword ? "Guardada (escribí otra para cambiarla)" : "La de Hostinger"} autoComplete="new-password" />
+              <Label htmlFor={`pr-${producto}-password`}>Contraseña de la casilla</Label>
+              <Input id={`pr-${producto}-password`} type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={c.tienePassword ? "Guardada (escribí otra para cambiarla)" : "La de Hostinger"} autoComplete="new-password" />
             </div>
             {campo("maxPorDia", "Tope de emails por día (hasta 80)", { inputMode: "numeric" })}
             <div className="grid grid-cols-2 gap-3">
