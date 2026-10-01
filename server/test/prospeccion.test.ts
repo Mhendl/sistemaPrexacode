@@ -224,4 +224,26 @@ describe("prospección de punta a punta", () => {
     for (let i = 0; i < 10; i++) await tickProspeccion(app, mas(new Date("2026-10-26T13:00:00Z"), i * 60));
     expect(aElla()).toBe(1);
   });
+
+  it("las campañas se turnan: una de cada una, no todas de una y después las de la otra", async () => {
+    bandeja.length = 0;
+    const plantillas = (await api("GET", "/plantillas")).json();
+    const dental = (await api("POST", "/campanas", { nombre: "Turno consultorios", producto: "dental", pasos: plantillas.dental })).json().id;
+    const pymes = (await api("POST", "/campanas", { nombre: "Turno pymes", producto: "gestion", pasos: plantillas.gestion })).json().id;
+    // Primero se cargan los consultorios (más viejos) y después las pymes
+    await api("POST", `/campanas/${dental}/importar`, { confirmar: true, filas: [1, 2, 3].map((n) => ({ email: `consultorio${n}@turnos.com` })) });
+    await new Promise((r) => setTimeout(r, 20));
+    await api("POST", `/campanas/${pymes}/importar`, { confirmar: true, filas: [1, 2, 3].map((n) => ({ email: `pyme${n}@turnos.com` })) });
+    // Lo que quedaba pendiente de otras pruebas se pausa, para mirar solo estas dos
+    for (const c of (await api("GET", "/campanas")).json()) if (![dental, pymes].includes(c.id)) await api("PUT", `/campanas/${c.id}`, { nombre: c.nombre, producto: c.producto, pasos: c.pasos, activa: false });
+    await api("POST", "/config/activa", { activa: true });
+    const antes = correo.enviados.length;
+    const martes = new Date("2026-11-03T13:00:00Z");
+    for (let i = 0; i < 4; i++) expect(await tickProspeccion(app, mas(martes, i * 60))).toBe("enviado");
+    const destinos = correo.enviados.slice(antes).map((e) => e.mensaje.para.replace(/\d@.*/, ""));
+    // Se alternan (arranque por la que arranque)
+    expect(destinos.filter((d) => d === "consultorio")).toHaveLength(2);
+    expect(destinos.filter((d) => d === "pyme")).toHaveLength(2);
+    for (let i = 1; i < destinos.length; i++) expect(destinos[i]).not.toBe(destinos[i - 1]);
+  });
 });

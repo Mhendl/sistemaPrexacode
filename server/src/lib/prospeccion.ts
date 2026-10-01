@@ -256,12 +256,30 @@ export async function tickProspeccion(app: FastifyInstance, ahora = new Date()):
   const intervalo = (((c.horaHasta - c.horaDesde) * 60) / tope) * 0.8 * 60_000;
   if (ultimo && ahora.getTime() - ultimo.en.getTime() < intervalo) return "espaciando";
 
+  // Las campañas se turnan: le toca a la que hace más que no manda (así avanzan todas a la vez, no una después de la otra)
+  const listas = await app.db
+    .selectDistinct({ id: prospectos.campanaId })
+    .from(prospectos)
+    .innerJoin(prospeccionCampanas, eq(prospeccionCampanas.id, prospectos.campanaId))
+    .where(and(inArray(prospectos.estado, ["Pendiente", "En curso"]), eq(prospeccionCampanas.activa, true), lte(prospectos.proximoEnvio, ahora)));
+  if (!listas.length) return "sin-pendientes";
+  const ultimos = await app.db
+    .select({ id: prospectos.campanaId, en: sql<Date>`max(${prospeccionEnvios.enviadoEn})` })
+    .from(prospeccionEnvios)
+    .innerJoin(prospectos, eq(prospectos.id, prospeccionEnvios.prospectoId))
+    .where(inArray(prospectos.campanaId, listas.map((x) => x.id)))
+    .groupBy(prospectos.campanaId);
+  const ultimoDe = (id: string) => {
+    const u = ultimos.find((x) => x.id === id)?.en;
+    return u ? new Date(u).getTime() : 0;
+  };
+  const turno = [...listas].sort((x, y) => ultimoDe(x.id) - ultimoDe(y.id))[0]!.id;
   const [siguiente] = await app.db
     .select({ p: prospectos, campana: prospeccionCampanas })
     .from(prospectos)
     .innerJoin(prospeccionCampanas, eq(prospeccionCampanas.id, prospectos.campanaId))
-    .where(and(inArray(prospectos.estado, ["Pendiente", "En curso"]), eq(prospeccionCampanas.activa, true), lte(prospectos.proximoEnvio, ahora)))
-    .orderBy(asc(prospectos.proximoEnvio))
+    .where(and(eq(prospectos.campanaId, turno), inArray(prospectos.estado, ["Pendiente", "En curso"]), lte(prospectos.proximoEnvio, ahora)))
+    .orderBy(asc(prospectos.proximoEnvio), asc(prospectos.createdAt))
     .limit(1);
   if (!siguiente) return "sin-pendientes";
   const { p, campana } = siguiente;
