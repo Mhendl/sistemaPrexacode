@@ -1,3 +1,4 @@
+import { facturacionPropiaRoutes } from "./routes/facturacionPropia.js";
 import { buzonImap, tickProspeccion, type Buzon } from "./lib/prospeccion.js";
 import { prospeccionAdminRoutes, prospeccionPublicaRoutes } from "./routes/prospeccion.js";
 import { interesadosAdminRoutes, interesadosPublicosRoutes } from "./routes/interesados.js";
@@ -266,6 +267,7 @@ export async function buildApp({ db, jwtSecret, logger = false, conectorArca, ca
   await app.register(legalRoutes, { prefix: "/api/legal" });
   await app.register(plataformaRoutes, { prefix: "/api/plataforma" });
   await app.register(interesadosAdminRoutes, { prefix: "/api/plataforma/interesados" });
+  await app.register(facturacionPropiaRoutes, { prefix: "/api/plataforma/facturacion" });
   await app.register(interesadosPublicosRoutes, { prefix: "/api/publico/interesados" });
   await app.register(prospeccionAdminRoutes, { prefix: "/api/plataforma/prospeccion" });
   await app.register(prospeccionPublicaRoutes, { prefix: "/api/publico/baja-prospecto" });

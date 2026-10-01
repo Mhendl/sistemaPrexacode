@@ -253,6 +253,13 @@
       "when": 1790808879115,
       "tag": "0035_prospeccion_seguimiento",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1790853702260,
+      "tag": "0036_facturacion_propia",
+      "breakpoints": true
     }
   ]
 }

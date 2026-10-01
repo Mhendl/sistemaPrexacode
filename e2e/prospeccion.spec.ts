@@ -24,6 +24,16 @@ test("prospección: se configura la casilla, se arma la campaña con la secuenci
   await page.getByRole("button", { name: "Guardar", exact: true }).click();
   await expect(page.getByText("Campaña creada: ahora importá la lista")).toBeVisible();
 
+  // Al editar y cambiar de producto, se cargan los emails de ese producto (y al volver, los de antes)
+  const editar = page.getByTestId("campana-prospeccion").filter({ hasText: nombre });
+  await editar.getByRole("button", { name: "Editar emails" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Prexacode" }).click();
+  await expect(page.getByLabel("Asunto del email 1")).toHaveValue("Facturación y stock de {empresa}");
+  await expect(page.getByLabel("Texto del email 1")).toHaveValue(/Prexacode/);
+  await page.getByRole("dialog").getByRole("button", { name: "CoreDental" }).click();
+  await expect(page.getByLabel("Asunto del email 1")).toHaveValue("Turnos online para {empresa}");
+  await page.keyboard.press("Escape");
+
   // Lista en CSV con columnas como las escribiría cualquiera
   const a = emailUnico("consultorio");
   const b = emailUnico("clinica");

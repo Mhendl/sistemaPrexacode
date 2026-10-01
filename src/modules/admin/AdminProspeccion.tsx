@@ -448,9 +448,15 @@ function CampanaDialog({ open, onOpenChange, campana }: { open: boolean; onOpenC
     setPasos(campana?.pasos ?? plantillas.data?.dental ?? []);
   }, [open, campana, plantillas.data]);
 
+  /** Al cambiar de producto se cargan sus emails; si se habían editado a mano, se pregunta antes de reemplazarlos */
   const cambiarProducto = (p: Producto) => {
+    if (p === producto) return;
+    const sugeridos = plantillas.data;
+    if (!sugeridos) return setProducto(p);
+    const igualesAlModelo = JSON.stringify(pasos) === JSON.stringify(sugeridos[producto]);
+    if (!igualesAlModelo && !window.confirm(`¿Reemplazar los emails por los de ${p === "dental" ? "CoreDental" : "Prexacode"}? Se pierden los cambios que hiciste en los textos.`)) return;
     setProducto(p);
-    if (!campana && plantillas.data) setPasos(plantillas.data[p]);
+    setPasos(sugeridos[p]);
   };
   const guardar = async () => {
     try {

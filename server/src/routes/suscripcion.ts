@@ -1,3 +1,4 @@
+import { alAprobarPago } from "../lib/facturacionPropia.js";
 import { randomBytes } from "node:crypto";
 import { desc, eq, sql } from "drizzle-orm";
 import type { FastifyInstance, FastifyPluginAsync, FastifyRequest } from "fastify";
@@ -38,7 +39,11 @@ const r2 = (n: number) => Math.round(n * 100) / 100;
 export async function aplicarPago(app: FastifyInstance, referencia: string, estado: EstadoPago, proveedorPagoId?: string) {
   const r = await aplicarPagoTx(app, referencia, estado, proveedorPagoId);
   // Si llegó recomendada y es su primer pago aprobado, quien la recomendó gana un mes
-  if (r.estado === "Aprobado") await recompensarReferido(app, r.empresaId);
+  if (r.estado === "Aprobado") {
+    await recompensarReferido(app, r.empresaId);
+    // Facturación propia: la Factura C del pago, si está activa (no frena la aprobación)
+    void alAprobarPago(app, r.id);
+  }
   return r;
 }
 

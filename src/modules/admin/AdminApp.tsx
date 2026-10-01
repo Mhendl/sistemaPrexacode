@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Building2, ClipboardList, CreditCard, Inbox, LayoutDashboard, LifeBuoy, Loader2, LogOut, Menu, Send, ShieldCheck, Sparkles, Users } from "lucide-react";
+import { Building2, ClipboardList, CreditCard, Inbox, LayoutDashboard, LifeBuoy, Loader2, LogOut, Menu, Receipt, Send, ShieldCheck, Sparkles, Users } from "lucide-react";
 import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "@/api/client";
@@ -12,6 +12,7 @@ import { plataforma as brand } from "@/config/brand";
 import { cn } from "@/lib/utils";
 import { apiAdmin, getAdminToken, setAdminToken, useAdminYo, type AdminApi } from "./api";
 import { AdminAdministradores } from "./AdminAdministradores";
+import { AdminFacturacion } from "./AdminFacturacion";
 import { AdminInteresados } from "./AdminInteresados";
 import { AdminProspeccion } from "./AdminProspeccion";
 import { AdminAuditoria } from "./AdminAuditoria";
@@ -29,6 +30,7 @@ const menu = [
   { to: "/admin/empresas", label: "Empresas", icon: Building2 },
   { to: "/admin/soporte", label: "Soporte", icon: LifeBuoy },
   { to: "/admin/pagos", label: "Pagos", icon: CreditCard },
+  { to: "/admin/facturacion", label: "Facturación propia", icon: Receipt },
   { to: "/admin/solicitudes", label: "Baja y arrepentimiento", icon: Inbox },
   { to: "/admin/auditoria", label: "Auditoría", icon: ClipboardList },
   { to: "/admin/administradores", label: "Administradores", icon: Users },
@@ -66,6 +68,7 @@ function Protegido() {
         <Route path="soporte" element={<AdminSoporte />} />
         <Route path="soporte/:id" element={<AdminTicket />} />
         <Route path="pagos" element={<AdminPagos />} />
+        <Route path="facturacion" element={<AdminFacturacion />} />
         <Route path="solicitudes" element={<AdminSolicitudes />} />
         <Route path="auditoria" element={<AdminAuditoria />} />
         <Route path="administradores" element={<AdminAdministradores yo={yo} />} />

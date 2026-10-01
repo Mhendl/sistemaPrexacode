@@ -763,6 +763,10 @@ export const pagosSuscripcion = pgTable(
     usuarioId: uuid("usuario_id").references(() => usuarios.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     aprobadoAt: timestamp("aprobado_at", { withTimezone: true }),
+    /** La Factura C que le hizo la plataforma por este pago (facturación propia), o por qué no se pudo */
+    comprobanteId: uuid("comprobante_id"),
+    facturaNumero: text("factura_numero"),
+    facturaError: text("factura_error"),
   },
   (t) => [index("pagos_suscripcion_empresa_idx").on(t.empresaId, t.createdAt)],
 );
@@ -1719,3 +1723,16 @@ export const prospeccionEnvios = pgTable(
   },
   (t) => [index("prospeccion_envios_fecha_idx").on(t.enviadoEn)],
 );
+
+/* ---------------------------------------------------------------- Facturación propia de la plataforma */
+
+/**
+ * Quién factura las suscripciones (la cuenta de la plataforma con el CUIT del dueño) y si se factura sola
+ * cada vez que se aprueba un pago. Una sola fila.
+ */
+export const plataformaConfig = pgTable("plataforma_config", {
+  id: integer("id").primaryKey().default(1),
+  emisorEmpresaId: uuid("emisor_empresa_id").references(() => empresas.id, { onDelete: "set null" }),
+  facturarSuscripciones: boolean("facturar_suscripciones").notNull().default(false),
+  version: integer("version").notNull().default(1),
+});
