@@ -31,6 +31,8 @@ test("turnos online: el consultorio activa el link y un paciente reserva solo, d
   await page.setViewportSize({ width: 375, height: 800 });
   await page.reload();
   await expect(page.getByTestId("link-turnos-online")).toBeVisible();
+  // El link real (https://app.coredental.com.ar/reservar/…) es más largo que el de las pruebas: se prueba con ese largo
+  await page.getByTestId("link-turnos-online").evaluate((e) => (e.textContent = "https://app.coredental.com.ar/reservar/45a386b9a77a"));
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
   await page.setViewportSize({ width: 1280, height: 900 });
 

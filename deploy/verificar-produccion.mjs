@@ -35,7 +35,7 @@ const RECORRIDOS = [
     nombre: "Prexacode · Servicio técnico",
     base: GESTION,
     email: "demo.servicios@prexacode.com",
-    pantallas: [["/", /Hola, /], ["/agenda", /Orden de servicio|Instalación/], ["/clientes", /Hotel Plaza/], ["/productos", /Instalación de aire/], ["/facturacion", /Factura/], ["/presupuestos", /Estudio Contable|Presupuesto/]],
+    pantallas: [["/", /Hola, /], ["/agenda", /Agendar orden de servicio|Orden de servicio/i], ["/clientes", /Hotel Plaza/], ["/productos", /Instalación de aire/], ["/facturacion", /Factura/], ["/presupuestos", /Estudio Contable|Presupuesto/]],
   },
   {
     nombre: "CoreDental · Consultorio",
@@ -49,7 +49,7 @@ const RECORRIDOS = [
       ["/presupuestos", /Presupuesto|Martínez, Sofía/],
       ["/cobranzas", /Cobros|deuda/i],
       ["/caja", /Caja/],
-      ["/gastos", /Expensas/],
+      ["/gastos", /Gastos/],
       ["/laboratorios", /Laboratorio Dental Belgrano/],
       ["/liquidacion", /Liquidación/],
       ["/facturacion", /Facturación/],
@@ -72,18 +72,22 @@ const anotar = problemas.push.bind(problemas);
 problemas.push = (...xs) => { for (const x of xs) console.log("  ✗", x); return anotar(...xs); };
 const navegador = await chromium.launch({ channel: "chrome" });
 for (const r of RECORRIDOS) {
+  let sesion = null; // se entra una sola vez por usuario (el login tiene un límite de intentos por minuto)
   for (const ancho of [1366, 390]) {
-    const ctx = await navegador.newContext({ viewport: { width: ancho, height: 900 } });
+    const ctx = await navegador.newContext({ viewport: { width: ancho, height: 900 }, ...(sesion ? { storageState: sesion } : {}) });
     const page = await ctx.newPage();
     const errores = [];
     page.on("pageerror", (e) => errores.push(e.message));
     page.on("console", (m) => m.type() === "error" && !/favicon|cloudflareinsights|Failed to load resource: the server responded with a status of 40[134]/.test(m.text()) && errores.push(m.text()));
     page.on("response", (res) => res.url().includes("/api/") && res.status() === 400 && errores.push(`400 ${res.url()}`));
     page.on("response", (res) => res.url().includes("/api/") && res.status() >= 500 && errores.push(`${res.status()} ${res.url()}`));
-    await page.goto(`${r.base}/login`);
-    await page.getByLabel("Email").fill(r.email);
-    await page.getByLabel("Contraseña").fill(CLAVE);
-    await page.getByRole("button", { name: "Ingresar" }).click();
+    if (sesion) await page.goto(`${r.base}/`);
+    else {
+      await page.goto(`${r.base}/login`);
+      await page.getByLabel("Email").fill(r.email);
+      await page.getByLabel("Contraseña").fill(CLAVE);
+      await page.getByRole("button", { name: "Ingresar" }).click();
+    }
     try {
       await page.getByRole("heading", { name: /^Hola, / }).waitFor({ timeout: 20_000 });
     } catch {
@@ -91,6 +95,7 @@ for (const r of RECORRIDOS) {
       await ctx.close();
       continue;
     }
+    sesion ??= await ctx.storageState();
     // Si tiene ficha de paciente, también se abre una
     const pantallas = [...r.pantallas];
     for (const [ruta, espera] of pantallas) {

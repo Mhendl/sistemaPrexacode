@@ -91,7 +91,7 @@ export function TurnosOnline({ config }: { config: ConfigAgendaApi }) {
           <div className="grid gap-2 rounded-lg border bg-muted/30 p-3">
             <div className="text-xs font-medium text-muted-foreground">Link para tus pacientes</div>
             <div className="flex flex-wrap items-center gap-2">
-              <code className="min-w-0 flex-1 truncate rounded bg-background px-2 py-1.5 text-xs" data-testid="link-turnos-online">
+              <code className="w-full min-w-0 break-all rounded bg-background px-2 py-1.5 text-xs sm:w-auto sm:flex-1" data-testid="link-turnos-online">
                 {link}
               </code>
               <Button size="sm" variant="outline" onClick={copiar}>
