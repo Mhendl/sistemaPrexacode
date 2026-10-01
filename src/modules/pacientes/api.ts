@@ -199,7 +199,7 @@ export async function urlDeArchivo(pacienteId: string, archivoId: string): Promi
 
 // ---------------------------------------------------------------- odontograma
 
-export const useOdontograma = (id: string) => useQuery({ queryKey: ["paciente", id, "odontograma"], queryFn: () => api<MarcaApi[]>(`/pacientes/${id}/odontograma`) });
+export const useOdontograma = (id: string) => useQuery({ queryKey: ["paciente", id, "odontograma"], queryFn: () => api<MarcaApi[]>(`/pacientes/${id}/odontograma`), enabled: !!id });
 
 export function useMarcar(id: string) {
   const qc = useQueryClient();

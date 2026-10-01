@@ -33,7 +33,7 @@ export function AgendaTab() {
   return (
     <QueryState isLoading={isLoading} error={error} onRetry={refetch}>
       {data && (
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-6 lg:grid-cols-2 [&>*]:min-w-0">
           {productoActivo() === "dental" && <AvisosPacientes config={data} />}
           {productoActivo() === "dental" && <TurnosOnline config={data} />}
           <Vocabulario config={data} />

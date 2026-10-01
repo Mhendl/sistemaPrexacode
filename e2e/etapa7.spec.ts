@@ -27,6 +27,12 @@ test("turnos online: el consultorio activa el link y un paciente reserva solo, d
   await expect(page.getByLabel("Dra. Laura Pérez da turnos online")).toBeChecked();
   const link = (await page.getByTestId("link-turnos-online").textContent())!;
   expect(link).toMatch(/\/reservar\/[0-9a-f]{12}$/);
+  // En el celular, con el link largo a la vista, la pantalla entra en el ancho
+  await page.setViewportSize({ width: 375, height: 800 });
+  await page.reload();
+  await expect(page.getByTestId("link-turnos-online")).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
+  await page.setViewportSize({ width: 1280, height: 900 });
 
   // Un paciente, sin usuario y desde el celular, saca su turno
   const paciente = await browser.newPage({ viewport: { width: 375, height: 800 } });
