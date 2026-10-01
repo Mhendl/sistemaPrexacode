@@ -45,6 +45,8 @@ test("prospección: se configura la casilla, se arma la campaña con la secuenci
   await campana.getByRole("button", { name: "Agregar 2" }).click();
   await expect(page.getByText(`2 contactos agregados a «${nombre}»`)).toBeVisible();
   await expect(campana).toContainText("2 contactos");
+  await expect(campana.getByTestId("avance-campana")).toContainText("0 de 2 enviados");
+  await expect(campana.getByTestId("avance-campana")).toContainText("2 por mandar");
   await campana.getByRole("button", { name: "Ver contactos" }).click();
   await expect(campana.getByText("Consultorio Sonrisas")).toBeVisible();
   await expect(campana.getByText("Clínica Norte")).toBeVisible();

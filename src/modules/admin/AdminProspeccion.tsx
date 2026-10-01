@@ -47,6 +47,9 @@ interface CampanaApi {
   pasos: Paso[];
   activa: boolean;
   total: number;
+  contactados: number;
+  porMandar: number;
+  enviadosHoy: number;
   visitaron: number;
   registrados: number;
   pendientes: number;
@@ -281,7 +284,7 @@ function Campana({ c }: { c: CampanaApi }) {
             {c.nombre} <span className={cn("ml-1 rounded-full px-2 py-0.5 text-[11px] font-medium", c.producto === "dental" ? "bg-[#e3f5f8] text-[#0e8fae]" : "bg-primary/10 text-primary")}>{c.producto === "dental" ? "CoreDental" : "Prexacode"}</span>
           </h3>
           <p className="text-sm text-muted-foreground">
-            {c.total} contactos · {c.emailsEnviados} emails enviados · {c.pasos.length} emails en la secuencia
+            {c.total} contactos · {c.pasos.length} emails en la secuencia · {c.emailsEnviados} emails enviados en total, contando los recordatorios
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -297,13 +300,28 @@ function Campana({ c }: { c: CampanaApi }) {
           </Button>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-2 text-center text-sm sm:grid-cols-4 lg:grid-cols-7">
+      <div className="grid gap-1.5" data-testid="avance-campana">
+        <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1 text-sm">
+          <span>
+            <b className="text-lg tabular-nums">{c.contactados}</b> de {c.total} enviados
+          </span>
+          <span>
+            <b className="text-lg tabular-nums">{c.porMandar}</b> por mandar
+          </span>
+          <span className="text-muted-foreground">
+            hoy: <b className="tabular-nums text-foreground">{c.enviadosHoy}</b>
+          </span>
+        </div>
+        <div className="h-2 overflow-hidden rounded-full bg-muted">
+          <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${c.total ? Math.round((c.contactados / c.total) * 100) : 0}%` }} />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2 text-center text-sm sm:grid-cols-3 lg:grid-cols-6">
         {[
-          ["Por mandar", c.pendientes],
           ["Visitaron la página", c.visitaron],
           ["Se registraron", c.registrados],
           ["Respondieron", c.respondieron],
-          ["Terminaron", c.terminados],
+          ["Secuencia terminada", c.terminados],
           ["Bajas", c.bajas],
           ["Rebotaron", c.rebotes],
         ].map(([t, n]) => (

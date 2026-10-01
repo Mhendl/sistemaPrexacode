@@ -139,11 +139,27 @@ export const prospeccionAdminRoutes: FastifyPluginAsync = async (app) => {
       .from(prospectos)
       .where(sql`${prospectos.visitoEn} is not null`)
       .groupBy(prospectos.campanaId);
+    // A cuántos ya se les escribió (al menos un email) y cuántos salieron hoy
+    const contactados = await app.db
+      .select({ id: prospectos.campanaId, n: sql<number>`count(*)::int` })
+      .from(prospectos)
+      .where(sql`${prospectos.ultimoEnvio} is not null`)
+      .groupBy(prospectos.campanaId);
+    const hoy = ahoraAr().slice(0, 10);
+    const deHoy = await app.db
+      .select({ id: prospectos.campanaId, n: sql<number>`count(*)::int` })
+      .from(prospeccionEnvios)
+      .innerJoin(prospectos, eq(prospectos.id, prospeccionEnvios.prospectoId))
+      .where(and(eq(prospeccionEnvios.estado, "Enviado"), gte(prospeccionEnvios.enviadoEn, new Date(`${hoy}T03:00:00Z`))))
+      .groupBy(prospectos.campanaId);
     return lista.map((c) => {
       const de = (e: string) => Number(conteos.find((x) => x.id === c.id && x.estado === e)?.n ?? 0);
       const total = conteos.filter((x) => x.id === c.id).reduce((a, x) => a + Number(x.n), 0);
       const visitaron = Number(visitas.find((x) => x.id === c.id)?.n ?? 0);
-      return { ...c, total, visitaron, registrados: de("Registrado"), pendientes: de("Pendiente") + de("En curso"), respondieron: de("Respondió"), bajas: de("Baja"), rebotes: de("Rebotó"), terminados: de("Terminado"), emailsEnviados: Number(enviados.find((x) => x.id === c.id)?.n ?? 0) };
+      const n = (xs: { id: string; n: number }[]) => Number(xs.find((x) => x.id === c.id)?.n ?? 0);
+      // Por mandar: los que todavía no recibieron ningún email (no cuenta a los que esperan el recordatorio)
+      const sinEmail = conteos.filter((x) => x.id === c.id && x.estado === "Pendiente").reduce((a, x) => a + Number(x.n), 0);
+      return { ...c, total, contactados: n(contactados), porMandar: sinEmail, enviadosHoy: n(deHoy), visitaron, registrados: de("Registrado"), pendientes: de("Pendiente") + de("En curso"), respondieron: de("Respondió"), bajas: de("Baja"), rebotes: de("Rebotó"), terminados: de("Terminado"), emailsEnviados: Number(enviados.find((x) => x.id === c.id)?.n ?? 0) };
     });
   });
 

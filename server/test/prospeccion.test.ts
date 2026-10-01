@@ -132,6 +132,8 @@ describe("prospección de punta a punta", () => {
     // La campaña muestra los números
     const resumen = (await api("GET", "/campanas")).json()[0];
     expect(resumen).toMatchObject({ total: 3, respondieron: 1, bajas: 1, rebotes: 1, pendientes: 0, emailsEnviados: 3 });
+    // Enviados (a cuántos se les escribió) y por mandar (los que todavía no recibieron ninguno)
+    expect(resumen).toMatchObject({ contactados: 3, porMandar: 0 });
     // A una baja no se le puede volver a escribir
     const baja = lista.find((p) => p.email === "info@dentalnorte.com") as unknown as { id: string };
     expect((await api("PUT", `/prospectos/${baja.id}`, { estado: "Pendiente" })).statusCode).toBe(409);
