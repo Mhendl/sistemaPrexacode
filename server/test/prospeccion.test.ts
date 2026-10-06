@@ -1,4 +1,6 @@
+import { gte } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { prospeccionEnvios } from "../src/db/schema.js";
 import { enHorario, personalizar, sumarDiasHabiles, tickProspeccion, topeDelDia, type Respuesta } from "../src/lib/prospeccion.js";
 import { auth, carteroDePrueba, crearApp, cuitValido, emailUnico, type TestApp } from "./helpers.js";
 
@@ -19,7 +21,9 @@ afterAll(() => cerrar());
 
 const api = (method: "GET" | "POST" | "PUT", url: string, payload?: object) => app.inject({ method, url: `/api/plataforma/prospeccion${url}`, headers: auth(token), ...(payload ? { payload } : {}) });
 /** Lunes 5 de octubre de 2026, 10 de la mañana en Argentina */
-const LUNES_10 = new Date("2026-10-05T13:00:00Z");
+/** Las pruebas de punta a punta corren en un calendario del futuro (los prospectos se crean con la fecha real): mismas fechas, 20 años de semanas después */
+const enSemanas = (iso: string) => new Date(new Date(iso).getTime() + 52 * 20 * 7 * 86_400_000);
+const LUNES_10 = enSemanas("2026-10-05T13:00:00Z");
 const mas = (d: Date, minutos: number) => new Date(d.getTime() + minutos * 60_000);
 
 describe("prospección: reglas", () => {
@@ -86,7 +90,7 @@ describe("prospección de punta a punta", () => {
     const antes = correo.enviados.length;
 
     // Sábado no se manda
-    expect(await tickProspeccion(app, new Date("2026-10-03T13:00:00Z"))).toBe("fuera-de-horario");
+    expect(await tickProspeccion(app, enSemanas("2026-10-03T13:00:00Z"))).toBe("fuera-de-horario");
     // Lunes 10 hs: sale el primero
     expect(await tickProspeccion(app, LUNES_10)).toBe("enviado");
     const primero = correo.enviados.at(-1)!.mensaje;
@@ -112,7 +116,7 @@ describe("prospección de punta a punta", () => {
     bandeja.push({ de: "ana@sonrisas.com", asunto: "Re: Turnos online para Consultorio Sonrisas", texto: "Hola Martín, me interesa, ¿me llamás el jueves?\n\nEl lun, 5 oct 2026 a las 10:00, Martín escribió:\n> Hola Ana, si no te interesa respondé BAJA" });
     bandeja.push({ de: "info@dentalnorte.com", asunto: "Re: Turnos online", texto: "BAJA por favor" });
     bandeja.push({ de: "MAILER-DAEMON@hostinger.com", asunto: "Undelivered Mail Returned to Sender", texto: "Could not deliver to <rebota@noexiste.com>: user unknown" });
-    const jueves = new Date("2026-10-08T14:00:00Z");
+    const jueves = enSemanas("2026-10-08T14:00:00Z");
     expect(await tickProspeccion(app, jueves)).toBe("sin-pendientes");
     const lista = (await api("GET", `/prospectos?campanaId=${id}`)).json() as { email: string; estado: string; nota: string | null }[];
     const estado = (e: string) => lista.find((p) => p.email === e)!;
@@ -146,7 +150,7 @@ describe("prospección de punta a punta", () => {
     const imp = await api("POST", `/campanas/${id}/importar`, { confirmar: true, filas: [{ email: "juan@ferreteria.com", nombre: "Juan", empresa: "Ferretería Juan" }, { email: "ventas@distri.com", empresa: "Distri SA" }, { email: "compras@corralon.com" }] });
     expect(imp.json(), imp.body).toMatchObject({ guardados: 3 });
     await api("POST", "/config/activa", { activa: true });
-    const martes = new Date("2026-10-13T13:00:00Z");
+    const martes = enSemanas("2026-10-13T13:00:00Z");
     for (let i = 0; i < 3; i++) expect(await tickProspeccion(app, mas(martes, i * 60)), `vuelta ${i}`).toBe("enviado");
     const tokenDe = (para: string) => /r=([A-Za-z0-9_-]+)/.exec(correo.enviados.filter((e) => e.mensaje.para === para).at(-1)!.mensaje.texto)![1]!;
     const bajaDe = (para: string) => /baja-prospecto\/([A-Za-z0-9_-]+)/.exec(correo.enviados.filter((e) => e.mensaje.para === para).at(-1)!.mensaje.texto)![1]!;
@@ -161,7 +165,7 @@ describe("prospección de punta a punta", () => {
     expect((await app.inject({ method: "POST", url: `/api/publico/baja-prospecto/${t}` })).json()).toEqual({ dadoDeBaja: true });
 
     // A los 3 días hábiles, el segundo email solo le llega al corralón, como respuesta al primero
-    const viernes = new Date("2026-10-16T16:00:00Z");
+    const viernes = enSemanas("2026-10-16T16:00:00Z");
     expect(await tickProspeccion(app, viernes)).toBe("enviado");
     const segundo = correo.enviados.at(-1)!.mensaje;
     expect(segundo.para).toBe("compras@corralon.com");
@@ -183,6 +187,28 @@ describe("prospección de punta a punta", () => {
     expect(await tickProspeccion(app, mas(viernes, 240))).toBe("error-imap");
     buzon.estado.falla = false;
     expect((await api("GET", "/config")).json().ultimoError).toMatch(/No se pudo leer la casilla/);
+
+    await api("POST", "/config/activa", { activa: true });
+    // Si falla un destinatario (su dominio no responde), se saltea ese y la casilla sigue: se reintenta otro día y al 3.er intento fallido no se le escribe más
+    const miercoles = enSemanas("2026-10-21T13:00:00Z");
+    expect(await tickProspeccion(app, miercoles)).toBe("enviado"); // el que quedó pendiente de antes
+    await api("POST", `/campanas/${id}/importar`, { confirmar: true, filas: [{ email: "odontologia@dominio-caido.com" }] });
+    const temporal = () => Object.assign(new Error("Can't send mail - all recipients were rejected: 451 4.3.0 <odontologia@dominio-caido.com>: Temporary lookup failure"), { code: "EENVELOPE", responseCode: 451, command: "RCPT TO" });
+    correo.estado.falla = temporal();
+    expect(await tickProspeccion(app, mas(miercoles, 60))).toBe("destinatario-rechazado");
+    expect((await api("GET", "/config")).json()).toMatchObject({ activa: true, ultimoError: null });
+    expect(await tickProspeccion(app, mas(miercoles, 120))).toBe("sin-pendientes"); // queda para el próximo día hábil
+    const jueves = enSemanas("2026-10-22T15:00:00Z");
+    for (const i of [0, 1440]) {
+      correo.estado.falla = temporal();
+      expect(await tickProspeccion(app, mas(jueves, i)), `minuto ${i}`).toBe("destinatario-rechazado");
+    }
+    correo.estado.falla = null;
+    const caido = (await api("GET", "/prospectos")).json().find((x: { email: string }) => x.email === "odontologia@dominio-caido.com");
+    expect(caido.estado).toBe("Rebotó");
+    expect((await api("GET", "/config")).json().activa).toBe(true);
+    // (lo mandado en esta parte va después en el calendario que las pruebas siguientes: se borra para que no las haga esperar)
+    await app.db.delete(prospeccionEnvios).where(gte(prospeccionEnvios.enviadoEn, miercoles));
   });
 
   it("la visita a la página y el registro a la prueba desde el email quedan anotados; el que se registró sale de la secuencia", async () => {
@@ -194,7 +220,7 @@ describe("prospección de punta a punta", () => {
     const id = (await api("POST", "/campanas", { nombre: "Consultorios de Palermo", producto: "dental", pasos: plantillas.dental })).json().id;
     await api("POST", `/campanas/${id}/importar`, { confirmar: true, filas: [{ email: "hola@sonrisaspalermo.com", nombre: "Laura", empresa: "Sonrisas Palermo", ciudad: "Palermo" }] });
     await api("POST", "/config/activa", { activa: true });
-    const lunes = new Date("2026-10-19T13:00:00Z");
+    const lunes = enSemanas("2026-10-19T13:00:00Z");
     // (primero puede salir alguno que quedó pendiente de antes)
     for (let i = 0; i < 4 && !correo.enviados.some((e) => e.mensaje.para === "hola@sonrisaspalermo.com"); i++) await tickProspeccion(app, mas(lunes, i * 60));
     const texto = correo.enviados.find((e) => e.mensaje.para === "hola@sonrisaspalermo.com")!.mensaje.texto;
@@ -221,7 +247,7 @@ describe("prospección de punta a punta", () => {
     expect((await api("GET", "/campanas")).json().find((c: { id: string }) => c.id === id)).toMatchObject({ registrados: 1 });
     // Ya no le llega el recordatorio
     const aElla = () => correo.enviados.filter((e) => e.mensaje.para === "hola@sonrisaspalermo.com").length;
-    for (let i = 0; i < 10; i++) await tickProspeccion(app, mas(new Date("2026-10-26T13:00:00Z"), i * 60));
+    for (let i = 0; i < 10; i++) await tickProspeccion(app, mas(enSemanas("2026-10-26T13:00:00Z"), i * 60));
     expect(aElla()).toBe(1);
   });
 
@@ -238,7 +264,7 @@ describe("prospección de punta a punta", () => {
     for (const c of (await api("GET", "/campanas")).json()) if (![dental, pymes].includes(c.id)) await api("PUT", `/campanas/${c.id}`, { nombre: c.nombre, producto: c.producto, pasos: c.pasos, activa: false });
     await api("POST", "/config/activa", { activa: true });
     const antes = correo.enviados.length;
-    const martes = new Date("2026-11-03T13:00:00Z");
+    const martes = enSemanas("2026-11-03T13:00:00Z");
     for (let i = 0; i < 4; i++) expect(await tickProspeccion(app, mas(martes, i * 60))).toBe("enviado");
     const destinos = correo.enviados.slice(antes).map((e) => e.mensaje.para.replace(/\d@.*/, ""));
     // Se alternan (arranque por la que arranque)
@@ -259,7 +285,7 @@ describe("prospección de punta a punta", () => {
     await api("POST", "/config/activa", { activa: true });
 
     // Todavía sin casilla de CoreDental: la de Prexacode manda las dos campañas, de a una
-    const lunes = new Date("2026-11-09T13:00:00Z");
+    const lunes = enSemanas("2026-11-09T13:00:00Z");
     const antes = correo.enviados.length;
     expect(await tickProspeccion(app, lunes)).toBe("enviado");
     expect(correo.enviados.length).toBe(antes + 1);
@@ -274,7 +300,7 @@ describe("prospección de punta a punta", () => {
 
     // Ahora en la misma vuelta salen dos: uno de cada casilla, cada uno de su producto
     const n = correo.enviados.length;
-    expect(await tickProspeccion(app, new Date("2026-11-09T14:00:00Z"))).toBe("enviado");
+    expect(await tickProspeccion(app, enSemanas("2026-11-09T14:00:00Z"))).toBe("enviado");
     const nuevos = correo.enviados.slice(n);
     expect(nuevos).toHaveLength(2);
     const deDental = nuevos.find((e) => e.mensaje.de.includes("coredental.com.ar"))!;

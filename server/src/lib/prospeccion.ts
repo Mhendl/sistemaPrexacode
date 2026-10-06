@@ -326,9 +326,21 @@ async function tickCasilla(app: FastifyInstance, c: Config, productos: string[],
   try {
     await enviarProspeccion(app, c, p.email, asunto, texto);
   } catch (e) {
-    const err = e as { code?: string; responseCode?: number; message?: string };
+    const err = e as { code?: string; responseCode?: number; command?: string; message?: string };
     const msg = err.code === "EAUTH" || err.responseCode === 535 ? "La casilla rechazó el usuario o la contraseña" : (err.message ?? "Error al enviar");
     await app.db.insert(prospeccionEnvios).values({ prospectoId: p.id, paso: p.paso, asunto, estado: "Error", error: msg, casillaId: c.id });
+    // El problema es de ese destinatario (no existe, su dominio no responde): se saltea él y la casilla sigue
+    if (err.code === "EENVELOPE" || err.command === "RCPT TO" || /recipients? (were|was) rejected/i.test(err.message ?? "")) {
+      const temporal = (err.responseCode ?? 0) >= 400 && (err.responseCode ?? 0) < 500;
+      const [{ fallas }] = await app.db
+        .select({ fallas: sql<number>`count(*)::int` })
+        .from(prospeccionEnvios)
+        .where(and(eq(prospeccionEnvios.prospectoId, p.id), eq(prospeccionEnvios.estado, "Error")));
+      // Un error temporal se reintenta otro día; si vuelve a fallar (o es definitivo), no se le escribe más
+      if (temporal && Number(fallas) < 3) await app.db.update(prospectos).set({ proximoEnvio: sumarDiasHabiles(ahora, 1) }).where(eq(prospectos.id, p.id));
+      else await app.db.update(prospectos).set({ estado: "Rebotó", nota: `El servidor rechazó el email: ${msg}`.slice(0, 500) }).where(eq(prospectos.id, p.id));
+      return "destinatario-rechazado";
+    }
     // Ante cualquier error se pausa: mejor revisar que insistir y que la casilla quede marcada
     await app.db.update(prospeccionConfig).set({ ultimoError: msg, activa: false }).where(eq(prospeccionConfig.id, c.id));
     return "error-envio";
