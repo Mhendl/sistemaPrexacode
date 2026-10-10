@@ -314,4 +314,34 @@ describe("prospección de punta a punta", () => {
     expect(despues.dental.enviadosHoy).toBe(1);
     expect(despues.gestion.enviadosHoy).toBeGreaterThanOrEqual(1);
   });
+
+  it("los recordatorios salen antes que los contactos nuevos, y un contestador automático no cuenta como respuesta", async () => {
+    bandeja.length = 0;
+    const plantillas = (await api("GET", "/plantillas")).json();
+    for (const c of (await api("GET", "/campanas")).json()) await api("PUT", `/campanas/${c.id}`, { nombre: c.nombre, producto: c.producto, pasos: c.pasos, activa: false });
+    const id = (await api("POST", "/campanas", { nombre: "Orden pymes", producto: "gestion", pasos: plantillas.gestion })).json().id;
+    await api("POST", `/campanas/${id}/importar`, { confirmar: true, filas: [1, 2].map((n) => ({ email: `vieja${n}@orden.com`, empresa: `Vieja ${n}` })) });
+    const lunes = enSemanas("2026-11-16T13:00:00Z");
+    const antes = correo.enviados.length;
+    expect(await tickProspeccion(app, lunes)).toBe("enviado");
+    expect(await tickProspeccion(app, mas(lunes, 60))).toBe("enviado");
+    expect(correo.enviados.slice(antes).map((e) => e.mensaje.para).sort()).toEqual(["vieja1@orden.com", "vieja2@orden.com"]);
+
+    // Contestan dos contestadores automáticos: uno marcado por el servidor y otro que solo lo dice el texto
+    bandeja.push({ de: "vieja1@orden.com", asunto: "Re: Facturación y stock de Vieja 1", texto: "Hola", automatica: true });
+    bandeja.push({ de: "vieja2@orden.com", asunto: "Re: Facturación y stock de Vieja 2", texto: "Muchas gracias por contactarnos. Nuestro horario es de 9 a 18. WhatsApp 11 5555-5555" });
+    // Se carga una lista nueva (queda antes en la fila por fecha de carga)
+    await api("POST", `/campanas/${id}/importar`, { confirmar: true, filas: [1, 2, 3].map((n) => ({ email: `nueva${n}@orden.com` })) });
+
+    // A los 3 días hábiles: primero los dos recordatorios, después los nuevos
+    const jueves = enSemanas("2026-11-19T13:00:00Z");
+    const n = correo.enviados.length;
+    for (let i = 0; i < 3; i++) expect(await tickProspeccion(app, mas(jueves, i * 60))).toBe("enviado");
+    const orden = correo.enviados.slice(n).map((e) => e.mensaje);
+    expect(orden.slice(0, 2).map((m) => m.para).sort()).toEqual(["vieja1@orden.com", "vieja2@orden.com"]);
+    expect(orden.slice(0, 2).every((m) => m.asunto.startsWith("Re: "))).toBe(true);
+    expect(orden[2]!.para).toMatch(/^nueva/);
+    const lista = (await api("GET", `/prospectos?campanaId=${id}`)).json() as { email: string; estado: string }[];
+    expect(lista.filter((p) => p.email.startsWith("vieja")).map((p) => p.estado)).toEqual(["En curso", "En curso"]);
+  });
 });

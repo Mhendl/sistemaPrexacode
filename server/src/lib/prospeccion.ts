@@ -18,6 +18,8 @@ export interface Respuesta {
   de: string;
   asunto: string;
   texto: string;
+  /** El servidor la marcó como respuesta automática (contestador, fuera de la oficina) */
+  automatica?: boolean;
 }
 
 /** Lee los emails que llegaron a la casilla (en las pruebas se reemplaza por uno falso) */
@@ -38,12 +40,18 @@ export function buzonImap(): Buzon {
           if (++n > 300) break;
           const de = m.envelope?.from?.[0]?.address ?? "";
           let texto = "";
+          let automatica = false;
           try {
-            texto = m.source ? ((await simpleParser(m.source)).text ?? "") : "";
+            if (m.source) {
+              const mail = await simpleParser(m.source);
+              texto = mail.text ?? "";
+              const h = (k: string) => String(mail.headers.get(k) ?? "").toLowerCase();
+              automatica = (!!h("auto-submitted") && h("auto-submitted") !== "no") || !!h("x-autoreply") || !!h("x-autorespond") || /auto_reply|bulk|junk/.test(h("precedence"));
+            }
           } catch {
             /* un email que no se puede leer no frena al resto */
           }
-          out.push({ de, asunto: m.envelope?.subject ?? "", texto: texto.slice(0, 20_000) });
+          out.push({ de, asunto: m.envelope?.subject ?? "", texto: texto.slice(0, 20_000), automatica });
         }
       } finally {
         lock.release();
@@ -192,6 +200,11 @@ export async function enviarProspeccion(app: FastifyInstance, c: Config, para: s
 }
 
 const PALABRAS_BAJA = /\b(baja|desuscrib\w*|no me interesa|no nos interesa|no me escrib\w*|remov\w*|unsubscribe)\b/i;
+/** Contestadores automáticos ("escribinos por WhatsApp", "gracias por contactarnos"): no es alguien que respondió */
+const ES_AUTOMATICA = (r: Respuesta, propio: string) =>
+  !!r.automatica ||
+  /respuesta autom|automatic reply|auto.?reply|autorespuesta|fuera de (la )?oficina|out of (the )?office|ausencia/i.test(r.asunto) ||
+  /(mensaje|respuesta|correo) (generad[oa] )?autom[aá]tic|gracias por (contactarnos|comunicarte|comunicarse|escribirnos|tu mensaje|su mensaje|su consulta|tu consulta)|recibimos (tu|su) (mensaje|consulta|correo|email)|si te comunicaste para|nuestro nuevo canal|estimados pacientes|no responda a este/i.test(propio);
 const ES_REBOTE = (r: Respuesta) => /mailer-daemon|postmaster/i.test(r.de) || /undeliver|delivery status|delivery failure|returned mail|no se pudo entregar|failure notice|rechazad/i.test(r.asunto);
 
 /** Lee la casilla: quien respondió sale de la secuencia (y queda como interesado); los rebotes y las bajas, también */
@@ -224,9 +237,11 @@ export async function revisarRespuestas(app: FastifyInstance, c: Config, ahora =
     }
     const x = porEmail.get(r.de.toLowerCase());
     if (!x) continue;
-    porEmail.delete(r.de.toLowerCase());
     // Solo lo que escribió (sin el email citado de abajo)
     const propio = r.texto.split(/\n\s*(>|El .{5,80} escribió:|On .{5,80} wrote:)/)[0] ?? r.texto;
+    // Un contestador automático no cuenta: sigue en la secuencia
+    if (ES_AUTOMATICA(r, propio)) continue;
+    porEmail.delete(r.de.toLowerCase());
     if (PALABRAS_BAJA.test(propio) || PALABRAS_BAJA.test(r.asunto)) {
       await app.db.update(prospectos).set({ estado: "Baja", nota: "Pidió no recibir más emails" }).where(eq(prospectos.id, x.p.id));
       bajas++;
@@ -309,7 +324,8 @@ async function tickCasilla(app: FastifyInstance, c: Config, productos: string[],
     .from(prospectos)
     .innerJoin(prospeccionCampanas, eq(prospeccionCampanas.id, prospectos.campanaId))
     .where(and(eq(prospectos.campanaId, turno), inArray(prospectos.estado, ["Pendiente", "En curso"]), lte(prospectos.proximoEnvio, ahora)))
-    .orderBy(asc(prospectos.proximoEnvio), asc(prospectos.createdAt))
+    // Primero los recordatorios que ya tocan (si no, con listas nuevas se atrasan días), después los primeros emails
+    .orderBy(sql`case when ${prospectos.estado} = 'En curso' then 0 else 1 end`, asc(prospectos.proximoEnvio), asc(prospectos.createdAt))
     .limit(1);
   if (!siguiente) return "sin-pendientes";
   const { p, campana } = siguiente;
