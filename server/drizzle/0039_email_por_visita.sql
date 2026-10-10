@@ -1,0 +1,1 @@
+ALTER TABLE "prospectos" ADD COLUMN "visita_email_en" timestamp with time zone;

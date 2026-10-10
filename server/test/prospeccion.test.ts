@@ -344,4 +344,41 @@ describe("prospección de punta a punta", () => {
     const lista = (await api("GET", `/prospectos?campanaId=${id}`)).json() as { email: string; estado: string }[];
     expect(lista.filter((p) => p.email.startsWith("vieja")).map((p) => p.estado)).toEqual(["En curso", "En curso"]);
   });
+
+  it("a quien entró a la página y no se registró le llega un email personal (uno solo) y después ningún recordatorio más", async () => {
+    bandeja.length = 0;
+    const plantillas = (await api("GET", "/plantillas")).json();
+    for (const c of (await api("GET", "/campanas")).json()) await api("PUT", `/campanas/${c.id}`, { nombre: c.nombre, producto: c.producto, pasos: c.pasos, activa: false });
+    const id = (await api("POST", "/campanas", { nombre: "Visitas pymes", producto: "gestion", pasos: plantillas.gestion })).json().id;
+    await api("POST", `/campanas/${id}/importar`, { confirmar: true, filas: [{ email: "lucia@visita.com", nombre: "Lucía", empresa: "Ferretería Lucía" }, { email: "pedro@visita.com", empresa: "Corralón Pedro" }] });
+    const lunes = enSemanas("2026-11-23T13:00:00Z");
+    for (let i = 0; i < 2; i++) expect(await tickProspeccion(app, mas(lunes, i * 60))).toBe("enviado");
+    const primero = correo.enviados.find((e) => e.mensaje.para === "lucia@visita.com")!.mensaje;
+    const t = /r=([A-Za-z0-9_-]+)/.exec(primero.texto)![1]!;
+
+    // Lucía entra a la página desde el email (y no se registra)
+    expect((await app.inject({ method: "POST", url: `/api/publico/baja-prospecto/visita/${t}` })).statusCode).toBe(204);
+    const n = correo.enviados.length;
+    expect(await tickProspeccion(app, mas(lunes, 180))).toBe("enviado");
+    const personal = correo.enviados.slice(n)[0]!.mensaje;
+    expect(personal.para).toBe("lucia@visita.com");
+    expect(personal.asunto).toBe(`Re: ${primero.asunto}`);
+    expect(personal.texto.startsWith("Hola Lucía,")).toBe(true);
+    expect(personal.texto).toContain("te muestro Prexacode en 10 minutos");
+    expect(personal.texto).toContain("Ferretería Lucía");
+    expect(personal.texto).toContain(`r=${t}`);
+    expect(personal.texto).toContain("/baja-prospecto/");
+    expect(personal.texto).not.toMatch(/entraste|visitaste|viste la página/i);
+
+    // Vuelve a entrar: no se repite. Y no le llegan los recordatorios (Pedro sí recibe el suyo)
+    expect((await app.inject({ method: "POST", url: `/api/publico/baja-prospecto/visita/${t}` })).statusCode).toBe(204);
+    const m = correo.enviados.length;
+    for (let i = 0; i < 12; i++) await tickProspeccion(app, mas(enSemanas("2026-11-26T13:00:00Z"), i * 60 * 24));
+    const despues = correo.enviados.slice(m).map((e) => e.mensaje.para);
+    expect(despues).not.toContain("lucia@visita.com");
+    expect(despues).toContain("pedro@visita.com");
+    const lista = (await api("GET", `/prospectos?campanaId=${id}`)).json() as { email: string; estado: string; visitaEmailEn: string | null }[];
+    expect(lista.find((p) => p.email === "lucia@visita.com")).toMatchObject({ estado: "Terminado" });
+    expect(lista.find((p) => p.email === "lucia@visita.com")!.visitaEmailEn).toBeTruthy();
+  });
 });

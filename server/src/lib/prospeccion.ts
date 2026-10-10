@@ -7,7 +7,7 @@
  *  - cada email con su link de baja; los rebotes y las respuestas "BAJA" se detectan solos leyendo la casilla (IMAP)
  */
 import { randomBytes } from "node:crypto";
-import { and, asc, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lte, sql } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { ImapFlow } from "imapflow";
 import { simpleParser } from "mailparser";
@@ -263,6 +263,27 @@ export async function revisarRespuestas(app: FastifyInstance, c: Config, ahora =
   return { respondieron, bajas, rebotes };
 }
 
+/** El email personal a quien entró a la página: como respuesta al primero, ofreciendo ayuda. Después no recibe más recordatorios. */
+async function enviarEmailDeVisita(app: FastifyInstance, c: Config, p: typeof prospectos.$inferSelect, campana: typeof prospeccionCampanas.$inferSelect, ahora: Date) {
+  const producto = campana.producto === "dental" ? "dental" : "gestion";
+  const extra = { link: linkLanding(campana.producto, campana.nombre, p.token), firma: c.remitenteNombre || "Prexacode", producto: campana.producto };
+  const asunto = `Re: ${personalizar(campana.pasos[0]!.asunto, p, extra)}`;
+  const baja = `${app.urlDe(productoDe(campana.producto))}/baja-prospecto/${p.token}`;
+  const texto = `${personalizar(EMAIL_VISITA[producto], p, extra)}\n\n--\nSi no te interesa, respondé BAJA o entrá a ${baja} y no te escribo más.`;
+  try {
+    await enviarProspeccion(app, c, p.email, asunto, texto);
+  } catch (e) {
+    const msg = (e as Error).message ?? "Error al enviar";
+    await app.db.insert(prospeccionEnvios).values({ prospectoId: p.id, paso: -1, asunto, estado: "Error", error: msg, casillaId: c.id });
+    // No se reintenta (es un extra): se marca como hecho y la casilla sigue
+    await app.db.update(prospectos).set({ visitaEmailEn: ahora }).where(eq(prospectos.id, p.id));
+    return "destinatario-rechazado";
+  }
+  await app.db.insert(prospeccionEnvios).values({ prospectoId: p.id, paso: -1, asunto, estado: "Enviado", enviadoEn: ahora, casillaId: c.id });
+  await app.db.update(prospectos).set({ visitaEmailEn: ahora, ultimoEnvio: ahora, estado: "Terminado" }).where(eq(prospectos.id, p.id));
+  return "enviado";
+}
+
 /**
  * Una vuelta del envío (corre cada 5 minutos): en cada casilla revisa las respuestas y, si toca, manda UN email.
  * Devuelve qué hizo (si alguna mandó, "enviado"), para el panel y las pruebas.
@@ -300,6 +321,24 @@ async function tickCasilla(app: FastifyInstance, c: Config, productos: string[],
   const [ultimo] = await app.db.select({ en: prospeccionEnvios.enviadoEn }).from(prospeccionEnvios).where(eq(prospeccionEnvios.casillaId, c.id)).orderBy(desc(prospeccionEnvios.enviadoEn)).limit(1);
   const intervalo = (((c.horaHasta - c.horaDesde) * 60) / tope) * 0.8 * 60_000;
   if (ultimo && ahora.getTime() - ultimo.en.getTime() < intervalo) return "espaciando";
+
+  // Primero, el email personal a quien entró a la página desde el email y no se registró (al día hábil siguiente, uno solo)
+  const visitantes = await app.db
+    .select({ p: prospectos, campana: prospeccionCampanas })
+    .from(prospectos)
+    .innerJoin(prospeccionCampanas, eq(prospeccionCampanas.id, prospectos.campanaId))
+    .where(
+      and(
+        inArray(prospectos.estado, ["En curso", "Terminado"]),
+        isNotNull(prospectos.visitoEn),
+        isNull(prospectos.visitaEmailEn),
+        eq(prospeccionCampanas.activa, true),
+        inArray(prospeccionCampanas.producto, productos),
+      ),
+    )
+    .orderBy(asc(prospectos.visitoEn));
+  const visitante = visitantes.find((x) => sumarDiasHabiles(x.p.visitoEn!, 1) <= ahora);
+  if (visitante) return enviarEmailDeVisita(app, c, visitante.p, visitante.campana, ahora);
 
   // Las campañas se turnan: le toca a la que hace más que no manda (así avanzan todas a la vez, no una después de la otra)
   const listas = await app.db
@@ -380,6 +419,14 @@ async function tickCasilla(app: FastifyInstance, c: Config, productos: string[],
  * Secuencias sugeridas: cortas y en primera persona. El pedido principal es mirar la página y probarlo gratis
  * (se vende solo); responder queda para quien tenga dudas.
  */
+/** El email a quien entró a la página y no se registró: personal, ofreciendo ayuda (sin decirle que vimos que entró) */
+export const EMAIL_VISITA: Record<"dental" | "gestion", string> = {
+  dental:
+    "Hola {nombre},\n\nTe escribo de nuevo, esta vez para ofrecerte una mano: si querés, te muestro CoreDental en 10 minutos por videollamada o por teléfono, con un ejemplo de cómo quedaría la agenda y las historias clínicas de {empresa}.\n\nRespondeme este email con un día y un horario que te queden cómodos (o un teléfono y te llamo yo).\n\nY si preferís probarlo por tu cuenta, creás la cuenta en 2 minutos y te ayudo a cargar los pacientes: {link}\n\nSaludos,\n{firma}",
+  gestion:
+    "Hola {nombre},\n\nTe escribo de nuevo, esta vez para ofrecerte una mano: si querés, te muestro Prexacode en 10 minutos por videollamada o por teléfono, con un ejemplo de cómo quedaría la facturación, el stock y las cuentas de {empresa}.\n\nRespondeme este email con un día y un horario que te queden cómodos (o un teléfono y te llamo yo).\n\nY si preferís probarlo por tu cuenta, creás la cuenta en 2 minutos y te ayudo a pasar tus productos y clientes desde Excel: {link}\n\nSaludos,\n{firma}",
+};
+
 export const PLANTILLAS: Record<"dental" | "gestion", { dias: number; asunto: string; cuerpo: string }[]> = {
   dental: [
     {

@@ -71,6 +71,7 @@ interface ProspectoApi {
   nota: string | null;
   visitas: number;
   visitoEn: string | null;
+  visitaEmailEn: string | null;
 }
 
 const useConfig = (casilla: Producto) =>
@@ -437,6 +438,11 @@ function Prospectos({ campanaId }: { campanaId: string }) {
               {p.visitas > 0 && (
                 <span className="mr-1.5 rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary" title={p.visitoEn ? `Primera visita: ${fechaHora(p.visitoEn)}` : undefined}>
                   Visitó la página{p.visitas > 1 ? ` (${p.visitas} veces)` : ""}
+                </span>
+              )}
+              {p.visitaEmailEn && (
+                <span className="mr-1.5 rounded-full bg-success/12 px-2 py-0.5 font-medium text-success" title={`Le llegó el ${fechaHora(p.visitaEmailEn)}`}>
+                  Recibió el email personal
                 </span>
               )}
               {p.estado}
