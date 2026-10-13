@@ -1,11 +1,12 @@
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
-import { empresas, interesados, prospeccionCampanas, prospeccionConfig, prospeccionEnvios, prospectos, usuarios } from "../db/schema.js";
+import { empresas, interesados, prospeccionBusquedas, prospeccionCampanas, prospeccionConfig, prospeccionEnvios, prospectos, usuarios } from "../db/schema.js";
 import { requirePlataforma } from "../lib/auth.js";
 import { badRequest, conflict, notFound, parse } from "../lib/errors.js";
 import { configProspeccion, enviarProspeccion, nuevoToken, PLANTILLAS, registrarVisita, topeDelDia, type ProductoCasilla } from "../lib/prospeccion.js";
 import { ahoraAr } from "../lib/turnos.js";
+import { ejecutarBusqueda, MAX_CONSULTAS, PEDIDOS_POR_MES, pedidosDelMes, ultimasBusquedas } from "../lib/buscador.js";
 
 const idSchema = z.object({ id: z.string().uuid("Id inválido") });
 const texto = (max: number) =>
@@ -230,6 +231,40 @@ export const prospeccionAdminRoutes: FastifyPluginAsync = async (app) => {
       ejemplosInvalidos: invalidos.slice(0, 5),
       guardados: confirmar ? nuevas.length : 0,
     };
+  });
+
+  // ---------------------------------------------------------------- buscador de contactos (Google)
+
+  app.get("/busquedas", async () => ({
+    disponible: app.rastreador.disponible,
+    pedidosDelMes: await pedidosDelMes(app),
+    pedidosPorMes: PEDIDOS_POR_MES,
+    maxConsultas: MAX_CONSULTAS,
+    busquedas: (await ultimasBusquedas(app)).map((x) => ({ ...x.b, campana: x.campana })),
+  }));
+
+  /** Busca negocios en Google y el email de su web; lo encontrado entra a la campaña (en segundo plano) */
+  app.post("/campanas/:id/buscar", async (req, reply) => {
+    const { id } = parse(idSchema, req.params);
+    const { consultas } = parse(
+      z.object({
+        consultas: z
+          .array(z.string().trim().min(3, "Cada búsqueda necesita al menos 3 letras").max(120))
+          .min(1, "Escribí al menos una búsqueda")
+          .max(MAX_CONSULTAS, `Hasta ${MAX_CONSULTAS} búsquedas por vez`),
+      }),
+      req.body,
+    );
+    if (!app.rastreador.disponible) throw badRequest("Falta configurar la clave de Google en el servidor");
+    const [c] = await app.db.select({ id: prospeccionCampanas.id }).from(prospeccionCampanas).where(eq(prospeccionCampanas.id, id));
+    if (!c) throw notFound("Campaña no encontrada");
+    const enCurso = (await ultimasBusquedas(app)).some((x) => x.b.estado === "En curso");
+    if (enCurso) throw conflict("Ya hay una búsqueda en curso: esperá a que termine");
+    if ((await pedidosDelMes(app)) >= PEDIDOS_POR_MES) throw badRequest(`Se llegó al tope de ${PEDIDOS_POR_MES} búsquedas en Google de este mes`);
+    const [b] = await app.db.insert(prospeccionBusquedas).values({ campanaId: id, consultas: [...new Set(consultas)] }).returning();
+    // Corre en segundo plano: el panel muestra el avance
+    void ejecutarBusqueda(app, b!.id).catch((e) => app.log.error(e, "búsqueda de contactos"));
+    return reply.code(202).send(b);
   });
 
   // ---------------------------------------------------------------- prospectos

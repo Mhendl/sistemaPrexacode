@@ -3,6 +3,7 @@ import { configPlataforma } from "./lib/facturacionPropia.js";
 import { aplicarPrecios, PLAN_IDS, PLANES, preciosVigentes, type PreciosGuardados } from "./lib/precios.js";
 import { facturacionPropiaRoutes } from "./routes/facturacionPropia.js";
 import { buzonImap, tickProspeccion, type Buzon } from "./lib/prospeccion.js";
+import { rastreadorGoogle, type Rastreador } from "./lib/buscador.js";
 import { prospeccionAdminRoutes, prospeccionPublicaRoutes } from "./routes/prospeccion.js";
 import { interesadosAdminRoutes, interesadosPublicosRoutes } from "./routes/interesados.js";
 import { bajaCampanasRoutes, campanasRoutes } from "./routes/campanas.js";
@@ -69,6 +70,8 @@ declare module "fastify" {
     cartero: Cartero;
     /** Lectura de la casilla de prospección (respuestas y rebotes); en pruebas, una falsa */
     buzon: Buzon;
+    /** Buscador de contactos (Google Places + la web de cada negocio); en pruebas, uno falso */
+    rastreador: Rastreador;
     cifrador: Cifrador;
     /** URL pública de la web, para los links que reciben los clientes */
     appUrl: string;
@@ -118,6 +121,9 @@ export interface AppOptions {
   produccion?: boolean;
   /** Lectura de la casilla de prospección (en pruebas, una falsa) */
   buzon?: Buzon;
+  /** Buscador de contactos de Prospección (si no, Google Places con googlePlacesKey) */
+  rastreador?: Rastreador;
+  googlePlacesKey?: string;
   /** Carpeta con la web compilada (dist/): si viene, la API también sirve la web (una sola pieza para desplegar) */
   web?: string;
   /** Detrás de un proxy (nginx, Caddy, la plataforma de hosting): toma la IP real del cliente */
@@ -126,7 +132,7 @@ export interface AppOptions {
   tareas?: boolean;
 }
 
-export async function buildApp({ db, jwtSecret, logger = false, conectorArca, cartero, appUrl = "http://localhost:5173", appUrlDental, medicion, smtpUrl, emailRemitente = "notificaciones@prexacode.com.ar", secretsKey, arca = {}, pagos, cotizacion, mpWebhookSecret, urlApi, modoPruebas = false, adminInicial, limitarIntentos = true, produccion = false, web, trustProxy = false, tareas = false, buzon }: AppOptions) {
+export async function buildApp({ db, jwtSecret, logger = false, conectorArca, cartero, appUrl = "http://localhost:5173", appUrlDental, medicion, smtpUrl, emailRemitente = "notificaciones@prexacode.com.ar", secretsKey, arca = {}, pagos, cotizacion, mpWebhookSecret, urlApi, modoPruebas = false, adminInicial, limitarIntentos = true, produccion = false, web, trustProxy = false, tareas = false, buzon, rastreador, googlePlacesKey }: AppOptions) {
   // Al apagar, cortar también las conexiones keep-alive activas (si no, close() puede esperar indefinidamente)
   const app = Fastify({ logger, forceCloseConnections: true, trustProxy, bodyLimit: 5 * 1024 * 1024 });
 
@@ -134,6 +140,7 @@ export async function buildApp({ db, jwtSecret, logger = false, conectorArca, ca
   app.decorate("conectorArca", conectorArca);
   app.decorate("cartero", cartero ?? carteroSmtp(smtpUrl));
   app.decorate("buzon", buzon ?? buzonImap());
+  app.decorate("rastreador", rastreador ?? rastreadorGoogle(googlePlacesKey));
   app.decorate("cifrador", crearCifrador(secretsKey ?? `${jwtSecret}:secretos`));
   app.decorate("appUrl", appUrl);
   app.decorate("urlDe", (producto: string | null | undefined) => (productoDe(producto) === "dental" ? (appUrlDental ?? appUrl) : appUrl));

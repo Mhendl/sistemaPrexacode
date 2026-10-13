@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Download, Loader2, Pause, Play, Plus, Upload } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { AlertTriangle, Download, Loader2, Pause, Play, Plus, Search, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { ApiError } from "@/api/client";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -74,6 +74,34 @@ interface ProspectoApi {
   visitaEmailEn: string | null;
 }
 
+interface BusquedaApi {
+  id: string;
+  campana: string;
+  consultas: string[];
+  estado: "En curso" | "Terminada" | "Error";
+  pedidos: number;
+  lugares: number;
+  conWeb: number;
+  conEmail: number;
+  nuevos: number;
+  error: string | null;
+  createdAt: string;
+}
+interface BusquedasApi {
+  disponible: boolean;
+  pedidosDelMes: number;
+  pedidosPorMes: number;
+  maxConsultas: number;
+  busquedas: BusquedaApi[];
+}
+const useBusquedas = () =>
+  useQuery({
+    queryKey: ["admin", "prospeccion", "busquedas"],
+    queryFn: () => apiAdmin<BusquedasApi>("/plataforma/prospeccion/busquedas"),
+    // Mientras una búsqueda corre, se actualiza seguido
+    refetchInterval: (q) => (q.state.data?.busquedas.some((b) => b.estado === "En curso") ? 3000 : 60_000),
+  });
+
 const useConfig = (casilla: Producto) =>
   useQuery({ queryKey: ["admin", "prospeccion", "config", casilla], queryFn: () => apiAdmin<ConfigApi>(`/plataforma/prospeccion/config?casilla=${casilla}`), refetchInterval: 60_000 });
 const useCampanas = () => useQuery({ queryKey: ["admin", "prospeccion", "campanas"], queryFn: () => apiAdmin<CampanaApi[]>("/plataforma/prospeccion/campanas") });
@@ -108,6 +136,7 @@ export function AdminProspeccion() {
             </div>
           )}
         </QueryState>
+        <Busquedas />
         <Card className="gap-2 p-4 text-sm shadow-none">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="font-semibold">Cómo armar la lista</h3>
@@ -256,6 +285,7 @@ function Casilla({ producto }: { producto: Producto }) {
 function Campana({ c }: { c: CampanaApi }) {
   const [editar, setEditar] = useState(false);
   const [ver, setVer] = useState(false);
+  const [buscar, setBuscar] = useState(false);
   const archivo = useRef<HTMLInputElement>(null);
   const [previa, setPrevia] = useState<{ filas: object[]; r: { nuevos: number; repetidos: number; excluidos: number; invalidos: number; ejemplosInvalidos: string[] } } | null>(null);
   const accion = useAccionAdmin();
@@ -285,6 +315,7 @@ function Campana({ c }: { c: CampanaApi }) {
 
   return (
     <Card className="gap-3 p-4 shadow-none" data-testid="campana-prospeccion">
+      <BuscarDialog open={buscar} onOpenChange={setBuscar} campana={c} />
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h3 className="font-semibold">
@@ -296,6 +327,9 @@ function Campana({ c }: { c: CampanaApi }) {
         </div>
         <div className="flex flex-wrap gap-2">
           <input ref={archivo} type="file" accept=".xlsx,.xls,.csv" className="sr-only" onChange={elegir} aria-label={`Importar lista a ${c.nombre}`} />
+          <Button size="sm" onClick={() => setBuscar(true)}>
+            <Search className="size-4" /> Buscar contactos
+          </Button>
           <Button size="sm" variant="outline" onClick={() => archivo.current?.click()}>
             <Upload className="size-4" /> Importar lista
           </Button>
@@ -462,6 +496,128 @@ function Prospectos({ campanaId }: { campanaId: string }) {
         ))}
       </div>
     </div>
+  );
+}
+
+const SUGERIDOS: Record<Producto, { que: string; donde: string }> = {
+  dental: { que: "consultorio odontológico\nclínica dental", donde: "Avellaneda\nLanús" },
+  gestion: { que: "distribuidora\nferretería", donde: "Avellaneda\nLanús" },
+};
+
+/** Buscar contactos en Google: rubros × zonas; lo que tiene email en su web entra a la campaña */
+function BuscarDialog({ open, onOpenChange, campana }: { open: boolean; onOpenChange: (o: boolean) => void; campana: CampanaApi }) {
+  const busquedas = useBusquedas();
+  const qc = useQueryClient();
+  const [que, setQue] = useState("");
+  const [donde, setDonde] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    setQue(SUGERIDOS[campana.producto].que);
+    setDonde(SUGERIDOS[campana.producto].donde);
+  }, [open, campana.producto]);
+  const lineas = (t: string) => [...new Set(t.split("\n").map((x) => x.trim()).filter(Boolean))];
+  const consultas = lineas(que).flatMap((q) => lineas(donde).map((d) => `${q} en ${d}`));
+  const max = busquedas.data?.maxConsultas ?? 10;
+  const disponible = busquedas.data?.disponible ?? true;
+  const enCurso = busquedas.data?.busquedas.some((b) => b.estado === "En curso");
+
+  const buscar = async () => {
+    setEnviando(true);
+    try {
+      await apiAdmin(`/plataforma/prospeccion/campanas/${campana.id}/buscar`, { method: "POST", body: { consultas } });
+      await qc.invalidateQueries({ queryKey: ["admin", "prospeccion", "busquedas"] });
+      toast.success("Buscando contactos…", { description: "Tarda unos minutos. Abajo ves el avance; lo que encuentre entra solo a la campaña." });
+      onOpenChange(false);
+    } catch (e) {
+      toast.error(mensaje(e));
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Buscar contactos para «{campana.nombre}»</DialogTitle>
+          <DialogDescription>Busca los negocios en Google, entra a la web de cada uno y toma el email de contacto que publican. Los que tienen email entran a la campaña, sin repetidos ni organismos.</DialogDescription>
+        </DialogHeader>
+        {!disponible ? (
+          <p className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm">Falta configurar la clave de Google en el servidor.</p>
+        ) : (
+          <div className="grid gap-4 text-sm">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-1.5">
+                <Label htmlFor="bc-que">Qué buscar (uno por renglón)</Label>
+                <Textarea id="bc-que" rows={4} value={que} onChange={(e) => setQue(e.target.value)} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="bc-donde">Dónde (uno por renglón)</Label>
+                <Textarea id="bc-donde" rows={4} value={donde} onChange={(e) => setDonde(e.target.value)} />
+              </div>
+            </div>
+            <p className={cn("text-muted-foreground", consultas.length > max && "text-destructive")} data-testid="cantidad-busquedas">
+              {consultas.length === 1 ? "1 búsqueda" : `${consultas.length} búsquedas`} (hasta {max} por vez, cada una trae hasta 60 negocios).
+              {consultas.length > 0 && ` Ej.: «${consultas[0]}».`}
+            </p>
+          </div>
+        )}
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={buscar} disabled={!disponible || enviando || enCurso || !consultas.length || consultas.length > max}>
+            {enviando && <Loader2 className="size-4 animate-spin" />} {enCurso ? "Hay una búsqueda en curso" : "Buscar"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** El avance de las búsquedas de contactos */
+function Busquedas() {
+  const { data } = useBusquedas();
+  const qc = useQueryClient();
+  // Al terminar una búsqueda se actualizan los números de las campañas
+  const terminadas = data?.busquedas.filter((b) => b.estado !== "En curso").map((b) => b.id).join(",");
+  const antes = useRef(terminadas);
+  useEffect(() => {
+    if (antes.current !== undefined && terminadas !== antes.current) qc.invalidateQueries({ queryKey: ["admin", "prospeccion", "campanas"] });
+    antes.current = terminadas;
+  }, [terminadas, qc]);
+  if (!data?.busquedas.length) return null;
+  return (
+    <Card className="gap-0 p-0 shadow-none" data-testid="busquedas">
+      <div className="flex flex-wrap items-baseline justify-between gap-2 border-b p-4">
+        <h3 className="font-semibold">Búsquedas de contactos</h3>
+        <span className="text-xs text-muted-foreground">
+          Este mes: {data.pedidosDelMes} de {data.pedidosPorMes} búsquedas en Google
+        </span>
+      </div>
+      <div className="divide-y">
+        {data.busquedas.map((b) => (
+          <div key={b.id} className="grid gap-1 px-4 py-3 text-sm" data-testid="busqueda">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", b.estado === "Terminada" ? "bg-success/12 text-success" : b.estado === "Error" ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary")}>
+                {b.estado === "En curso" && <Loader2 className="mr-1 inline size-3 animate-spin" />}
+                {b.estado}
+              </span>
+              <span className="font-medium">{b.campana}</span>
+              <span className="text-xs text-muted-foreground">{fechaHora(b.createdAt)}</span>
+            </div>
+            <div className="text-muted-foreground">
+              {b.consultas.length === 1 ? b.consultas[0] : `${b.consultas[0]} y ${b.consultas.length - 1} más`}
+            </div>
+            <div>
+              {b.lugares} negocios · {b.conWeb} con web · {b.conEmail} con email · <b>{b.nuevos} nuevos en la campaña</b>
+            </div>
+            {b.error && <div className="text-destructive">{b.error}</div>}
+          </div>
+        ))}
+      </div>
+    </Card>
   );
 }
 

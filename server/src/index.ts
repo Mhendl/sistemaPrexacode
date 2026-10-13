@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { sql } from "drizzle-orm";
 import { openDatabase } from "./db/client.js";
 import { cotizacionDolar, mercadoPago, pagosDeshabilitados } from "./lib/pagos.js";
+import { rastreadorDePrueba } from "./lib/buscador.js";
 
 const { db, close } = await openDatabase(config.databaseUrl);
 // La base tiene que estar en UTF-8: si no, un emoji o ciertos caracteres en cualquier texto darían error
@@ -35,6 +36,8 @@ const app = await buildApp({
   limitarIntentos: !config.modoPruebas,
   produccion: config.isProduction,
   tareas: true,
+  // El servidor de pruebas automáticas no sale a buscar a Google
+  ...(config.modoPruebas ? { rastreador: rastreadorDePrueba() } : { googlePlacesKey: config.googlePlacesKey }),
   trustProxy: config.trustProxy,
   // Si está compilada la web (npm run build), la API la sirve: una sola pieza para desplegar
   web: config.web && existsSync(join(config.web, "index.html")) ? config.web : undefined,

@@ -60,3 +60,35 @@ test("prospección: se configura la casilla, se arma la campaña con la secuenci
   await page.goto("/baja-prospecto/token-que-no-existe");
   await expect(page.getByText("El link no es válido")).toBeVisible();
 });
+
+test("buscar contactos: rubros por zonas, avanza en el panel y lo encontrado entra a la campaña", async ({ page }) => {
+  await entrarAlPanel(page);
+  await page.getByRole("link", { name: "Prospección" }).click();
+  const nombre = `Consultorios buscados ${Date.now()}`;
+  await page.getByRole("button", { name: "Nueva campaña" }).click();
+  await page.getByLabel("Nombre (para vos)").fill(nombre);
+  await page.getByRole("button", { name: "Guardar", exact: true }).click();
+  await expect(page.getByText("Campaña creada: ahora importá la lista")).toBeVisible();
+
+  const campana = page.getByTestId("campana-prospeccion").filter({ hasText: nombre });
+  await campana.getByRole("button", { name: "Buscar contactos" }).click();
+  // Sugiere rubros y zonas; las búsquedas son la combinación
+  await expect(page.getByLabel("Qué buscar (uno por renglón)")).toHaveValue("consultorio odontológico\nclínica dental");
+  await expect(page.getByTestId("cantidad-busquedas")).toContainText("4 búsquedas");
+  // (el servidor de pruebas usa un Google falso: cada zona trae 2 negocios con email en su web)
+  const zona = `Villa ${Array.from({ length: 8 }, () => String.fromCharCode(97 + Math.floor(Math.random() * 26))).join("")}`;
+  await page.getByLabel("Qué buscar (uno por renglón)").fill("consultorio odontológico");
+  await page.getByLabel("Dónde (uno por renglón)").fill(zona);
+  await expect(page.getByTestId("cantidad-busquedas")).toContainText(`1 búsqueda`);
+  await expect(page.getByTestId("cantidad-busquedas")).toContainText(`«consultorio odontológico en ${zona}»`);
+  await page.getByRole("dialog").getByRole("button", { name: "Buscar" }).click();
+  await expect(page.getByText("Buscando contactos…")).toBeVisible();
+
+  const busqueda = page.getByTestId("busqueda").filter({ hasText: nombre }).first();
+  await expect(busqueda).toContainText("Terminada", { timeout: 15_000 });
+  await expect(busqueda).toContainText("2 con email");
+  await expect(busqueda).toContainText("2 nuevos en la campaña");
+  await expect(campana).toContainText("2 contactos", { timeout: 10_000 });
+  await campana.getByRole("button", { name: "Ver contactos" }).click();
+  await expect(campana.getByText(`Consultorio Sonrisa ${zona}`)).toBeVisible();
+});

@@ -1714,6 +1714,27 @@ export const prospectos = pgTable(
   (t) => [index("prospectos_estado_idx").on(t.estado, t.proximoEnvio), index("prospectos_campana_idx").on(t.campanaId)],
 );
 
+/** Una búsqueda de contactos en Google (corre en segundo plano y va guardando el avance) */
+export const prospeccionBusquedas = pgTable("prospeccion_busquedas", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  campanaId: uuid("campana_id")
+    .notNull()
+    .references(() => prospeccionCampanas.id, { onDelete: "cascade" }),
+  /** "consultorio odontológico en Quilmes", … */
+  consultas: jsonb("consultas").$type<string[]>().notNull(),
+  /** En curso | Terminada | Error */
+  estado: text("estado").notNull().default("En curso"),
+  /** Pedidos hechos a Google (para el tope del mes) */
+  pedidos: integer("pedidos").notNull().default(0),
+  lugares: integer("lugares").notNull().default(0),
+  conWeb: integer("con_web").notNull().default(0),
+  conEmail: integer("con_email").notNull().default(0),
+  nuevos: integer("nuevos").notNull().default(0),
+  error: text("error"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  terminadaEn: timestamp("terminada_en", { withTimezone: true }),
+});
+
 export const prospeccionEnvios = pgTable(
   "prospeccion_envios",
   {

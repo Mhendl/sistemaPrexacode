@@ -24,6 +24,8 @@ export const config = {
   emailRemitente: process.env.EMAIL_FROM ?? "notificaciones@prexacode.com.ar",
   /** Clave para cifrar datos sensibles (contraseñas de SMTP, tokens). Si falta, se deriva de JWT_SECRET. */
   secretsKey: process.env.SECRETS_KEY,
+  /** Clave de la API de Google Places: el buscador de contactos de Prospección (sin ella, el buscador no está) */
+  googlePlacesKey: process.env.GOOGLE_PLACES_KEY || undefined,
   /** Mercado Pago (cobro de suscripciones). Sin token, los pagos se simulan. */
   mpAccessToken: process.env.MP_ACCESS_TOKEN,
   mpWebhookSecret: process.env.MP_WEBHOOK_SECRET,
