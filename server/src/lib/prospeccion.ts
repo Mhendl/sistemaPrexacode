@@ -199,7 +199,8 @@ export async function enviarProspeccion(app: FastifyInstance, c: Config, para: s
   });
 }
 
-const PALABRAS_BAJA = /\b(baja|desuscrib\w*|no me interesa|no nos interesa|no me escrib\w*|remov\w*|unsubscribe)\b/i;
+/** Pedidos de baja (también con errores de tipeo: "no nos intreresa") */
+export const PALABRAS_BAJA = /\b(baja|desuscrib\w*|no (me|nos|le|les) (int\w{0,4}esa\w*)|no (estoy|estamos) interesad\w*|no me escrib\w*|no nos escrib\w*|remov\w*|unsubscribe)\b/i;
 /** Contestadores automáticos ("escribinos por WhatsApp", "gracias por contactarnos"): no es alguien que respondió */
 const ES_AUTOMATICA = (r: Respuesta, propio: string) =>
   !!r.automatica ||

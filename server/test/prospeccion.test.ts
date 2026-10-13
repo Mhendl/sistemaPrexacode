@@ -1,7 +1,7 @@
 import { gte } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prospeccionEnvios } from "../src/db/schema.js";
-import { enHorario, personalizar, sumarDiasHabiles, tickProspeccion, topeDelDia, type Respuesta } from "../src/lib/prospeccion.js";
+import { enHorario, PALABRAS_BAJA, personalizar, sumarDiasHabiles, tickProspeccion, topeDelDia, type Respuesta } from "../src/lib/prospeccion.js";
 import { auth, carteroDePrueba, crearApp, cuitValido, emailUnico, type TestApp } from "./helpers.js";
 
 let app: TestApp;
@@ -32,6 +32,11 @@ describe("prospección: reglas", () => {
     expect(personalizar("Hola {nombre},\nVi {empresa} en {ciudad}. {link}\n{firma}", { nombre: "Ana María López", empresa: "Sonrisas", ciudad: "Rosario", rubro: null }, extra)).toBe("Hola Ana,\nVi Sonrisas en Rosario. https://coredental.com.ar/?r=abc\nMartín");
     expect(personalizar("Hola {nombre},\nVi {empresa} en {ciudad}.", { nombre: null, empresa: null, ciudad: null, rubro: null }, extra)).toBe("Hola,\nVi tu consultorio.");
   });
+  it("reconoce los pedidos de baja, aunque vengan con errores de tipeo", () => {
+    for (const t of ["BAJA por favor", "no nos intreresa el servicio . gracias", "No me interesa, gracias", "no estamos interesados", "Por favor no nos escriban más"]) expect(PALABRAS_BAJA.test(t), t).toBe(true);
+    for (const t of ["Hola, me interesa, ¿me llamás?", "¿Cuánto sale por mes?", "Nos interesa saber más"]) expect(PALABRAS_BAJA.test(t), t).toBe(false);
+  });
+
   it("calentamiento, horario y días hábiles", () => {
     expect(topeDelDia(30, null)).toBe(10);
     expect(topeDelDia(30, new Date(Date.now() - 5 * 86_400_000))).toBe(20);
