@@ -126,7 +126,8 @@ export function rastreadorDePrueba(): Rastreador {
 
 const GRATUITOS = /^(gmail|hotmail|yahoo|outlook|live|icloud|fibertel|speedy|arnet)\.(com|com\.ar|ar)(\.ar)?$/i;
 const NO_ES_EMAIL = /\.(png|jpe?g|gif|webp|svg|css|js|ico)$/i;
-const EMAIL_MALO = /^(no-?reply|noreply|mailer-daemon|postmaster|abuse|webmaster|example|test|sentry|wix|wordpress|rrhh|recursoshumanos|cv|empleo|empleos|trabajo|seleccion|busquedas?|cobranzas|legal|privacidad|privacy|soporte|support|prensa)@/i;
+/** Casillas que no son para esto, y las de ejemplo que deja quien hizo la web (xyz@, miemail@, tuemail@…) */
+const EMAIL_MALO = /^(xyz|abc|miemail|mimail|tuemail|tumail|email|correo|ejemplo|nombre|usuario|you|your|name|no-?reply|noreply|mailer-daemon|postmaster|abuse|webmaster|example|test|sentry|wix|wordpress|rrhh|recursoshumanos|cv|empleo|empleos|trabajo|seleccion|busquedas?|cobranzas|legal|privacidad|privacy|soporte|support|prensa)@/i;
 const PREFERIDO = /^(info|contacto|consultas|hola|ventas|administracion|recepcion|turnos|estudio|odontologia)@/i;
 const REDES = /(instagram|facebook|linktr|wa\.me|whatsapp|twitter|tiktok|youtube|google)\./i;
 
@@ -144,7 +145,9 @@ export function emailsDelHtml(html: string): string[] {
     .replace(/&#64;|&commat;|&#x40;/gi, "@")
     .replace(/&#46;|&period;/gi, ".")
     .replace(/\s*\[\s*(at|arroba)\s*\]\s*/gi, "@")
-    .replace(/%40/g, "@");
+    .replace(/%40/g, "@")
+    // "mailto:%20info@…": el espacio codificado de adelante no es parte del email
+    .replace(/%20/g, " ");
   const out = new Set<string>();
   for (const m of texto.matchAll(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi)) out.add(m[0].toLowerCase().replace(/^mailto:/, ""));
   // Cloudflare: data-cfemail="…" (el email cifrado con XOR)
@@ -207,7 +210,7 @@ export async function emailDeLaWeb(r: Rastreador, web: string): Promise<string |
 
 /** Lo que no es un cliente: organismos, hospitales, obras sociales, cadenas y grandes empresas */
 const NO_CLIENTE =
-  /\b(hospital|municipal|municipalidad|universidad|facultad|obra social|osde|swiss medical|omint|galeno|sanatorio|c[ií]rculo|colegio|federaci[oó]n|sindicato|ministerio|gobierno|easy|sodimac|blaisten|coto|carrefour|walmart|changomas|chango m[aá]s|jumbo|diarco|makro|vital|yenny|el ateneo|c[uú]spide|musimundo|garbarino|fr[aá]vega|mercado libre)\b/i;
+  /\b(hospital|municipal|municipalidad|universidad|facultad|fundaci[oó]n|obra social|osde|swiss medical|omint|galeno|sanatorio|c[ií]rculo|colegio|federaci[oó]n|sindicato|ministerio|gobierno|easy|sodimac|blaisten|coto|carrefour|walmart|changomas|chango m[aá]s|jumbo|diarco|makro|vital|yenny|el ateneo|c[uú]spide|musimundo|garbarino|fr[aá]vega|mercado libre)\b/i;
 const TIPOS_FUERA = new Set(["hospital", "university", "school", "government_office", "local_government_office", "city_hall", "embassy", "courthouse"]);
 
 /** "Consultorio Dra. Laura Pérez - Odontología" → empresa y nombre */
@@ -229,7 +232,8 @@ export async function ejecutarBusqueda(app: FastifyInstance, id: string) {
     let disponibles = PEDIDOS_POR_MES - (await pedidosDelMes(app));
     const vistos = new Set<string>();
     for (const consulta of b.consultas) {
-      const zona = consulta.split(/ en /i).at(-1)?.trim() || null;
+      // "Palermo, CABA" → "Palermo" (así queda en el email: "Vi … en Palermo")
+      const zona = consulta.split(/ en /i).at(-1)?.split(",")[0]?.trim() || null;
       const rubro = consulta.split(/ en /i)[0]?.trim() || null;
       let pagina: string | undefined;
       for (let n = 0; n < PAGINAS_POR_CONSULTA; n++) {

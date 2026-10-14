@@ -36,6 +36,9 @@ describe("buscador de contactos", () => {
     expect(mejorEmail(todos, "https://www.consultorioperez.com.ar/")).toBe("info@consultorioperez.com.ar");
     expect(mejorEmail(["hola@agenciaweb.com", "rrhh@consultorioperez.com.ar"], "https://consultorioperez.com.ar")).toBeNull();
     expect(mejorEmail(["dra.perez@gmail.com"], "https://consultorioperez.com.ar")).toBe("dra.perez@gmail.com");
+    // Los de ejemplo que deja quien hizo la web, y el espacio codificado de un mailto
+    expect(mejorEmail(emailsDelHtml('<a href="mailto:%20info@consultorioperez.com.ar">x</a> xyz@gmail.com miemail@gmail.com'), "https://consultorioperez.com.ar")).toBe("info@consultorioperez.com.ar");
+    expect(mejorEmail(["xyz@gmail.com", "miemail@gmail.com"], "https://consultorioperez.com.ar")).toBeNull();
   });
 
   it("busca en Google, entra a cada web (y a Contacto), y lo encontrado entra a la campaña sin repetidos ni organismos", async () => {
@@ -75,11 +78,14 @@ describe("buscador de contactos", () => {
     await expect(buscarDesdeConsola(app, { campana: "no existe", que: ["x"], donde: ["y"] })).rejects.toThrow(/No hay ninguna campaña/);
     await expect(buscarDesdeConsola(app, { campana: "oeste", que: ["a", "b", "c", "d"], donde: ["1", "2", "3"] })).rejects.toThrow(/Son 12 búsquedas/);
     const avisos: string[] = [];
-    const r = await buscarDesdeConsola(app, { campana: "oeste", que: ["distribuidora ", ""], donde: ["Morón", "Haedo", "Morón"] }, (t) => avisos.push(t));
-    expect(avisos[0]).toBe("Buscando en «Distribuidoras del oeste»: distribuidora en Morón · distribuidora en Haedo");
+    const r = await buscarDesdeConsola(app, { campana: "oeste", que: ["distribuidora ", ""], donde: ["Morón, Buenos Aires", "Haedo", "Morón, Buenos Aires"] }, (t) => avisos.push(t));
+    expect(avisos[0]).toBe("Buscando en «Distribuidoras del oeste»: distribuidora en Morón, Buenos Aires · distribuidora en Haedo");
     expect(r).toMatchObject({ estado: "Terminada", campana: "Distribuidoras del oeste", pedidos: 2, conEmail: 4, nuevos: 4 });
     // Aparece en el panel como cualquier búsqueda
     expect((await api("GET", "/busquedas")).json().busquedas[0]).toMatchObject({ campana: "Distribuidoras del oeste", estado: "Terminada" });
+    // La ciudad queda sin el ", Buenos Aires" (el email dice "Vi … en Morón")
+    const id = (await api("GET", "/campanas")).json().find((c: { nombre: string }) => c.nombre === "Distribuidoras del oeste").id;
+    expect((await api("GET", `/prospectos?campanaId=${id}`)).json().map((p: { ciudad: string }) => p.ciudad).sort()).toEqual(["Haedo", "Haedo", "Morón", "Morón"]);
   });
 
   it("sin la clave de Google, el buscador avisa que falta", async () => {
