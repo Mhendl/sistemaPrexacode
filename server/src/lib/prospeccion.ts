@@ -434,19 +434,19 @@ export const PLANTILLAS: Record<"dental" | "gestion", { dias: number; asunto: st
       dias: 0,
       asunto: "Turnos online para {empresa}",
       cuerpo:
-        "Hola {nombre},\n\nVi {empresa} en {ciudad} y quería contarte de CoreDental, un sistema para consultorios odontológicos hecho en Argentina: historia clínica con odontograma, turnos online con recordatorio para que los pacientes confirmen, y la liquidación de obras sociales lista a fin de mes.\n\nLo mirás acá y, si te gusta, creás tu cuenta en 2 minutos y ya lo estás usando: 14 días gratis, sin tarjeta y sin tener que hablar con nadie. {link}\n\nSi te surge alguna duda, respondeme este email.\n\nSaludos,\n{firma}",
+        "Hola {nombre},\n\nVi {empresa} en {ciudad} y te escribo corto: armé CoreDental, un sistema para consultorios odontológicos hecho en Argentina. Los pacientes sacan turno online y les llega un recordatorio para confirmar (menos sillones vacíos), la historia clínica tiene odontograma, y a fin de mes la liquidación de obras sociales sale sola.\n\nLo mirás acá y, si te gusta, creás tu cuenta en 2 minutos y ya lo estás usando: 14 días gratis, sin tarjeta y sin tener que hablar con nadie. {link}\n\nSi te surge alguna duda, respondeme este email.\n\nSaludos,\n{firma}",
     },
     {
       dias: 3,
       asunto: "",
       cuerpo:
-        "Hola {nombre}, te escribo de nuevo por si se te pasó.\n\nUn detalle que a los consultorios les resulta útil: el paciente recibe el recordatorio con un botón para confirmar o cancelar, y si cancela, el horario queda libre en la agenda para dárselo a otro.\n\nCreás tu cuenta en 2 minutos y lo probás gratis: {link}\n\n{firma}",
+        "Hola {nombre}, te escribo de nuevo por si se te pasó.\n\nUna pregunta rápida: ¿cuántos turnos por semana se pierden porque el paciente no viene y no avisa? Con CoreDental le llega el recordatorio con un botón para confirmar o cancelar, y si cancela, el horario queda libre para dárselo a otro.\n\nLo probás gratis 14 días: {link}\n\n{firma}",
     },
     {
       dias: 5,
       asunto: "",
       cuerpo:
-        "Hola {nombre}, este es mi último email, no quiero llenarte la casilla.\n\nSi en algún momento querés ordenar la agenda, las historias clínicas o las obras sociales del consultorio, creás tu cuenta en 2 minutos y lo probás 14 días gratis: {link}\n\n¡Gracias por leer!\n{firma}",
+        "Hola {nombre}, este es mi último email, no quiero llenarte la casilla.\n\nSi en algún momento querés ordenar la agenda, las historias clínicas o las obras sociales del consultorio, lo probás 14 días gratis: {link}\n\nY si me contestás con una línea cómo manejan hoy los turnos, te digo con sinceridad si les sirve o no.\n\n¡Gracias por leer!\n{firma}",
     },
   ],
   gestion: [
@@ -454,19 +454,19 @@ export const PLANTILLAS: Record<"dental" | "gestion", { dias: number; asunto: st
       dias: 0,
       asunto: "Facturación y stock de {empresa}",
       cuerpo:
-        "Hola {nombre},\n\nVi {empresa} en {ciudad} y quería contarte de Prexacode, un sistema de gestión en la nube hecho en Argentina para PyMEs: facturación electrónica ARCA, stock, cuentas corrientes de tus clientes y lo que te deben, todo en un lugar. Tus planillas de Excel se importan en minutos.\n\nLo mirás acá y, si te gusta, creás tu cuenta en 2 minutos y ya lo estás usando: 14 días gratis, sin tarjeta y sin tener que hablar con nadie. {link}\n\nSi te surge alguna duda, respondeme este email.\n\nSaludos,\n{firma}",
+        "Hola {nombre},\n\nVi {empresa} en {ciudad} y te escribo corto: armé Prexacode, un sistema de gestión hecho en Argentina para comercios y PyMEs. Facturás con ARCA en segundos desde la compu o el celular, el stock se descuenta solo con cada venta y al final del día ves cuánto entró en la caja. Si además vendés en cuenta corriente, te muestra quién te debe y desde cuándo.\n\nLo mirás acá y, si te gusta, creás tu cuenta en 2 minutos y ya lo estás usando: 14 días gratis, sin tarjeta y sin tener que hablar con nadie. {link}\n\nSi te surge alguna duda, respondeme este email.\n\nSaludos,\n{firma}",
     },
     {
       dias: 3,
       asunto: "",
       cuerpo:
-        "Hola {nombre}, te escribo de nuevo por si se te pasó.\n\nAlgo que a muchas PyMEs les ahorra horas: en una pantalla ves quién te debe y desde cuándo, y le mandás la factura o el recordatorio por email o WhatsApp con un clic.\n\nCreás tu cuenta en 2 minutos y lo probás gratis: {link}\n\n{firma}",
+        "Hola {nombre}, te escribo de nuevo por si se te pasó.\n\nUna pregunta rápida: ¿hoy cómo hacés las facturas? Si es desde la página de ARCA, cada una te lleva varios minutos. Con Prexacode la hacés en segundos, sale con el logo de {empresa} y se la mandás al cliente por WhatsApp o email desde el mismo lugar. Tus planillas de Excel se importan en minutos.\n\nLo probás gratis 14 días: {link}\n\n{firma}",
     },
     {
       dias: 5,
       asunto: "",
       cuerpo:
-        "Hola {nombre}, este es mi último email, no quiero llenarte la casilla.\n\nSi en algún momento querés ordenar la facturación, el stock o las cobranzas, creás tu cuenta en 2 minutos y lo probás 14 días gratis: {link}\n\n¡Gracias por leer!\n{firma}",
+        "Hola {nombre}, este es mi último email, no quiero llenarte la casilla.\n\nSi en algún momento querés tener la facturación, el stock y la caja en un solo lugar, lo probás 14 días gratis: {link}\n\nY si me contestás con una línea a qué se dedica {empresa}, te digo con sinceridad si te sirve o no.\n\n¡Gracias por leer!\n{firma}",
     },
   ],
 };
