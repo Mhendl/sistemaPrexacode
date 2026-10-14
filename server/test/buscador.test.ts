@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prospeccionBusquedas } from "../src/db/schema.js";
-import { emailsDelHtml, mejorEmail, rastreadorDePrueba } from "../src/lib/buscador.js";
+import { buscarDesdeConsola, emailsDelHtml, mejorEmail, rastreadorDePrueba } from "../src/lib/buscador.js";
 import { auth, crearApp, type TestApp } from "./helpers.js";
 
 let app: TestApp;
@@ -66,6 +66,20 @@ describe("buscador de contactos", () => {
     const tope = await api("POST", `/campanas/${id}/buscar`, { consultas: ["consultorio odontológico en Bernal"] });
     expect(tope.statusCode).toBe(400);
     expect(tope.json().error).toMatch(/tope de 900/);
+  });
+
+  it("desde la consola del servidor: rubros × zonas en la campaña nombrada (o parte del nombre), con los mismos topes", async () => {
+    await app.db.update(prospeccionBusquedas).set({ pedidos: 0 });
+    const plantillas = (await api("GET", "/plantillas")).json();
+    await api("POST", "/campanas", { nombre: "Distribuidoras del oeste", producto: "gestion", pasos: plantillas.gestion });
+    await expect(buscarDesdeConsola(app, { campana: "no existe", que: ["x"], donde: ["y"] })).rejects.toThrow(/No hay ninguna campaña/);
+    await expect(buscarDesdeConsola(app, { campana: "oeste", que: ["a", "b", "c", "d"], donde: ["1", "2", "3"] })).rejects.toThrow(/Son 12 búsquedas/);
+    const avisos: string[] = [];
+    const r = await buscarDesdeConsola(app, { campana: "oeste", que: ["distribuidora ", ""], donde: ["Morón", "Haedo", "Morón"] }, (t) => avisos.push(t));
+    expect(avisos[0]).toBe("Buscando en «Distribuidoras del oeste»: distribuidora en Morón · distribuidora en Haedo");
+    expect(r).toMatchObject({ estado: "Terminada", campana: "Distribuidoras del oeste", pedidos: 2, conEmail: 4, nuevos: 4 });
+    // Aparece en el panel como cualquier búsqueda
+    expect((await api("GET", "/busquedas")).json().busquedas[0]).toMatchObject({ campana: "Distribuidoras del oeste", estado: "Terminada" });
   });
 
   it("sin la clave de Google, el buscador avisa que falta", async () => {

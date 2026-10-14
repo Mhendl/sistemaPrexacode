@@ -322,3 +322,29 @@ export async function ultimasBusquedas(app: FastifyInstance) {
     .orderBy(desc(prospeccionBusquedas.createdAt))
     .limit(10);
 }
+
+/**
+ * Lanzar una búsqueda sin el panel (desde la consola del servidor): rubros × zonas en la campaña que se nombre.
+ * Mismos topes que el panel. Espera a que termine y devuelve el resultado.
+ */
+export async function buscarDesdeConsola(app: FastifyInstance, d: { campana: string; que: string[]; donde: string[] }, aviso: (t: string) => void = () => {}) {
+  if (!app.rastreador.disponible) throw new Error("Falta GOOGLE_PLACES_KEY en el servidor");
+  const campanas = await app.db.select({ id: prospeccionCampanas.id, nombre: prospeccionCampanas.nombre }).from(prospeccionCampanas);
+  const c = campanas.find((x) => x.nombre === d.campana) ?? (() => {
+    const parecidas = campanas.filter((x) => x.nombre.toLowerCase().includes(d.campana.toLowerCase()));
+    if (parecidas.length > 1) throw new Error(`Hay varias campañas con «${d.campana}»: ${parecidas.map((x) => x.nombre).join(" / ")}`);
+    return parecidas[0];
+  })();
+  if (!c) throw new Error(`No hay ninguna campaña «${d.campana}». Las que hay: ${campanas.map((x) => x.nombre).join(" / ")}`);
+  const limpiar = (xs: string[]) => [...new Set(xs.map((x) => x.trim()).filter(Boolean))];
+  const consultas = limpiar(d.que).flatMap((q) => limpiar(d.donde).map((z) => `${q} en ${z}`));
+  if (!consultas.length) throw new Error("Faltan rubros (qué buscar) o zonas (dónde)");
+  if (consultas.length > MAX_CONSULTAS) throw new Error(`Son ${consultas.length} búsquedas: hasta ${MAX_CONSULTAS} por vez`);
+  if ((await ultimasBusquedas(app)).some((x) => x.b.estado === "En curso")) throw new Error("Ya hay una búsqueda en curso: esperá a que termine");
+  if ((await pedidosDelMes(app)) >= PEDIDOS_POR_MES) throw new Error(`Se llegó al tope de ${PEDIDOS_POR_MES} búsquedas en Google de este mes`);
+  const [b] = await app.db.insert(prospeccionBusquedas).values({ campanaId: c.id, consultas }).returning();
+  aviso(`Buscando en «${c.nombre}»: ${consultas.join(" · ")}`);
+  await ejecutarBusqueda(app, b!.id);
+  const [r] = await app.db.select().from(prospeccionBusquedas).where(eq(prospeccionBusquedas.id, b!.id));
+  return { ...r!, campana: c.nombre };
+}
