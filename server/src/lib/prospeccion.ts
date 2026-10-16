@@ -285,6 +285,17 @@ async function enviarEmailDeVisita(app: FastifyInstance, c: Config, p: typeof pr
   return "enviado";
 }
 
+/** Cuánto se espera a que vuelva la red antes de pausar la casilla */
+const PACIENCIA_RED = 2 * 3600_000;
+/** No es la casilla: es la red (DNS que no responde, conexión cortada, el servidor reiniciándose) */
+export function esFallaDeRed(e: unknown) {
+  const err = e as { code?: string; message?: string };
+  return (
+    ["EAI_AGAIN", "ENOTFOUND", "ETIMEDOUT", "ECONNRESET", "ECONNREFUSED", "EHOSTUNREACH", "ENETUNREACH", "ECONNECTION", "ESOCKET", "ETIMEOUT", "EDNS"].includes(err.code ?? "") ||
+    /EAI_AGAIN|ENOTFOUND|ETIMEDOUT|ECONNRESET|ECONNREFUSED|EHOSTUNREACH|ENETUNREACH|socket hang up|timed? ?out/i.test(err.message ?? "")
+  );
+}
+
 /**
  * Una vuelta del envío (corre cada 5 minutos): en cada casilla revisa las respuestas y, si toca, manda UN email.
  * Devuelve qué hizo (si alguna mandó, "enviado"), para el panel y las pruebas.
@@ -303,7 +314,9 @@ async function tickCasilla(app: FastifyInstance, c: Config, productos: string[],
     try {
       await revisarRespuestas(app, c, ahora);
     } catch (e) {
-      // Sin poder leer la casilla no se manda nada (podría escribirle a alguien que ya respondió)
+      // Sin poder leer la casilla no se manda nada (podría escribirle a alguien que ya respondió).
+      // Si es la red (el servidor se reinició, el DNS no respondió), se reintenta en la próxima vuelta; se pausa si dura más de 2 horas
+      if (esFallaDeRed(e) && c.imapRevisadoEn && ahora.getTime() - c.imapRevisadoEn.getTime() < PACIENCIA_RED) return "error-red";
       await app.db.update(prospeccionConfig).set({ ultimoError: `No se pudo leer la casilla: ${(e as Error).message}`, activa: false }).where(eq(prospeccionConfig.id, c.id));
       return "error-imap";
     }
@@ -397,7 +410,15 @@ async function tickCasilla(app: FastifyInstance, c: Config, productos: string[],
       else await app.db.update(prospectos).set({ estado: "Rebotó", nota: `El servidor rechazó el email: ${msg}`.slice(0, 500) }).where(eq(prospectos.id, p.id));
       return "destinatario-rechazado";
     }
-    // Ante cualquier error se pausa: mejor revisar que insistir y que la casilla quede marcada
+    // Una falla de red pasajera: se reintenta en la próxima vuelta (se pausa si sigue fallando)
+    if (esFallaDeRed(e)) {
+      const [{ n }] = await app.db
+        .select({ n: sql<number>`count(*)::int` })
+        .from(prospeccionEnvios)
+        .where(and(eq(prospeccionEnvios.casillaId, c.id), eq(prospeccionEnvios.estado, "Error"), gte(prospeccionEnvios.enviadoEn, new Date(ahora.getTime() - PACIENCIA_RED))));
+      if (Number(n) < 6) return "error-red";
+    }
+    // Ante cualquier otro error se pausa: mejor revisar que insistir y que la casilla quede marcada
     await app.db.update(prospeccionConfig).set({ ultimoError: msg, activa: false }).where(eq(prospeccionConfig.id, c.id));
     return "error-envio";
   }

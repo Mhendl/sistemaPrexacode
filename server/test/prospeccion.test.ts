@@ -9,7 +9,7 @@ let cerrar: () => Promise<void>;
 const correo = carteroDePrueba();
 /** Casilla falsa: lo que "llegó" a la bandeja de entrada */
 const bandeja: Respuesta[] = [];
-const buzon = { estado: { falla: false }, leer: async () => { if (buzon.estado.falla) throw new Error("Login failed"); return [...bandeja]; } };
+const buzon = { estado: { falla: false as boolean | Error }, leer: async () => { if (buzon.estado.falla) throw buzon.estado.falla instanceof Error ? buzon.estado.falla : new Error("Login failed"); return [...bandeja]; } };
 const ADMIN = "duenio@prexacode.com.ar";
 const CLAVE = "clave-del-panel-2026";
 let token = "";
@@ -385,5 +385,41 @@ describe("prospección de punta a punta", () => {
     const lista = (await api("GET", `/prospectos?campanaId=${id}`)).json() as { email: string; estado: string; visitaEmailEn: string | null }[];
     expect(lista.find((p) => p.email === "lucia@visita.com")).toMatchObject({ estado: "Terminado" });
     expect(lista.find((p) => p.email === "lucia@visita.com")!.visitaEmailEn).toBeTruthy();
+  });
+
+  it("una falla de red pasajera (el servidor se reinicia, el DNS no responde) no pausa la casilla; si dura más de 2 horas, sí", async () => {
+    bandeja.length = 0;
+    const plantillas = (await api("GET", "/plantillas")).json();
+    for (const c of (await api("GET", "/campanas")).json()) await api("PUT", `/campanas/${c.id}`, { nombre: c.nombre, producto: c.producto, pasos: c.pasos, activa: false });
+    const id = (await api("POST", "/campanas", { nombre: "Red pymes", producto: "gestion", pasos: plantillas.gestion })).json().id;
+    await api("POST", `/campanas/${id}/importar`, { confirmar: true, filas: [1, 2].map((n) => ({ email: `red${n}@pyme.com` })) });
+    await api("POST", "/config/activa", { activa: true });
+    const lunes = enSemanas("2026-12-14T13:00:00Z");
+    expect(await tickProspeccion(app, lunes)).toBe("enviado");
+
+    // No se puede leer la casilla porque no hay red: espera y reintenta, sin pausar
+    buzon.estado.falla = Object.assign(new Error("getaddrinfo EAI_AGAIN imap.hostinger.com"), { code: "EAI_AGAIN" });
+    expect(await tickProspeccion(app, mas(lunes, 15))).toBe("error-red");
+    expect((await api("GET", "/config")).json()).toMatchObject({ activa: true });
+    // Vuelve la red: sigue sola
+    buzon.estado.falla = false;
+    expect(await tickProspeccion(app, mas(lunes, 60))).toBe("enviado");
+
+    // No se puede mandar por la red: tampoco pausa, y el contacto queda para la próxima vuelta
+    await api("POST", `/campanas/${id}/importar`, { confirmar: true, filas: [{ email: "red3@pyme.com" }] });
+    correo.estado.falla = Object.assign(new Error("getaddrinfo EAI_AGAIN smtp.hostinger.com"), { code: "EDNS" });
+    expect(await tickProspeccion(app, mas(lunes, 120))).toBe("error-red");
+    expect((await api("GET", "/config")).json()).toMatchObject({ activa: true });
+    correo.estado.falla = null;
+    expect(await tickProspeccion(app, mas(lunes, 180))).toBe("enviado");
+    expect(correo.enviados.at(-1)!.mensaje.para).toBe("red3@pyme.com");
+
+    // Si la casilla no se puede leer por más de 2 horas, se pausa y avisa
+    buzon.estado.falla = Object.assign(new Error("getaddrinfo EAI_AGAIN imap.hostinger.com"), { code: "EAI_AGAIN" });
+    expect(await tickProspeccion(app, mas(lunes, 200))).toBe("error-red");
+    expect(await tickProspeccion(app, mas(lunes, 200 + 150))).toBe("error-imap");
+    buzon.estado.falla = false;
+    expect((await api("GET", "/config")).json()).toMatchObject({ activa: false, ultimoError: "No se pudo leer la casilla: getaddrinfo EAI_AGAIN imap.hostinger.com" });
+    await api("POST", "/config/activa", { activa: true });
   });
 });
