@@ -1,16 +1,19 @@
 /**
  * CoreDental: precios por obra social, prestaciones realizadas (cuenta del paciente) y caja diaria.
+ * La caja diaria también la usa Prexacode: ahí los cobros salen de los recibos.
  */
 import { and, eq, isNull, sql } from "drizzle-orm";
 import type { Db } from "../db/client.js";
-import { cajas, cargosPaciente, gastos, ingresosCaja, obrasSociales, pacientes, pagosPaciente, prestacionPrecios, prestaciones, presupuestoDentalItems, presupuestosDentales } from "../db/schema.js";
+import { cajas, cargosPaciente, clientes, gastos, ingresosCaja, obrasSociales, pacientes, pagosPaciente, reciboMedios, recibos, usuarios, prestacionPrecios, prestaciones, presupuestoDentalItems, presupuestosDentales } from "../db/schema.js";
 import { r2 } from "./arca/montos.js";
 import { conflict } from "./errors.js";
 
 type Tx = Db | Parameters<Parameters<Db["transaction"]>[0]>[0];
 
 export const MEDIOS_DENTAL = ["Efectivo", "Transferencia", "Tarjeta de débito", "Tarjeta de crédito", "Mercado Pago", "Otro"] as const;
-export const CATEGORIAS_GASTO = ["Proveedores e insumos", "Laboratorio", "Alquiler y expensas", "Servicios", "Sueldos y honorarios", "Impuestos", "Mantenimiento", "Otros"] as const;
+export const CATEGORIAS_GASTO = ["Proveedores e insumos", "Laboratorio", "Alquiler y expensas", "Servicios", "Sueldos y honorarios", "Impuestos", "Mantenimiento", "Fletes y envíos", "Otros"] as const;
+/** Medios de la caja (otros ingresos y gastos): los del consultorio más el cheque, que usan los comercios */
+export const MEDIOS_CAJA = [...MEDIOS_DENTAL, "Cheque"] as const;
 
 /**
  * Precio de una prestación para un paciente: el de su obra social; si su obra social no tiene precio cargado
@@ -135,6 +138,14 @@ export async function resumenCaja(db: Tx, empresaId: string, fecha: string) {
     .from(pagosPaciente)
     .innerJoin(pacientes, eq(pacientes.id, pagosPaciente.pacienteId))
     .where(and(eq(pagosPaciente.empresaId, empresaId), eq(pagosPaciente.fecha, fecha), isNull(pagosPaciente.anuladoEn)));
+  // Prexacode: los cobros son los recibos (también los de las facturas de contado). La retención no es plata que entra.
+  const cobros = await db
+    .select({ id: reciboMedios.id, reciboId: recibos.id, numero: recibos.numero, importe: reciboMedios.importe, medio: reciboMedios.medio, cliente: clientes.razonSocial, cobradoPor: usuarios.nombre, createdAt: recibos.createdAt })
+    .from(reciboMedios)
+    .innerJoin(recibos, eq(recibos.id, reciboMedios.reciboId))
+    .innerJoin(clientes, eq(clientes.id, recibos.clienteId))
+    .leftJoin(usuarios, eq(usuarios.id, recibos.usuarioId))
+    .where(and(eq(recibos.empresaId, empresaId), eq(recibos.fecha, fecha), eq(recibos.estado, "Emitido"), sql`${reciboMedios.medio} <> 'Retención'`));
   const ingresos = await db.select().from(ingresosCaja).where(and(eq(ingresosCaja.empresaId, empresaId), eq(ingresosCaja.fecha, fecha), isNull(ingresosCaja.anuladoEn)));
   const egresos = await db.select().from(gastos).where(and(eq(gastos.empresaId, empresaId), eq(gastos.fecha, fecha), isNull(gastos.anuladoEn)));
   const porMedio = new Map<string, { ingresos: number; egresos: number }>();
@@ -144,6 +155,7 @@ export async function resumenCaja(db: Tx, empresaId: string, fecha: string) {
     porMedio.set(medio, x);
   };
   for (const p of pagos) suma(p.medio, "ingresos", p.importe);
+  for (const c of cobros) suma(c.medio, "ingresos", c.importe);
   for (const i of ingresos) suma(i.medio, "ingresos", i.importe);
   for (const g of egresos) suma(g.medio, "egresos", g.importe);
   const efectivo = porMedio.get("Efectivo") ?? { ingresos: 0, egresos: 0 };
@@ -154,7 +166,11 @@ export async function resumenCaja(db: Tx, empresaId: string, fecha: string) {
     fecha,
     caja: caja ?? null,
     porMedio: [...porMedio.entries()].map(([medio, x]) => ({ medio, ...x })).sort((a, b) => (a.medio === "Efectivo" ? -1 : b.medio === "Efectivo" ? 1 : a.medio.localeCompare(b.medio))),
-    pagos,
+    // Lo cobrado: pagos de pacientes (CoreDental) o recibos de clientes (Prexacode), con a quién y a dónde lleva
+    pagos: [
+      ...pagos.map((p) => ({ ...p, origen: "paciente" as const, quien: p.paciente, link: `/pacientes/${p.pacienteId}` })),
+      ...cobros.map((c) => ({ id: c.id, numero: c.numero, importe: c.importe, medio: c.medio, paciente: c.cliente, pacienteId: null, cobradoPor: c.cobradoPor ?? "Usuario", createdAt: c.createdAt, origen: "recibo" as const, quien: c.cliente, link: `/cobranzas/recibos/${c.reciboId}` })),
+    ],
     ingresos,
     gastos: egresos,
     totalIngresos,

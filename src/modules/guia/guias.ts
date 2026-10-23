@@ -262,7 +262,7 @@ const AGENDA_GESTION: Guia = {
   ],
 };
 
-const CAJA: Guia = {
+const CAJA = (dental: boolean): Guia => ({
   id: "caja",
   pasos: [
     { el: "encabezado", titulo: "🏦 Caja diaria", texto: "Lo que entra y sale cada día, separado por medio de pago, y el arqueo al cerrar." },
@@ -272,10 +272,21 @@ const CAJA: Guia = {
       titulo: "🔓 Abrir y cerrar",
       texto: "A la mañana abrís la caja con el efectivo inicial. Al cerrar contás el efectivo y el sistema te muestra si hay <b>diferencia</b>.",
     },
-    { el: "caja-medios", lado: "top", titulo: "💳 Por medio de pago", texto: "Cuánto entró en efectivo, transferencia, tarjeta… Los cobros a pacientes se suman solos." },
-    { el: "acciones", titulo: "➕ Gastos y otros ingresos", texto: "Lo que no es un cobro a un paciente: un gasto que pagaste de la caja o un ingreso extra." },
+    {
+      el: "caja-medios",
+      lado: "top",
+      titulo: "💳 Por medio de pago",
+      texto: dental
+        ? "Cuánto entró en efectivo, transferencia, tarjeta… Los cobros a pacientes se suman solos."
+        : "Cuánto entró en efectivo, transferencia, cheque, tarjeta… Los cobros se suman solos: los recibos y las facturas de contado.",
+    },
+    {
+      el: "acciones",
+      titulo: "➕ Gastos y otros ingresos",
+      texto: dental ? "Lo que no es un cobro a un paciente: un gasto que pagaste de la caja o un ingreso extra." : "Lo que no es un cobro a un cliente: un gasto que pagaste de la caja (un flete, un proveedor) o un ingreso extra.",
+    },
   ],
-};
+});
 
 const LIQUIDACION: Guia = {
   id: "liquidacion",
@@ -315,10 +326,10 @@ export function guiaDe(pathname: string, producto: ProductoId): Guia | null {
   if (p === "/") return dental ? INICIO_DENTAL : INICIO_GESTION;
   if (p === "/configuracion") return CONFIGURACION(producto);
   if (p === "/agenda") return dental ? AGENDA : AGENDA_GESTION;
+  if (p === "/caja") return CAJA(dental);
   if (dental) {
     if (p === "/pacientes") return PACIENTES;
     if (/^\/pacientes\/[^/]+$/.test(p)) return PACIENTE;
-    if (p === "/caja") return CAJA;
     if (p === "/liquidacion") return LIQUIDACION;
     return null;
   }

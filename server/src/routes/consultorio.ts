@@ -5,7 +5,7 @@ import { cajas, cargosPaciente, gastos, ingresosCaja, obrasSociales, pacientes, 
 import { r2 } from "../lib/arca/montos.js";
 import { requireAuth, requirePermiso } from "../lib/auth.js";
 import { diasEntre, hoyAr } from "../lib/cuentas.js";
-import { CATEGORIAS_GASTO, exigirCajaAbierta, MEDIOS_DENTAL, resumenCaja } from "../lib/cuentasDental.js";
+import { CATEGORIAS_GASTO, exigirCajaAbierta, MEDIOS_CAJA, resumenCaja } from "../lib/cuentasDental.js";
 import { badRequest, conflict, notFound, parse } from "../lib/errors.js";
 import { productoDeEmpresa } from "../lib/productos.js";
 import { fechaValida, MAX_IMPORTE } from "../lib/validation.js";
@@ -26,11 +26,12 @@ const periodoSchema = z
   .refine((p) => p.hasta >= p.desde, { message: "El período está invertido", path: ["hasta"] })
   .refine((p) => diasEntre(p.desde, p.hasta) <= 400, { message: "El período puede ser de hasta un año", path: ["hasta"] });
 
-/** Caja diaria, gastos, deudores y liquidación a obras sociales (CoreDental) */
+/** Caja diaria, gastos, deudores y liquidación a obras sociales (CoreDental). La caja, los otros ingresos y los gastos también son de Prexacode. */
 export const consultorioRoutes: FastifyPluginAsync = async (app) => {
   app.addHook("preHandler", async (req, reply) => {
     await requireAuth(req, reply);
-    if ((await productoDeEmpresa(app.db, req.user.empresaId)) !== "dental") throw notFound("Esta sección es de CoreDental");
+    const deLosDos = /^\/api\/consultorio\/(caja|ingresos|gastos)(\/|\?|$)/.test(req.url);
+    if (!deLosDos && (await productoDeEmpresa(app.db, req.user.empresaId)) !== "dental") throw notFound("Esta sección es de CoreDental");
   });
   const ver = requirePermiso("cobranzas.ver");
   const operar = requirePermiso("cobranzas.cobrar");
@@ -90,7 +91,7 @@ export const consultorioRoutes: FastifyPluginAsync = async (app) => {
       z.object({
         concepto: z.string().trim().min(2, "Poné el concepto").max(200),
         importe: importe.refine((v) => v > 0, "Tiene que ser mayor a cero"),
-        medio: z.enum(MEDIOS_DENTAL, { errorMap: () => ({ message: "Elegí el medio" }) }),
+        medio: z.enum(MEDIOS_CAJA, { errorMap: () => ({ message: "Elegí el medio" }) }),
         fecha: fechaIso.optional().refine(noFutura, "La fecha no puede ser futura"),
       }),
       req.body,
@@ -133,7 +134,7 @@ export const consultorioRoutes: FastifyPluginAsync = async (app) => {
         descripcion: z.string().trim().min(2, "Contá qué se pagó").max(300),
         proveedor: texto(120),
         importe: importe.refine((v) => v > 0, "Tiene que ser mayor a cero"),
-        medio: z.enum(MEDIOS_DENTAL, { errorMap: () => ({ message: "Elegí cómo se pagó" }) }),
+        medio: z.enum(MEDIOS_CAJA, { errorMap: () => ({ message: "Elegí cómo se pagó" }) }),
         comprobante: texto(60),
       }),
       req.body,

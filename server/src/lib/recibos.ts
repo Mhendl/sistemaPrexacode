@@ -5,6 +5,7 @@ import { r2 } from "./arca/montos.js";
 import { saldosFacturas } from "./cuentas.js";
 import { badRequest, conflict } from "./errors.js";
 import { siguienteNumero } from "./numeracion.js";
+import { exigirCajaAbierta } from "./cuentasDental.js";
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
@@ -52,6 +53,7 @@ export async function crearRecibo(tx: Tx, d: DatosRecibo) {
     }
   }
 
+  if (d.medios.some((m) => m.medio === "Efectivo" && m.importe > 0)) await exigirCajaAbierta(tx, d.empresaId, d.fecha, "Efectivo");
   const numero = await siguienteNumero(tx, d.empresaId, "recibo");
   const [recibo] = await tx
     .insert(recibos)

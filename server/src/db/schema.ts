@@ -1768,5 +1768,7 @@ export const plataformaConfig = pgTable("plataforma_config", {
   precios: jsonb("precios").$type<{ planes: Record<string, number>; usuarioAdicionalUsd: number; mesesCobradosAnual: number }>(),
   /** Datos para que los clientes paguen por transferencia (si no hay, esa opción no aparece) */
   transferencia: jsonb("transferencia").$type<{ titular: string; cuit: string | null; banco: string | null; cbu: string | null; alias: string | null }>(),
+  /** Último día en que corrió el control diario de producción (AAAA-MM-DD) */
+  saludRevisada: text("salud_revisada"),
   version: integer("version").notNull().default(1),
 });

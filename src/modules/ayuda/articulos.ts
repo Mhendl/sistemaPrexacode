@@ -302,6 +302,18 @@ export const ARTICULOS: Articulo[] = [
     texto: "Al empezar el día abrís la caja con el efectivo que hay. Los pagos, otros ingresos y gastos se van sumando por medio de pago. Al cerrar, contás el efectivo y queda registrada la diferencia. Con la caja cerrada no se puede mover efectivo con fecha de ese día; solo un administrador la reabre.",
   },
   {
+    id: "caja",
+    titulo: "Abrir y cerrar la caja del día",
+    seccion: "Cobranzas",
+    producto: "gestion",
+    path: "/caja",
+    permisos: ["cobranzas.ver"],
+    palabras: "caja diaria abrir cerrar arqueo efectivo faltante sobrante cierre mostrador gasto flete",
+    texto: "Al empezar el día abrís la caja con el efectivo que hay. Los cobros se suman solos por medio de pago: los recibos y las facturas de contado (las retenciones no, porque no es plata que entra). Los gastos pagados de la caja y otros ingresos los cargás con sus botones. Al cerrar, contás el efectivo y queda registrada la diferencia. Con la caja cerrada no se puede mover efectivo con fecha de ese día; solo un administrador la reabre.",
+    pasos: ["Entrá a Caja diaria y tocá Abrir caja con el efectivo inicial.", "Durante el día cobrá como siempre: se suma solo.", "Al final tocá Cerrar caja, cargá el efectivo que contaste y listo."],
+    consejo: "La caja es opcional: si no la abrís, igual podés cobrar y facturar.",
+  },
+  {
     id: "dental-gastos",
     titulo: "Cargar gastos y ver el resultado del mes",
     seccion: "Pacientes",

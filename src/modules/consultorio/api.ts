@@ -1,10 +1,16 @@
+import { productoActivo } from "@/config/brand";
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import type { Cara, PrestacionApi } from "@/modules/pacientes/api";
 
 export const MEDIOS_DENTAL = ["Efectivo", "Transferencia", "Tarjeta de débito", "Tarjeta de crédito", "Mercado Pago", "Otro"] as const;
 export type MedioDental = (typeof MEDIOS_DENTAL)[number];
-export const CATEGORIAS_GASTO = ["Proveedores e insumos", "Laboratorio", "Alquiler y expensas", "Servicios", "Sueldos y honorarios", "Impuestos", "Mantenimiento", "Otros"] as const;
+export const CATEGORIAS_GASTO = ["Proveedores e insumos", "Laboratorio", "Alquiler y expensas", "Servicios", "Sueldos y honorarios", "Impuestos", "Mantenimiento", "Fletes y envíos", "Otros"] as const;
+/** La caja diaria también es de Prexacode: ahí se suma el cheque y no hay laboratorio */
+const MEDIOS_GESTION = ["Efectivo", "Transferencia", "Cheque", "Tarjeta de débito", "Tarjeta de crédito", "Mercado Pago", "Otro"] as const;
+export const mediosCaja = (): readonly string[] => (productoActivo() === "dental" ? MEDIOS_DENTAL : MEDIOS_GESTION);
+export const categoriasGasto = (): readonly string[] =>
+  productoActivo() === "dental" ? CATEGORIAS_GASTO.filter((c) => c !== "Fletes y envíos") : CATEGORIAS_GASTO.filter((c) => c !== "Laboratorio");
 
 // ---------------------------------------------------------------- tipos
 
@@ -119,7 +125,8 @@ export interface CajaApi {
     notas: string | null;
   } | null;
   porMedio: { medio: string; ingresos: number; egresos: number }[];
-  pagos: { id: string; numero: number; importe: number; medio: string; paciente: string; pacienteId: string; cobradoPor: string; createdAt: string }[];
+  /** Lo cobrado: pagos de pacientes (CoreDental) o recibos de clientes (Prexacode) */
+  pagos: { id: string; numero: number; importe: number; medio: string; paciente: string; pacienteId: string | null; cobradoPor: string; createdAt: string; origen: "paciente" | "recibo"; quien: string; link: string }[];
   ingresos: { id: string; concepto: string; importe: number; medio: string; cargadoPor: string; createdAt: string }[];
   gastos: GastoApi[];
   totalIngresos: number;

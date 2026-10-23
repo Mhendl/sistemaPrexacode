@@ -13,6 +13,7 @@ import { enviarDePlataforma } from "./email/plataforma.js";
 import { marcaDe } from "./productos.js";
 import { recordatoriosDeTurnos } from "./turnos.js";
 import { emailsDePrueba } from "./acompanamiento.js";
+import { controlDiario } from "./salud.js";
 import { estadoDe, obtenerSuscripcion, sumarDias } from "./suscripcion.js";
 
 const fecha = (f: string) => f.split("-").reverse().join("/");
@@ -126,4 +127,6 @@ export async function tareasAutomaticas(app: FastifyInstance) {
   const turnos = await recordatoriosDeTurnos(app);
   const acompanamiento = await emailsDePrueba(app);
   if (avisos || recordatorios || turnos || acompanamiento) app.log.info({ avisos, recordatorios, turnos, acompanamiento }, "Tareas automáticas: emails enviados");
+  const problemas = await controlDiario(app, { carpetaCopias: process.env.CARPETA_COPIAS ?? "/backups" });
+  if (problemas?.length) app.log.warn({ problemas }, "Control diario: hay cosas para revisar");
 }

@@ -1,4 +1,5 @@
-import { AlertTriangle, Building2, CircleDollarSign, Clock, Inbox, TrendingUp, Wallet } from "lucide-react";
+import { AlertTriangle, Building2, CircleCheck, CircleDollarSign, Clock, Inbox, TrendingUp, Wallet } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,7 +8,7 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { QueryState } from "@/components/shared/QueryState";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { formatDate, formatMoney, formatMoneyShort } from "@/lib/format";
-import { useResumenAdmin } from "./api";
+import { apiAdmin, useResumenAdmin } from "./api";
 import { BarrasMes, nombreEstado, nombrePlan, usd } from "./comun";
 
 export function AdminResumen() {
@@ -18,6 +19,7 @@ export function AdminResumen() {
       <QueryState isLoading={isLoading} error={error} onRetry={refetch}>
         {r && (
           <div className="grid gap-6" data-testid="resumen-admin">
+            <EstadoProduccion />
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <div data-testid="kpi-mrr">
                 <KpiCard label="Ingreso mensual (MRR)" value={usd(Math.round(r.mrrUsd))} icon={TrendingUp} tone="success" hint={`${r.porEstado.Activa} ${r.porEstado.Activa === 1 ? "empresa pagando" : "empresas pagando"}`} />
@@ -184,5 +186,38 @@ export function AdminResumen() {
         )}
       </QueryState>
     </>
+  );
+}
+
+/** El control de producción: casillas, copias de seguridad, disco, certificado de ARCA y correo */
+function EstadoProduccion() {
+  const { data } = useQuery({
+    queryKey: ["admin", "salud"],
+    queryFn: () => apiAdmin<{ problemas: { que: string; detalle: string }[]; revisadoEn: string }>("/plataforma/salud"),
+    refetchInterval: 5 * 60_000,
+  });
+  if (!data) return null;
+  if (!data.problemas.length)
+    return (
+      <Card className="flex-row items-center gap-3 p-4 text-sm shadow-none" data-testid="estado-produccion">
+        <CircleCheck className="size-5 text-success" />
+        <span>
+          <b>Producción en orden</b>: casillas, copias de seguridad, disco, certificado de ARCA y correo.
+        </span>
+      </Card>
+    );
+  return (
+    <Card className="gap-2 border-destructive/40 bg-destructive/5 p-4 text-sm shadow-none" data-testid="estado-produccion">
+      <div className="flex items-center gap-2 font-semibold text-destructive">
+        <AlertTriangle className="size-5" /> {data.problemas.length === 1 ? "Hay algo para revisar" : `Hay ${data.problemas.length} cosas para revisar`}
+      </div>
+      <ul className="grid gap-1.5 pl-7">
+        {data.problemas.map((p) => (
+          <li key={p.que}>
+            <b>{p.que}.</b> {p.detalle}
+          </li>
+        ))}
+      </ul>
+    </Card>
   );
 }

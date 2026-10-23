@@ -49,6 +49,7 @@ export const navSections: NavSection[] = [
       { path: "/facturacion", label: "Facturación", icon: Receipt, permisos: ["facturacion.ver"], description: "Comprobantes electrónicos ARCA" },
       { path: "/presupuestos", label: "Presupuestos", icon: FileText, permisos: ["presupuestos.ver"], description: "Cotizaciones a clientes" },
       { path: "/cobranzas", label: "Cobranzas", icon: Wallet, permisos: ["cobranzas.ver"], description: "Cuentas corrientes y pagos" },
+      { path: "/caja", label: "Caja diaria", icon: Landmark, permisos: ["cobranzas.ver"], description: "Apertura, lo cobrado en el día y cierre con arqueo" },
     ],
   },
   {

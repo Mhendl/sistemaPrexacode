@@ -1,0 +1,1 @@
+ALTER TABLE "plataforma_config" ADD COLUMN "salud_revisada" text;

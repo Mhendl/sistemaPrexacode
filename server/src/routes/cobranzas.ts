@@ -8,6 +8,7 @@ import { permisoPorMetodo, requirePermiso } from "../lib/auth.js";
 import { aCuentaPorCliente, hoyAr, saldosFacturas, TIPOS_FACTURA, TIPOS_NC } from "../lib/cuentas.js";
 import { badRequest, conflict, notFound, parse } from "../lib/errors.js";
 import { formatNumero } from "../lib/numeracion.js";
+import { exigirCajaAbierta } from "../lib/cuentasDental.js";
 import { crearRecibo, MEDIOS_PAGO } from "../lib/recibos.js";
 import { fechaValida } from "../lib/validation.js";
 
@@ -193,6 +194,8 @@ export const recibosRoutes: FastifyPluginAsync = async (app) => {
       const [r] = await tx.select().from(recibos).where(and(eq(recibos.id, id), eq(recibos.empresaId, req.user.empresaId))).for("update");
       if (!r) throw notFound("Recibo no encontrado");
       if (r.estado === "Anulado") throw conflict("El recibo ya está anulado");
+      const enEfectivo = await tx.select({ id: reciboMedios.id }).from(reciboMedios).where(and(eq(reciboMedios.reciboId, r.id), eq(reciboMedios.medio, "Efectivo")));
+      if (enEfectivo.length) await exigirCajaAbierta(tx, req.user.empresaId, r.fecha, "Efectivo");
       const [anulado] = await tx.update(recibos).set({ estado: "Anulado", motivoAnulacion: motivo, anuladoEn: new Date() }).where(eq(recibos.id, r.id)).returning();
       return anulado;
     });

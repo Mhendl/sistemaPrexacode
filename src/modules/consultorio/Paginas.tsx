@@ -23,7 +23,7 @@ import { exportarReporte } from "@/lib/planillas";
 import { cn } from "@/lib/utils";
 import { useObrasSociales } from "@/modules/pacientes/api";
 import { PacienteSelector } from "@/modules/pacientes/PacienteSelector";
-import { CATEGORIAS_GASTO, hoyIso, MEDIOS_DENTAL, mesDe, useAccionConsultorio, useCaja, useCobrosConsultorio, useCuenta, useGastos, useLiquidacion, useRecibo, useResumenConsultorio, type MedioDental } from "./api";
+import { categoriasGasto, hoyIso, mediosCaja, mesDe, useAccionConsultorio, useCaja, useCobrosConsultorio, useCuenta, useGastos, useLiquidacion, useRecibo, useResumenConsultorio } from "./api";
 import { PagoDialog } from "./CuentaPaciente";
 import { numeroDoc, ReciboPacienteHoja } from "./Hojas";
 
@@ -232,7 +232,7 @@ export function CobrosConsultorioPage() {
 
 function OtroIngresoDialog({ fecha, open, onOpenChange }: { fecha: string; open: boolean; onOpenChange: (o: boolean) => void }) {
   const { hacer, pendiente } = useHacer();
-  const [d, setD] = useState({ concepto: "", importe: "", medio: "Efectivo" as MedioDental });
+  const [d, setD] = useState({ concepto: "", importe: "", medio: "Efectivo" });
   const guardar = async () => {
     if (await hacer("/ingresos", { concepto: d.concepto, importe: aNumero(d.importe), medio: d.medio, fecha }, "Ingreso registrado")) {
       onOpenChange(false);
@@ -258,12 +258,12 @@ function OtroIngresoDialog({ fecha, open, onOpenChange }: { fecha: string; open:
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="ing-medio">Medio</Label>
-              <Select value={d.medio} onValueChange={(v) => setD({ ...d, medio: v as MedioDental })}>
+              <Select value={d.medio} onValueChange={(v) => setD({ ...d, medio: v })}>
                 <SelectTrigger id="ing-medio" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {MEDIOS_DENTAL.map((m) => (
+                  {mediosCaja().map((m) => (
                     <SelectItem key={m} value={m}>
                       {m}
                     </SelectItem>
@@ -302,7 +302,7 @@ export function CajaPage() {
 
   const movimientos = c
     ? [
-        ...c.pagos.map((p) => ({ id: p.id, hora: p.createdAt, detalle: `Pago de ${p.paciente} · recibo ${numeroDoc(p.numero)}`, medio: p.medio, importe: p.importe, quien: p.cobradoPor })),
+        ...c.pagos.map((p) => ({ id: p.id, hora: p.createdAt, detalle: `${p.origen === "recibo" ? "Cobro a" : "Pago de"} ${p.quien} · recibo ${numeroDoc(p.numero)}`, medio: p.medio, importe: p.importe, quien: p.cobradoPor })),
         ...c.ingresos.map((i) => ({ id: i.id, hora: i.createdAt, detalle: i.concepto, medio: i.medio, importe: i.importe, quien: i.cargadoPor })),
         ...c.gastos.map((g) => ({ id: g.id, hora: g.createdAt, detalle: `${g.categoria}: ${g.descripcion}`, medio: g.medio, importe: -g.importe, quien: g.cargadoPor })),
       ].sort((a, b) => a.hora.localeCompare(b.hora))
@@ -497,7 +497,7 @@ export function CajaPage() {
 
 function GastoDialog({ fecha, open, onOpenChange }: { fecha?: string; open: boolean; onOpenChange: (o: boolean) => void }) {
   const { hacer, pendiente } = useHacer();
-  const vacio = { fecha: fecha ?? hoyIso(), categoria: "", descripcion: "", proveedor: "", importe: "", medio: "Efectivo" as MedioDental, comprobante: "" };
+  const vacio = { fecha: fecha ?? hoyIso(), categoria: "", descripcion: "", proveedor: "", importe: "", medio: "Efectivo", comprobante: "" };
   const [d, setD] = useState(vacio);
   const guardar = async () => {
     const ok = await hacer("/gastos", { ...d, fecha: fecha ?? d.fecha, importe: aNumero(d.importe), proveedor: d.proveedor || null, comprobante: d.comprobante || null }, "Gasto registrado");
@@ -521,7 +521,7 @@ function GastoDialog({ fecha, open, onOpenChange }: { fecha?: string; open: bool
                 <SelectValue placeholder="Elegí" />
               </SelectTrigger>
               <SelectContent>
-                {CATEGORIAS_GASTO.map((c) => (
+                {categoriasGasto().map((c) => (
                   <SelectItem key={c} value={c}>
                     {c}
                   </SelectItem>
@@ -553,12 +553,12 @@ function GastoDialog({ fecha, open, onOpenChange }: { fecha?: string; open: bool
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="gasto-medio">Cómo se pagó</Label>
-            <Select value={d.medio} onValueChange={(v) => setD({ ...d, medio: v as MedioDental })}>
+            <Select value={d.medio} onValueChange={(v) => setD({ ...d, medio: v })}>
               <SelectTrigger id="gasto-medio" className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {MEDIOS_DENTAL.map((m) => (
+                {mediosCaja().map((m) => (
                   <SelectItem key={m} value={m}>
                     {m}
                   </SelectItem>

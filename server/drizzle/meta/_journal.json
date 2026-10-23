@@ -288,6 +288,13 @@
       "when": 1791900571057,
       "tag": "0040_buscador_de_contactos",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1792768231636,
+      "tag": "0041_control_diario",
+      "breakpoints": true
     }
   ]
 }

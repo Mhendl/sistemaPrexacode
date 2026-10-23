@@ -12,6 +12,7 @@ import { notFound, parse } from "../lib/errors.js";
 import { DIAS_PRUEBA, estadoDe, limitesDe, obtenerSuscripcion, PLAN_IDS, precioUsd, sumarDias, type Periodo, type PlanId } from "../lib/suscripcion.js";
 import { adminDe } from "./admin.js";
 import { aplicarPago } from "./suscripcion.js";
+import { revisarSalud } from "../lib/salud.js";
 
 const idSchema = z.object({ id: z.string().uuid("Id inválido") });
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -59,6 +60,9 @@ export const plataformaRoutes: FastifyPluginAsync = async (app) => {
   };
 
   const pagosAprobados = () => app.db.select().from(pagosSuscripcion).where(eq(pagosSuscripcion.estado, "Aprobado"));
+
+  /** El control de producción, en el momento (el mismo que avisa por email a la mañana) */
+  app.get("/salud", async () => ({ problemas: await revisarSalud(app, { carpetaCopias: process.env.CARPETA_COPIAS ?? "/backups" }), revisadoEn: new Date().toISOString() }));
 
   app.get("/resumen", async () => {
     const todas = await empresasConEstado();

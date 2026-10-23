@@ -18,6 +18,8 @@ export interface Mensaje {
 /** Quien entrega los emails. En las pruebas se reemplaza por uno que los guarda en memoria. */
 export interface Cartero {
   enviar(transporte: Transporte, mensaje: Mensaje): Promise<void>;
+  /** Prueba la conexión con el servidor de correo de la plataforma (para el control diario) */
+  verificarPlataforma?(): Promise<void>;
 }
 
 /** La plataforma no tiene servidor de correo configurado: el envío se registra como simulado */
@@ -52,6 +54,15 @@ export function carteroSmtp(smtpUrlPlataforma?: string): Cartero {
       }
       try {
         await tr.sendMail({ from: m.de, replyTo: m.responderA ?? undefined, to: m.para, subject: m.asunto, html: m.html, text: m.texto });
+      } finally {
+        tr.close();
+      }
+    },
+    async verificarPlataforma() {
+      if (!smtpUrlPlataforma) throw new SinServidorPlataforma();
+      const tr = nodemailer.createTransport(smtpUrlPlataforma);
+      try {
+        await tr.verify();
       } finally {
         tr.close();
       }

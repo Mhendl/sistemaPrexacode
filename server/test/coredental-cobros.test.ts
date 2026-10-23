@@ -268,9 +268,10 @@ describe("caja diaria, gastos y liquidación", () => {
     expect(liq.json().prestaciones.map((x: { numeroAfiliado: string; codigo: string }) => `${x.numeroAfiliado} ${x.codigo}`).sort()).toEqual(["61-1 01.01", "61-2 02.08"]);
   });
 
-  it("una empresa de gestión no tiene caja de consultorio", async () => {
+  it("una empresa de gestión tiene caja diaria, pero no lo propio del consultorio", async () => {
     const { token } = await registrarEmpresa(app);
-    expect((await pedir(token)("GET", "/consultorio/caja")).statusCode).toBe(404);
+    expect((await pedir(token)("GET", "/consultorio/caja")).statusCode).toBe(200);
+    expect((await pedir(token)("GET", "/consultorio/cobros")).statusCode).toBe(404);
     expect((await pedir(token)("GET", "/presupuestos-dentales")).statusCode).toBe(404);
   });
 });
