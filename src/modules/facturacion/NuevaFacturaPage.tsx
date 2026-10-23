@@ -146,7 +146,7 @@ export function NuevaFacturaPage() {
 
       <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div className="flex min-w-0 flex-col gap-6">
-          <Card className="shadow-none">
+          <Card className="shadow-none" data-guia="datos-comprobante">
             <CardHeader>
               <CardTitle>Datos del comprobante</CardTitle>
             </CardHeader>
@@ -263,7 +263,7 @@ export function NuevaFacturaPage() {
           />
         </div>
 
-        <div className="min-w-0">
+        <div className="min-w-0" data-guia="vista-previa">
           <div className="mb-2 text-sm font-medium text-muted-foreground">Vista previa</div>
           <div className="rounded-xl bg-muted p-3 sm:p-5 2xl:sticky 2xl:top-20">
             <PaperFit>

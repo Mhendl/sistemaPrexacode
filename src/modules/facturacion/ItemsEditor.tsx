@@ -142,7 +142,7 @@ export function ItemsEditor({
 }) {
   const { renglones, totales, cambiar } = editor;
   return (
-    <Card className="gap-0 pb-0 shadow-none">
+    <Card className="gap-0 pb-0 shadow-none" data-guia="items">
       <CardHeader className="pb-4">
         <CardTitle>Ítems</CardTitle>
       </CardHeader>

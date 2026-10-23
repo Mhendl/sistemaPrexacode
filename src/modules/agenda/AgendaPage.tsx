@@ -156,8 +156,8 @@ function Calendario({ config }: { config: ConfigAgendaApi }) {
         </Card>
       )}
 
-      <Card className="gap-0 overflow-hidden p-0 shadow-none">
-        <div className="flex flex-col gap-3 border-b p-3 lg:flex-row lg:items-center">
+      <Card className="gap-0 overflow-hidden p-0 shadow-none" data-guia="agenda">
+        <div className="flex flex-col gap-3 border-b p-3 lg:flex-row lg:items-center" data-guia="agenda-barra">
           <div className="flex items-center gap-1">
             <Button variant="outline" size="icon-sm" onClick={() => mover(-1)} aria-label="Anterior">
               <ChevronLeft className="size-4" />

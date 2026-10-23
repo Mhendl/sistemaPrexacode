@@ -1,0 +1,59 @@
+/* La guía visual con los colores del sistema (claro y oscuro) */
+.driver-popover.guia-pop {
+  background: var(--popover);
+  color: var(--popover-foreground);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  max-width: min(380px, calc(100vw - 32px));
+  padding: 16px 18px;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.18);
+  font-family: inherit;
+}
+.guia-pop .driver-popover-title {
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 1.3;
+}
+.guia-pop .driver-popover-description {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--muted-foreground);
+}
+.guia-pop .driver-popover-description b {
+  color: var(--popover-foreground);
+  font-weight: 600;
+}
+.guia-pop .driver-popover-progress-text {
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+.guia-pop .driver-popover-footer button {
+  background: transparent;
+  color: var(--popover-foreground);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 13px;
+  text-shadow: none;
+  font-family: inherit;
+}
+.guia-pop .driver-popover-footer .driver-popover-next-btn {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+}
+.guia-pop .driver-popover-close-btn {
+  color: var(--muted-foreground);
+}
+.guia-pop .driver-popover-arrow-side-left.driver-popover-arrow {
+  border-left-color: var(--popover);
+}
+.guia-pop .driver-popover-arrow-side-right.driver-popover-arrow {
+  border-right-color: var(--popover);
+}
+.guia-pop .driver-popover-arrow-side-top.driver-popover-arrow {
+  border-top-color: var(--popover);
+}
+.guia-pop .driver-popover-arrow-side-bottom.driver-popover-arrow {
+  border-bottom-color: var(--popover);
+}

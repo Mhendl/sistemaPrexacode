@@ -14,7 +14,7 @@ export function SidebarNav({ collapsed = false, onNavigate }: SidebarNavProps) {
   const sections = sectionsFor(acceso);
 
   return (
-    <nav className="flex flex-col gap-5">
+    <nav className="flex flex-col gap-5" data-guia="menu">
       {sections.map((section) => (
         <div key={section.title}>
           {collapsed ? (

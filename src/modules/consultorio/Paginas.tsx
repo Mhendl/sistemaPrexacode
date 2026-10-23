@@ -337,7 +337,7 @@ export function CajaPage() {
           )
         }
       />
-      <div className="mb-5 flex flex-wrap items-center gap-2">
+      <div className="mb-5 flex flex-wrap items-center gap-2" data-guia="caja-dia">
         <Button variant="outline" size="icon-sm" onClick={() => setFecha((f) => sumarDias(f, -1))} aria-label="Día anterior">
           <ChevronLeft className="size-4" />
         </Button>
@@ -351,7 +351,7 @@ export function CajaPage() {
         {c && (
           <div className="grid gap-6">
             {!c.caja ? (
-              <Card className="flex-row flex-wrap items-end justify-between gap-4 p-5 shadow-none">
+              <Card className="flex-row flex-wrap items-end justify-between gap-4 p-5 shadow-none" data-guia="caja-estado">
                 <div>
                   <div className="font-medium">La caja de este día no se abrió</div>
                   <p className="text-sm text-muted-foreground">Abrila con el efectivo que hay al empezar el día. Los cobros se registran igual aunque no esté abierta.</p>
@@ -369,7 +369,7 @@ export function CajaPage() {
                 )}
               </Card>
             ) : (
-              <Card className={cn("flex-row flex-wrap items-center justify-between gap-4 p-5 shadow-none", cerrada && "border-success/40 bg-success/5")} data-testid="estado-caja">
+              <Card className={cn("flex-row flex-wrap items-center justify-between gap-4 p-5 shadow-none", cerrada && "border-success/40 bg-success/5")} data-testid="estado-caja" data-guia="caja-estado">
                 <div className="text-sm">
                   <div className="font-medium">{cerrada ? "Caja cerrada" : "Caja abierta"}</div>
                   <div className="text-muted-foreground">
@@ -403,7 +403,7 @@ export function CajaPage() {
               <KpiCard label="Salió en el día" value={formatMoney(c.totalEgresos)} icon={Wallet} tone={c.totalEgresos ? "warning" : "default"} hint="Gastos" />
             </div>
 
-            <Card className="gap-0 overflow-hidden pb-0 shadow-none">
+            <Card className="gap-0 overflow-hidden pb-0 shadow-none" data-guia="caja-medios">
               <CardHeader className="pb-3">
                 <CardTitle>Por medio de pago</CardTitle>
               </CardHeader>
@@ -437,7 +437,7 @@ export function CajaPage() {
             </Card>
 
             {movimientos.length > 0 && (
-              <Card className="gap-0 overflow-hidden pb-0 shadow-none">
+              <Card className="gap-0 overflow-hidden pb-0 shadow-none" data-guia="caja-movimientos">
                 <CardHeader className="pb-3">
                   <CardTitle>Movimientos</CardTitle>
                 </CardHeader>
@@ -741,7 +741,7 @@ export function LiquidacionPage() {
           )
         }
       />
-      <div className="mb-5 flex flex-wrap items-end gap-3">
+      <div className="mb-5 flex flex-wrap items-end gap-3" data-guia="liq-filtros">
         <div className="grid gap-1.5">
           <Label htmlFor="liq-obra">Obra social</Label>
           <Select value={obraId} onValueChange={setObraId}>
