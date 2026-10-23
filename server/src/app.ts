@@ -4,6 +4,7 @@ import { aplicarPrecios, PLAN_IDS, PLANES, preciosVigentes, type PreciosGuardado
 import { facturacionPropiaRoutes } from "./routes/facturacionPropia.js";
 import { buzonImap, tickProspeccion, type Buzon } from "./lib/prospeccion.js";
 import { rastreadorGoogle, type Rastreador } from "./lib/buscador.js";
+import { anotarActividad, guardarActividad, type BufferActividad } from "./lib/actividad.js";
 import { prospeccionAdminRoutes, prospeccionPublicaRoutes } from "./routes/prospeccion.js";
 import { interesadosAdminRoutes, interesadosPublicosRoutes } from "./routes/interesados.js";
 import { bajaCampanasRoutes, campanasRoutes } from "./routes/campanas.js";
@@ -72,6 +73,8 @@ declare module "fastify" {
     buzon: Buzon;
     /** Buscador de contactos (Google Places + la web de cada negocio); en pruebas, uno falso */
     rastreador: Rastreador;
+    /** Actividad de los usuarios todavía sin guardar (ver lib/actividad.ts) */
+    actividad: BufferActividad;
     cifrador: Cifrador;
     /** URL pública de la web, para los links que reciben los clientes */
     appUrl: string;
@@ -141,6 +144,14 @@ export async function buildApp({ db, jwtSecret, logger = false, conectorArca, ca
   app.decorate("cartero", cartero ?? carteroSmtp(smtpUrl));
   app.decorate("buzon", buzon ?? buzonImap());
   app.decorate("rastreador", rastreador ?? rastreadorGoogle(googlePlacesKey));
+  app.decorate("actividad", new Map() as BufferActividad);
+  app.addHook("onResponse", async (req, reply) => anotarActividad(req, reply));
+  const guardarCadaMinuto = setInterval(() => void guardarActividad(app), 60_000);
+  guardarCadaMinuto.unref();
+  app.addHook("onClose", async () => {
+    clearInterval(guardarCadaMinuto);
+    await guardarActividad(app);
+  });
   app.decorate("cifrador", crearCifrador(secretsKey ?? `${jwtSecret}:secretos`));
   app.decorate("appUrl", appUrl);
   app.decorate("urlDe", (producto: string | null | undefined) => (productoDe(producto) === "dental" ? (appUrlDental ?? appUrl) : appUrl));

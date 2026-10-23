@@ -6,6 +6,17 @@ import type { EstadoSus } from "./api";
 export const nombreEstado: Record<EstadoSus, string> = { Prueba: "Prueba gratis", Activa: "Activa", Gracia: "Vencida (en gracia)", SoloLectura: "Solo lectura" };
 export const nombrePlan: Record<string, string> = { basico: "Básico", profesional: "Profesional", empresa: "Empresa" };
 export const usd = (n: number) => `USD ${n.toLocaleString("es-AR", { maximumFractionDigits: 2 })}`;
+/** "hoy", "ayer", "hace 5 días", "hace 2 meses" */
+export function haceCuanto(iso: string | null) {
+  if (!iso) return "nunca";
+  const dias = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+  const hoy = new Date().toDateString() === new Date(iso).toDateString();
+  if (hoy) return "hoy";
+  if (dias <= 1) return "ayer";
+  if (dias < 45) return `hace ${dias} días`;
+  return `hace ${Math.round(dias / 30)} meses`;
+}
+
 export const fechaHora = (iso: string) => new Date(iso).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
 export function EstadoEmpresa({ estado, suspendida, baja }: { estado: EstadoSus; suspendida?: boolean; baja?: boolean }) {

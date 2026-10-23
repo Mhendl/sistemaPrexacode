@@ -386,9 +386,17 @@ test("una empresa real de punta a punta: todo cierra en todos los módulos", asy
     const fila = duenio.getByRole("row", { name: /Distribuidora Andina S\.R\.L\./ });
     await expect(fila).toContainText("Activa");
     await expect(fila).toContainText("3 / 5"); // usuarios activos del plan Profesional
+    // Se ve cuánto la usan: hoy, con cambios
+    await expect(fila.getByTestId("actividad-empresa-lista")).toContainText("hoy");
+    await expect(fila.getByTestId("actividad-empresa-lista")).toContainText(/1 de 7 días · \d+ cambios/);
     await fila.click();
     await expect(duenio.getByTestId("pago-empresa").first()).toContainText("Aprobado");
     await expect(duenio.getByTestId("actividad-empresa")).toContainText("5 comprobantes");
+    // Cuánto la usan y qué cargaron, por usuario
+    await expect(duenio.getByTestId("uso-empresa")).toContainText("1 de 30 días con actividad");
+    await expect(duenio.getByTestId("cargado-30")).toContainText(/Comprobantes: [1-9]/);
+    await expect(duenio.getByTestId("cargado-30")).toContainText(/Clientes: [1-9]/);
+    await expect(duenio.getByTestId("actividad-usuario").first()).toContainText("activo hoy");
     await duenio.close();
   });
 

@@ -4,7 +4,8 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { QueryState } from "@/components/shared/QueryState";
 import { formatCuit, formatDate, formatMoney } from "@/lib/format";
 import { useEmpresasAdmin, type EmpresaAdmin } from "./api";
-import { EstadoEmpresa, fechaHora, nombreEstado, nombrePlan, usd } from "./comun";
+import { cn } from "@/lib/utils";
+import { EstadoEmpresa, fechaHora, haceCuanto, nombreEstado, nombrePlan, usd } from "./comun";
 
 const columnas: Column<EmpresaAdmin>[] = [
   {
@@ -58,7 +59,20 @@ const columnas: Column<EmpresaAdmin>[] = [
   { key: "vence", header: "Vence", sortValue: (e) => e.vence, hideBelow: "md", cell: (e) => <span className="whitespace-nowrap">{formatDate(e.vence)} <span className="text-xs text-muted-foreground">({e.diasRestantes} d)</span></span> },
   { key: "uso", header: "Facturó este mes", align: "right", sortValue: (e) => e.facturadoMes, hideBelow: "lg", cell: (e) => <span className="tabular whitespace-nowrap">{formatMoney(e.facturadoMes)}</span> },
   { key: "pagado", header: "Nos pagó", align: "right", sortValue: (e) => e.pagadoTotal, hideBelow: "md", cell: (e) => <span className="tabular whitespace-nowrap">{formatMoney(e.pagadoTotal)}</span> },
-  { key: "acceso", header: "Último acceso", sortValue: (e) => e.ultimoAcceso ?? "", hideBelow: "lg", cell: (e) => <span className="text-xs text-muted-foreground">{e.ultimoAcceso ? fechaHora(e.ultimoAcceso) : "nunca"}</span> },
+  {
+    key: "actividad",
+    header: "Actividad",
+    sortValue: (e) => e.ultimaActividad ?? "",
+    hideBelow: "md",
+    cell: (e) => (
+      <span className="block whitespace-nowrap text-xs" title={e.ultimaActividad ? `Última vez: ${fechaHora(e.ultimaActividad)}` : "Nadie usó el sistema todavía"} data-testid="actividad-empresa-lista">
+        <span className={cn("font-medium", !e.ultimaActividad ? "text-muted-foreground" : e.diasActivos7 >= 3 ? "text-success" : e.diasActivos7 === 0 ? "text-warning-ink" : "")}>{haceCuanto(e.ultimaActividad)}</span>
+        <span className="block text-muted-foreground">
+          {e.diasActivos7} de 7 días{e.cambios7 > 0 && ` · ${e.cambios7} cambios`}
+        </span>
+      </span>
+    ),
+  },
 ];
 
 export function AdminEmpresas() {

@@ -295,6 +295,13 @@
       "when": 1792768231636,
       "tag": "0041_control_diario",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1792783688846,
+      "tag": "0042_actividad_usuarios",
+      "breakpoints": true
     }
   ]
 }

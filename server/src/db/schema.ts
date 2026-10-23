@@ -1772,3 +1772,27 @@ export const plataformaConfig = pgTable("plataforma_config", {
   saludRevisada: text("salud_revisada"),
   version: integer("version").notNull().default(1),
 });
+
+/* ---------------------------------------------------------------- Actividad de los usuarios */
+
+/** Cuánto usó el sistema cada usuario cada día (un total por día, no cada click): para ver desde el panel quién lo usa */
+export const actividadUsuarios = pgTable(
+  "actividad_usuarios",
+  {
+    usuarioId: uuid("usuario_id")
+      .notNull()
+      .references(() => usuarios.id, { onDelete: "cascade" }),
+    empresaId: uuid("empresa_id")
+      .notNull()
+      .references(() => empresas.id, { onDelete: "cascade" }),
+    /** Día de Argentina (AAAA-MM-DD) */
+    fecha: text("fecha").notNull(),
+    /** Pedidos al sistema (sin contar los automáticos, como revisar avisos) */
+    pedidos: integer("pedidos").notNull().default(0),
+    /** De esos, los que cargaron o cambiaron algo */
+    cambios: integer("cambios").notNull().default(0),
+    ultimaVez: timestamp("ultima_vez", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.usuarioId, t.fecha] }), index("actividad_empresa_idx").on(t.empresaId, t.fecha)],
+);
+

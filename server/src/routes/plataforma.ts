@@ -3,7 +3,8 @@ import { randomBytes } from "node:crypto";
 import { and, count, desc, eq, gte, inArray, max, sql } from "drizzle-orm";
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { aceptacionesTerminos, auditoriaPlataforma, clientes, comprobantes, empresas, pagosSuscripcion, productos, solicitudesLegales, suscripciones, ticketMensajes, tickets, usuarios } from "../db/schema.js";
+import { aceptacionesTerminos, actividadUsuarios, auditoriaPlataforma, cargosPaciente, clientes, comprobantes, empresas, eventos, evoluciones, pacientes, pagosPaciente, pagosSuscripcion, presupuestos, productos, recibos, remitos, solicitudesLegales, suscripciones, ticketMensajes, tickets, usuarios } from "../db/schema.js";
+import { guardarActividad } from "../lib/actividad.js";
 import { notificarUsuario } from "../lib/notificaciones.js";
 import { avisarPorEmail, mensajesDe } from "./soporte.js";
 import { requirePlataforma } from "../lib/auth.js";
@@ -119,8 +120,10 @@ export const plataformaRoutes: FastifyPluginAsync = async (app) => {
     const todas = await empresasConEstado();
     const ids = todas.map((x) => x.e.id);
     if (!ids.length) return [];
+    await guardarActividad(app);
     const mes = hoyAr().slice(0, 7);
-    const [usos, admins, comps, pagos, nClientes] = await Promise.all([
+    const hace7 = sumarDias(hoyAr(), -6);
+    const [usos, admins, comps, pagos, nClientes, actividades] = await Promise.all([
       app.db
         .select({
           empresaId: usuarios.empresaId,
@@ -147,8 +150,19 @@ export const plataformaRoutes: FastifyPluginAsync = async (app) => {
         .where(and(inArray(pagosSuscripcion.empresaId, ids), eq(pagosSuscripcion.estado, "Aprobado")))
         .groupBy(pagosSuscripcion.empresaId),
       app.db.select({ empresaId: clientes.empresaId, n: count() }).from(clientes).where(inArray(clientes.empresaId, ids)).groupBy(clientes.empresaId),
+      app.db
+        .select({
+          empresaId: actividadUsuarios.empresaId,
+          ultima: max(actividadUsuarios.ultimaVez),
+          dias7: sql<number>`count(distinct ${actividadUsuarios.fecha}) filter (where ${actividadUsuarios.fecha} >= ${hace7})::int`,
+          cambios7: sql<number>`coalesce(sum(${actividadUsuarios.cambios}) filter (where ${actividadUsuarios.fecha} >= ${hace7}), 0)::int`,
+        })
+        .from(actividadUsuarios)
+        .where(inArray(actividadUsuarios.empresaId, ids))
+        .groupBy(actividadUsuarios.empresaId),
     ]);
     const uso = new Map(usos.map((u) => [u.empresaId, u]));
+    const act = new Map(actividades.map((a) => [a.empresaId, a]));
     const admin = new Map<string, { email: string; nombre: string }>();
     for (const a of admins) if (!admin.has(a.empresaId)) admin.set(a.empresaId, a);
     const comp = new Map(comps.map((c) => [c.empresaId, c]));
@@ -171,6 +185,10 @@ export const plataformaRoutes: FastifyPluginAsync = async (app) => {
       usuariosActivos: uso.get(x.e.id)?.activos ?? 0,
       limiteUsuarios: limitesDe(x.s).usuarios,
       ultimoAcceso: uso.get(x.e.id)?.ultimoAcceso ?? null,
+      // Actividad: la última vez que alguien usó el sistema, en cuántos de los últimos 7 días y cuántas cosas cargó o cambió
+      ultimaActividad: act.get(x.e.id)?.ultima ?? uso.get(x.e.id)?.ultimoAcceso ?? null,
+      diasActivos7: Number(act.get(x.e.id)?.dias7 ?? 0),
+      cambios7: Number(act.get(x.e.id)?.cambios7 ?? 0),
       sesionesPisadas: Number(uso.get(x.e.id)?.sesionesPisadas ?? 0),
       comprobantes: Number(comp.get(x.e.id)?.n ?? 0),
       facturadoMes: r2(Number(comp.get(x.e.id)?.facturadoMes ?? 0)),
@@ -182,11 +200,63 @@ export const plataformaRoutes: FastifyPluginAsync = async (app) => {
     }));
   });
 
+  /** La actividad de una empresa: por usuario (7 y 30 días), día por día (30 días) y lo que cargó en 30 días */
+  async function actividadDe(empresaId: string) {
+    const hoy = hoyAr();
+    const hace7 = sumarDias(hoy, -6);
+    const hace30 = sumarDias(hoy, -29);
+    const desde30 = new Date(Date.now() - 30 * 86_400_000);
+    const filas = await app.db.select().from(actividadUsuarios).where(and(eq(actividadUsuarios.empresaId, empresaId), gte(actividadUsuarios.fecha, hace30)));
+    const porUsuario = new Map<string, { ultimaActividad: Date | null; dias7: number; dias30: number; cambios7: number; cambios30: number }>();
+    for (const f of filas) {
+      const u = porUsuario.get(f.usuarioId) ?? { ultimaActividad: null, dias7: 0, dias30: 0, cambios7: 0, cambios30: 0 };
+      if (!u.ultimaActividad || f.ultimaVez > u.ultimaActividad) u.ultimaActividad = f.ultimaVez;
+      u.dias30++;
+      u.cambios30 += f.cambios;
+      if (f.fecha >= hace7) {
+        u.dias7++;
+        u.cambios7 += f.cambios;
+      }
+      porUsuario.set(f.usuarioId, u);
+    }
+    const dias = Array.from({ length: 30 }, (_, i) => sumarDias(hace30, i)).map((fecha) => {
+      const delDia = filas.filter((f) => f.fecha === fecha);
+      return { fecha, usuarios: delDia.length, pedidos: delDia.reduce((a, f) => a + f.pedidos, 0), cambios: delDia.reduce((a, f) => a + f.cambios, 0) };
+    });
+    const contar = async (tabla: typeof clientes | typeof productos | typeof comprobantes | typeof recibos | typeof presupuestos | typeof remitos | typeof eventos | typeof pacientes | typeof evoluciones | typeof cargosPaciente | typeof pagosPaciente) => {
+      const [r] = await app.db.select({ n: count() }).from(tabla).where(and(eq(tabla.empresaId, empresaId), gte(tabla.createdAt, desde30)));
+      return Number(r?.n ?? 0);
+    };
+    const producto = await productoDeEmpresa(app.db, empresaId);
+    const cargado30 =
+      producto === "dental"
+        ? [
+            { que: "Pacientes", n: await contar(pacientes) },
+            { que: "Turnos", n: await contar(eventos) },
+            { que: "Evoluciones en historias clínicas", n: await contar(evoluciones) },
+            { que: "Prestaciones cargadas", n: await contar(cargosPaciente) },
+            { que: "Pagos de pacientes", n: await contar(pagosPaciente) },
+            { que: "Comprobantes", n: await contar(comprobantes) },
+          ]
+        : [
+            { que: "Clientes", n: await contar(clientes) },
+            { que: "Productos", n: await contar(productos) },
+            { que: "Comprobantes", n: await contar(comprobantes) },
+            { que: "Recibos", n: await contar(recibos) },
+            { que: "Presupuestos", n: await contar(presupuestos) },
+            { que: "Remitos", n: await contar(remitos) },
+            { que: "Agenda", n: await contar(eventos) },
+          ];
+    return { porUsuario, dias, cargado30 };
+  }
+
   app.get("/empresas/:id", async (req) => {
     const { id } = parse(idSchema, req.params);
     const [e] = await app.db.select().from(empresas).where(eq(empresas.id, id));
     if (!e) throw notFound("Empresa no encontrada");
     const s = await obtenerSuscripcion(app.db, id);
+    await guardarActividad(app);
+    const actividadUso = await actividadDe(id);
     const [us, pagos, acept, auditoria, solicitudes, comps, [nCli], [nProd], soporte] = await Promise.all([
       app.db.select({ id: usuarios.id, nombre: usuarios.nombre, email: usuarios.email, rol: usuarios.rol, estado: usuarios.estado, ultimoAcceso: usuarios.ultimoAcceso, sesionesPisadas: usuarios.sesionesPisadas, createdAt: usuarios.createdAt }).from(usuarios).where(eq(usuarios.empresaId, id)),
       app.db.select().from(pagosSuscripcion).where(eq(pagosSuscripcion.empresaId, id)).orderBy(desc(pagosSuscripcion.createdAt)),
@@ -211,7 +281,8 @@ export const plataformaRoutes: FastifyPluginAsync = async (app) => {
       suscripcion: { ...s, ...estadoDe(s), planNombre: nombrePlan(e.producto, s.plan), limites: limitesDe(s) },
       uso: { usuariosActivos: us.filter((u) => u.estado === "Activo").length, clientes: Number(nCli?.n ?? 0), productos: Number(nProd?.n ?? 0), actividad },
       pagadoTotal: r2(aprobados.reduce((a, p) => a + p.importeArs, 0)),
-      usuarios: us,
+      usuarios: us.map((u) => ({ ...u, ...(actividadUso.porUsuario.get(u.id) ?? { ultimaActividad: u.ultimoAcceso, dias7: 0, dias30: 0, cambios7: 0, cambios30: 0 }) })),
+      actividadUso: { dias: actividadUso.dias, cargado30: actividadUso.cargado30 },
       pagos: pagos.map(({ urlPago: _u, ...p }) => p),
       aceptaciones: acept,
       auditoria,

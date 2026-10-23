@@ -103,6 +103,10 @@ export interface EmpresaAdmin {
   usuariosActivos: number;
   limiteUsuarios: number;
   ultimoAcceso: string | null;
+  /** La última vez que alguien de la empresa usó el sistema, en cuántos de los últimos 7 días y cuántas cosas cargó o cambió */
+  ultimaActividad: string | null;
+  diasActivos7: number;
+  cambios7: number;
   /** Veces que un dispositivo siguió usando una sesión ya abierta en otro: posible usuario compartido */
   sesionesPisadas: number;
   comprobantes: number;
@@ -136,7 +140,9 @@ export interface EmpresaAdminDetalle {
   };
   uso: { usuariosActivos: number; clientes: number; productos: number; actividad: { clave: string; etiqueta: string; comprobantes: number; facturado: number }[] };
   pagadoTotal: number;
-  usuarios: { id: string; nombre: string; email: string; rol: string; estado: string; ultimoAcceso: string | null; sesionesPisadas: number; createdAt: string }[];
+  usuarios: { id: string; nombre: string; email: string; rol: string; estado: string; ultimoAcceso: string | null; sesionesPisadas: number; createdAt: string; ultimaActividad: string | null; dias7: number; dias30: number; cambios7: number; cambios30: number }[];
+  /** Día por día (últimos 30) y lo que cargó en ese tiempo */
+  actividadUso: { dias: { fecha: string; usuarios: number; pedidos: number; cambios: number }[]; cargado30: { que: string; n: number }[] };
   pagos: (PagoSuscripcionApi & { tipo: string; aprobadoAt: string | null })[];
   aceptaciones: { id: string; version: string; ip: string | null; userAgent: string | null; aceptadoEn: string }[];
   auditoria: AuditoriaAdmin[];

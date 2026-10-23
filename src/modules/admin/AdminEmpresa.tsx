@@ -14,9 +14,10 @@ import { QueryState } from "@/components/shared/QueryState";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { formatCuit, formatDate, formatMoney, formatMoneyShort } from "@/lib/format";
 import { aNumero } from "@/lib/numeros";
+import { cn } from "@/lib/utils";
 import { useAccionAdmin, useEmpresaAdmin } from "./api";
 import { detalleAccion, nombreAccion } from "./AdminAuditoria";
-import { BarrasMes, EstadoEmpresa, fechaHora, nombrePlan, usuariosTxt } from "./comun";
+import { BarrasMes, EstadoEmpresa, fechaHora, haceCuanto, nombrePlan, usuariosTxt } from "./comun";
 
 const nombreProveedor: Record<string, string> = { mercadopago: "Mercado Pago", simulado: "Simulado", manual: "Manual" };
 
@@ -214,6 +215,34 @@ export function AdminEmpresa() {
               </Card>
             </div>
 
+            <Card className="shadow-none" data-testid="uso-empresa">
+              <CardHeader>
+                <CardTitle>Cuánto usan el sistema (últimos 30 días)</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-5">
+                <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
+                  <span>
+                    <b className="text-lg tabular-nums">{d.actividadUso.dias.filter((x) => x.usuarios > 0).length}</b> de 30 días con actividad
+                  </span>
+                  <span>
+                    <b className="text-lg tabular-nums">{d.actividadUso.dias.slice(-7).filter((x) => x.usuarios > 0).length}</b> de los últimos 7
+                  </span>
+                  <span>
+                    <b className="text-lg tabular-nums">{d.actividadUso.dias.reduce((a, x) => a + x.cambios, 0)}</b> cosas cargadas o cambiadas
+                  </span>
+                </div>
+                <BarrasMes alto={160} datos={d.actividadUso.dias.map((x) => ({ etiqueta: x.fecha.slice(8, 10) + "/" + x.fecha.slice(5, 7), valor: x.pedidos }))} />
+                <div className="flex flex-wrap gap-2 text-sm" data-testid="cargado-30">
+                  {d.actividadUso.cargado30.map((c) => (
+                    <span key={c.que} className={cn("rounded-full border px-3 py-1", c.n === 0 && "text-muted-foreground")}>
+                      {c.que}: <b className="tabular-nums">{c.n}</b>
+                    </span>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">Las barras son las veces por día que usaron el sistema (abrir pantallas, buscar, cargar). Abajo, lo que cargaron en estos 30 días.</p>
+              </CardContent>
+            </Card>
+
             <Card className="shadow-none" data-testid="actividad-empresa">
               <CardHeader>
                 <CardTitle>Lo que facturó la empresa (últimos 12 meses)</CardTitle>
@@ -238,7 +267,9 @@ export function AdminEmpresa() {
                           ¿compartido? {u.sesionesPisadas} {u.sesionesPisadas === 1 ? "vez" : "veces"}
                         </span>
                       )}
-                      {u.ultimoAcceso ? fechaHora(u.ultimoAcceso) : "nunca entró"}
+                      <span title={u.ultimaActividad ? `Última vez: ${fechaHora(u.ultimaActividad)}` : undefined} data-testid="actividad-usuario">
+                        {u.ultimaActividad ? `activo ${haceCuanto(u.ultimaActividad)}` : "nunca entró"} · {u.dias7} de 7 días · {u.cambios30} cambios en 30 días
+                      </span>
                     </span>
                   </li>
                 ))}
