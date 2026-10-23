@@ -475,7 +475,7 @@ export const PLANTILLAS: Record<"dental" | "gestion", { dias: number; asunto: st
       dias: 0,
       asunto: "Facturación y stock de {empresa}",
       cuerpo:
-        "Hola {nombre},\n\nVi {empresa} en {ciudad} y te escribo corto: armé Prexacode, un sistema de gestión hecho en Argentina para comercios y PyMEs. Facturás con ARCA en segundos desde la compu o el celular, el stock se descuenta solo con cada venta y al final del día ves cuánto entró en la caja. Si además vendés en cuenta corriente, te muestra quién te debe y desde cuándo.\n\nLo mirás acá y, si te gusta, creás tu cuenta en 2 minutos y ya lo estás usando: 14 días gratis, sin tarjeta y sin tener que hablar con nadie. {link}\n\nSi te surge alguna duda, respondeme este email.\n\nSaludos,\n{firma}",
+        "Hola {nombre},\n\nVi {empresa} en {ciudad} y te escribo corto: armé Prexacode, un sistema de gestión hecho en Argentina para comercios y PyMEs. Facturás con ARCA en segundos desde la compu o el celular, el stock se descuenta solo con cada venta y en los reportes ves cuánto vendiste cada día y cada mes. Si además vendés en cuenta corriente, te muestra quién te debe y desde cuándo.\n\nLo mirás acá y, si te gusta, creás tu cuenta en 2 minutos y ya lo estás usando: 14 días gratis, sin tarjeta y sin tener que hablar con nadie. {link}\n\nSi te surge alguna duda, respondeme este email.\n\nSaludos,\n{firma}",
     },
     {
       dias: 3,
@@ -487,7 +487,7 @@ export const PLANTILLAS: Record<"dental" | "gestion", { dias: number; asunto: st
       dias: 5,
       asunto: "",
       cuerpo:
-        "Hola {nombre}, este es mi último email, no quiero llenarte la casilla.\n\nSi en algún momento querés tener la facturación, el stock y la caja en un solo lugar, lo probás 14 días gratis: {link}\n\nY si me contestás con una línea a qué se dedica {empresa}, te digo con sinceridad si te sirve o no.\n\n¡Gracias por leer!\n{firma}",
+        "Hola {nombre}, este es mi último email, no quiero llenarte la casilla.\n\nSi en algún momento querés tener la facturación, el stock y las cobranzas en un solo lugar, lo probás 14 días gratis: {link}\n\nY si me contestás con una línea a qué se dedica {empresa}, te digo con sinceridad si te sirve o no.\n\n¡Gracias por leer!\n{firma}",
     },
   ],
 };
