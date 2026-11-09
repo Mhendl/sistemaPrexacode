@@ -31,6 +31,8 @@ export function buzonImap(): Buzon {
   return {
     async leer(c, desde) {
       const cliente = new ImapFlow({ host: c.host, port: c.puerto, secure: c.puerto === 993, auth: { user: c.usuario, pass: c.password }, logger: false, socketTimeout: 30_000 });
+      // Un corte de la conexión no puede tirar abajo el servidor: el error queda en la lectura y se reintenta en la próxima vuelta
+      cliente.on("error", () => {});
       await cliente.connect();
       const out: Respuesta[] = [];
       const lock = await cliente.getMailboxLock("INBOX");
@@ -292,7 +294,7 @@ export function esFallaDeRed(e: unknown) {
   const err = e as { code?: string; message?: string };
   return (
     ["EAI_AGAIN", "ENOTFOUND", "ETIMEDOUT", "ECONNRESET", "ECONNREFUSED", "EHOSTUNREACH", "ENETUNREACH", "ECONNECTION", "ESOCKET", "ETIMEOUT", "EDNS"].includes(err.code ?? "") ||
-    /EAI_AGAIN|ENOTFOUND|ETIMEDOUT|ECONNRESET|ECONNREFUSED|EHOSTUNREACH|ENETUNREACH|socket hang up|timed? ?out/i.test(err.message ?? "")
+    /EAI_AGAIN|ENOTFOUND|ETIMEDOUT|ECONNRESET|ECONNREFUSED|EHOSTUNREACH|ENETUNREACH|socket hang up|timed? ?out|Command failed|Connection not available|Unexpected close/i.test(err.message ?? "")
   );
 }
 

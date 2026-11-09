@@ -414,6 +414,12 @@ describe("prospección de punta a punta", () => {
     expect(await tickProspeccion(app, mas(lunes, 180))).toBe("enviado");
     expect(correo.enviados.at(-1)!.mensaje.para).toBe("red3@pyme.com");
 
+    // Un "Command failed" de Hostinger (corte momentáneo del IMAP) tampoco pausa
+    buzon.estado.falla = new Error("Command failed");
+    expect(await tickProspeccion(app, mas(lunes, 190))).toBe("error-red");
+    expect((await api("GET", "/config")).json()).toMatchObject({ activa: true });
+    buzon.estado.falla = false;
+
     // Si la casilla no se puede leer por más de 2 horas, se pausa y avisa
     buzon.estado.falla = Object.assign(new Error("getaddrinfo EAI_AGAIN imap.hostinger.com"), { code: "EAI_AGAIN" });
     expect(await tickProspeccion(app, mas(lunes, 200))).toBe("error-red");
