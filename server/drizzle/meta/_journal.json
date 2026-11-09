@@ -302,6 +302,13 @@
       "when": 1792783688846,
       "tag": "0042_actividad_usuarios",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1794240745348,
+      "tag": "0043_fines_de_semana",
+      "breakpoints": true
     }
   ]
 }

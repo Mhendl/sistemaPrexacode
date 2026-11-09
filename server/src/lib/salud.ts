@@ -12,6 +12,7 @@ import { adminsPlataforma, configArca, plataformaConfig, prospeccionCampanas, pr
 import { SinServidorPlataforma } from "./email/cartero.js";
 import { enviarDePlataforma } from "./email/plataforma.js";
 import { configPlataforma } from "./facturacionPropia.js";
+import { REBOTE_MAXIMO, rebotesSemana } from "./prospeccion.js";
 import { ahoraAr } from "./turnos.js";
 
 export interface Opciones {
@@ -60,6 +61,14 @@ export async function revisarSalud(app: FastifyInstance, opciones: Opciones = {}
         .innerJoin(prospeccionCampanas, eq(prospeccionCampanas.id, prospectos.campanaId))
         .where(and(inArray(prospectos.estado, ["Pendiente", "En curso"]), eq(prospeccionCampanas.activa, true), eq(prospeccionCampanas.producto, c.producto), lte(prospectos.proximoEnvio, ahora)));
       if (Number(porMandar) > 0) problemas.push({ que: `La casilla ${c.remitenteEmail} no mandó ningún email hoy`, detalle: `Tiene ${porMandar} contactos esperando. Puede ser un problema de la casilla o del servidor.` });
+    }
+  }
+
+  // 2 bis) Muchos rebotes en la última semana: daña la reputación de la casilla (los emails empiezan a ir a spam)
+  for (const c of casillas.filter((x) => x.activa)) {
+    const r = await rebotesSemana(app, c, ahora);
+    if (r.proporcion > REBOTE_MAXIMO) {
+      problemas.push({ que: `Rebotan muchos emails de ${c.remitenteEmail}`, detalle: `${r.rebotes} de ${r.primeros} en la última semana (${Math.round(r.proporcion * 100)} %). El envío deja de subir hasta que baje: conviene revisar la lista de la que vienen.` });
     }
   }
 

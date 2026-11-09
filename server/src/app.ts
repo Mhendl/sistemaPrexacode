@@ -322,7 +322,7 @@ export async function buildApp({ db, jwtSecret, logger = false, conectorArca, ca
     const primera = setTimeout(correr, 60_000);
     const cadaHora = setInterval(correr, 60 * 60_000);
     // Prospección: una vuelta cada 5 minutos (manda como mucho un email por vuelta)
-    const prospeccion = setInterval(() => tickProspeccion(app).catch((e) => app.log.error(e, "Falló la prospección")), 5 * 60_000);
+    const prospeccion = setInterval(() => tickProspeccion(app).catch((e) => app.log.error(e, "Falló la prospección")), 2 * 60_000);
     primera.unref();
     cadaHora.unref();
     prospeccion.unref();

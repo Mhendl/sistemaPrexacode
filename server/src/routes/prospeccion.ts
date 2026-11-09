@@ -4,7 +4,7 @@ import { z } from "zod";
 import { empresas, interesados, prospeccionBusquedas, prospeccionCampanas, prospeccionConfig, prospeccionEnvios, prospectos, usuarios } from "../db/schema.js";
 import { requirePlataforma } from "../lib/auth.js";
 import { badRequest, conflict, notFound, parse } from "../lib/errors.js";
-import { configProspeccion, enviarProspeccion, nuevoToken, PLANTILLAS, registrarVisita, topeDelDia, type ProductoCasilla } from "../lib/prospeccion.js";
+import { configProspeccion, enviarProspeccion, nuevoToken, PLANTILLAS, registrarVisita, topeDeHoy, type ProductoCasilla } from "../lib/prospeccion.js";
 import { ahoraAr } from "../lib/turnos.js";
 import { ejecutarBusqueda, MAX_CONSULTAS, PEDIDOS_POR_MES, pedidosDelMes, ultimasBusquedas } from "../lib/buscador.js";
 
@@ -32,6 +32,7 @@ const configSchema = z
     maxPorDia: z.coerce.number().int().min(5, "Entre 5 y 80 por día").max(80, "Entre 5 y 80 por día: más que eso desde una casilla común termina en spam"),
     horaDesde: z.coerce.number().int().min(6).max(22),
     horaHasta: z.coerce.number().int().min(7).max(23),
+    finesDeSemana: z.boolean().default(false),
   })
   .refine((c) => c.horaHasta > c.horaDesde, { message: "El horario está invertido", path: ["horaHasta"] });
 
@@ -75,7 +76,7 @@ export const prospeccionAdminRoutes: FastifyPluginAsync = async (app) => {
       .select({ n: sql<number>`count(*)::int` })
       .from(prospeccionEnvios)
       .where(and(eq(prospeccionEnvios.casillaId, c.id), eq(prospeccionEnvios.estado, "Enviado"), gte(prospeccionEnvios.enviadoEn, new Date(`${hoy}T03:00:00Z`))));
-    return { ...resto, tienePassword: !!passwordCifrada, enviadosHoy: Number(n), topeHoy: topeDelDia(c.maxPorDia, c.primerEnvioEn) };
+    return { ...resto, tienePassword: !!passwordCifrada, enviadosHoy: Number(n), topeHoy: await topeDeHoy(app, c) };
   };
 
   app.get("/config", async (req) => publica(casillaDe(req.query)));

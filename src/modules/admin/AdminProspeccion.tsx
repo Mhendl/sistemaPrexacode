@@ -33,6 +33,7 @@ interface ConfigApi {
   maxPorDia: number;
   horaDesde: number;
   horaHasta: number;
+  finesDeSemana: boolean;
   activa: boolean;
   ultimoError: string | null;
   tienePassword: boolean;
@@ -165,15 +166,17 @@ function Casilla({ producto }: { producto: Producto }) {
   const accion = useAccionAdmin();
   const [d, setD] = useState<Record<string, string>>({});
   const [password, setPassword] = useState("");
+  const [finde, setFinde] = useState(false);
   const [prueba, setPrueba] = useState<{ smtp: string; imap: string } | null>(null);
   const [probando, setProbando] = useState(false);
   useEffect(() => {
     if (c) setD({ remitenteEmail: c.remitenteEmail ?? "", remitenteNombre: c.remitenteNombre ?? "", usuario: c.usuario ?? "", smtpHost: c.smtpHost, smtpPuerto: String(c.smtpPuerto), imapHost: c.imapHost, imapPuerto: String(c.imapPuerto), maxPorDia: String(c.maxPorDia), horaDesde: String(c.horaDesde), horaHasta: String(c.horaHasta) });
+    if (c) setFinde(c.finesDeSemana);
   }, [c]);
 
   const guardar = async () => {
     try {
-      await accion.mutateAsync({ url: `/plataforma/prospeccion/config${q}`, body: { ...d, password: password || null } });
+      await accion.mutateAsync({ url: `/plataforma/prospeccion/config${q}`, body: { ...d, finesDeSemana: finde, password: password || null } });
       setPassword("");
       toast.success("Casilla guardada");
     } catch (e) {
@@ -220,7 +223,7 @@ function Casilla({ producto }: { producto: Producto }) {
                 ) : (
                   <span>● Pausado</span>
                 )}{" "}
-                · hoy {c.enviadosHoy} de {c.topeHoy} (arranca en 10 por día y sube de a 2 hasta {c.maxPorDia}) · lunes a viernes de {c.horaDesde} a {c.horaHasta} hs
+                · hoy {c.enviadosHoy} de {c.topeHoy} (sube de a poco hasta {c.maxPorDia}: como mucho 5 más que el mejor día de la semana, y no sube si rebotan muchos) · {c.finesDeSemana ? "todos los días" : "lunes a viernes"} de {c.horaDesde} a {c.horaHasta} hs
                 {c.imapRevisadoEn && ` · respuestas revisadas ${fechaHora(c.imapRevisadoEn)}`}
               </p>
             </div>
@@ -252,6 +255,10 @@ function Casilla({ producto }: { producto: Producto }) {
               {campo("horaDesde", "Desde (hora)", { inputMode: "numeric" })}
               {campo("horaHasta", "Hasta (hora)", { inputMode: "numeric" })}
             </div>
+            <label className="flex items-center gap-2 text-sm sm:col-span-2">
+              <input type="checkbox" className="size-4 accent-primary" checked={finde} onChange={(e) => setFinde(e.target.checked)} aria-label={`También sábados y domingos (${marca})`} />
+              También sábados y domingos
+            </label>
           </div>
           <details className="text-sm">
             <summary className="cursor-pointer text-muted-foreground">Servidores (ya vienen los de Hostinger)</summary>
@@ -627,12 +634,16 @@ function CampanaDialog({ open, onOpenChange, campana }: { open: boolean; onOpenC
   const [nombre, setNombre] = useState("");
   const [producto, setProducto] = useState<Producto>("dental");
   const [pasos, setPasos] = useState<Paso[]>([]);
+  // Al abrir se carga la campaña (o una vacía); los emails sugeridos llegan cuando terminan de cargar, sin pisar lo que ya se escribió
   useEffect(() => {
     if (!open) return;
     setNombre(campana?.nombre ?? "");
     setProducto(campana?.producto ?? "dental");
-    setPasos(campana?.pasos ?? plantillas.data?.dental ?? []);
-  }, [open, campana, plantillas.data]);
+    setPasos(campana?.pasos ?? []);
+  }, [open, campana]);
+  useEffect(() => {
+    if (open && !campana && plantillas.data) setPasos((p) => (p.length ? p : plantillas.data[producto]));
+  }, [open, campana, plantillas.data, producto]);
 
   /** Al cambiar de producto se cargan sus emails; si se habían editado a mano, se pregunta antes de reemplazarlos */
   const cambiarProducto = (p: Producto) => {

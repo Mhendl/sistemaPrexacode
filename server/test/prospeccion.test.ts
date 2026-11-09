@@ -44,6 +44,7 @@ describe("prospección: reglas", () => {
     expect(enHorario(9, 18, LUNES_10)).toBe(true);
     expect(enHorario(9, 18, new Date("2026-10-05T22:00:00Z"))).toBe(false); // 19 hs
     expect(enHorario(9, 18, new Date("2026-10-03T13:00:00Z"))).toBe(false); // sábado
+    expect(enHorario(9, 18, new Date("2026-10-03T13:00:00Z"), true)).toBe(true); // sábado, si se eligió el fin de semana
     expect(sumarDiasHabiles(new Date("2026-10-09T13:00:00Z"), 1).toISOString().slice(0, 10)).toBe("2026-10-12"); // viernes + 1 = lunes
   });
 });
@@ -427,5 +428,37 @@ describe("prospección de punta a punta", () => {
     buzon.estado.falla = false;
     expect((await api("GET", "/config")).json()).toMatchObject({ activa: false, ultimoError: "No se pudo leer la casilla: getaddrinfo EAI_AGAIN imap.hostinger.com" });
     await api("POST", "/config/activa", { activa: true });
+  });
+
+  it("más volumen de a poco: sube como mucho 5 por día sobre el mejor día de la semana, el fin de semana si se elige, y no sube si rebota mucho", async () => {
+    bandeja.length = 0;
+    const plantillas = (await api("GET", "/plantillas")).json();
+    for (const c of (await api("GET", "/campanas")).json()) await api("PUT", `/campanas/${c.id}`, { nombre: c.nombre, producto: c.producto, pasos: c.pasos, activa: false });
+    const id = (await api("POST", "/campanas", { nombre: "Volumen pymes", producto: "gestion", pasos: plantillas.gestion })).json().id;
+    await api("POST", `/campanas/${id}/importar`, { confirmar: true, filas: Array.from({ length: 60 }, (_, i) => ({ email: `vol${i}@pyme${i}.com` })) });
+    const cfg = (await api("GET", "/config")).json();
+    expect((await api("POST", "/config", { ...cfg, password: null, maxPorDia: 80, finesDeSemana: true })).statusCode).toBe(200);
+    await api("POST", "/config/activa", { activa: true });
+    const tope = async (cuando: Date) => {
+      // (el tope del panel es el de "ahora": acá se mide con lo enviado por día)
+      let n = 0;
+      for (let i = 0; i < 100 && (await tickProspeccion(app, mas(cuando, i * 6))) !== "tope-del-dia"; i++) n++;
+      return n;
+    };
+    // Un sábado, con el fin de semana elegido, manda; el mejor día anterior era bajo: tope = ese + 5 (con piso de 10)
+    const sabado = enSemanas("2026-12-19T12:00:00Z");
+    const s1 = await tope(sabado);
+    expect(s1).toBeGreaterThanOrEqual(10);
+    const domingo = enSemanas("2026-12-20T12:00:00Z");
+    expect(await tope(domingo)).toBeLessThanOrEqual(s1 + 5);
+    // Con muchos rebotes en la semana, no sube
+    const { prospectos } = await import("../src/db/schema.js");
+    const { sql } = await import("drizzle-orm");
+    await app.db.update(prospectos).set({ estado: "Rebotó", ultimoEnvio: enSemanas("2026-12-20T15:00:00Z") }).where(sql`${prospectos.email} like 'vol%' and ${prospectos.estado} <> 'Pendiente'`);
+    await api("POST", `/campanas/${id}/importar`, { confirmar: true, filas: Array.from({ length: 40 }, (_, i) => ({ email: `mas${i}@pyme${i}.com` })) });
+    const lunes = enSemanas("2026-12-21T12:00:00Z");
+    const mejor = Math.max(s1, await Promise.resolve(0));
+    expect(await tope(lunes)).toBeLessThanOrEqual(Math.max(mejor, s1 + 5));
+    await api("POST", "/config", { ...cfg, password: null, maxPorDia: 30, finesDeSemana: false });
   });
 });

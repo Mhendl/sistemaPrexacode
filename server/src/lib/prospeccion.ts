@@ -7,7 +7,7 @@
  *  - cada email con su link de baja; los rebotes y las respuestas "BAJA" se detectan solos leyendo la casilla (IMAP)
  */
 import { randomBytes } from "node:crypto";
-import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lt, lte, sql } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { ImapFlow } from "imapflow";
 import { simpleParser } from "mailparser";
@@ -84,12 +84,55 @@ export function topeDelDia(max: number, primerEnvio: Date | null, ahora = new Da
   return Math.min(max, 10 + 2 * Math.max(0, dias));
 }
 
-/** ¿Es horario de envío? (lunes a viernes, entre las horas configuradas, hora de Argentina) */
-export function enHorario(horaDesde: number, horaHasta: number, ahora = new Date()) {
+/** ¿Es horario de envío? (entre las horas configuradas, hora de Argentina; de lunes a viernes salvo que se elija también el fin de semana) */
+export function enHorario(horaDesde: number, horaHasta: number, ahora = new Date(), finesDeSemana = false) {
   const ar = new Date(ahora.getTime() - 3 * 3600_000);
   const dia = ar.getUTCDay();
   const hora = ar.getUTCHours() + ar.getUTCMinutes() / 60;
-  return dia !== 0 && dia !== 6 && hora >= horaDesde && hora < horaHasta;
+  return (finesDeSemana || (dia !== 0 && dia !== 6)) && hora >= horaDesde && hora < horaHasta;
+}
+
+/** Cuánto puede subir por día el envío respecto del mejor día de la última semana (subir de golpe es lo que manda a spam) */
+const SUBA_DIARIA = 5;
+/** Si rebota más que esto en la última semana, no sube (y el control diario avisa) */
+export const REBOTE_MAXIMO = 0.05;
+
+/** Rebotes de la última semana de una casilla: proporción sobre los primeros emails mandados */
+export async function rebotesSemana(app: FastifyInstance, c: Config, ahora = new Date()) {
+  const desde = new Date(ahora.getTime() - 7 * 86_400_000);
+  const productos = await productosDeCasilla(app, c);
+  const [{ primeros }] = await app.db
+    .select({ primeros: sql<number>`count(*)::int` })
+    .from(prospeccionEnvios)
+    .where(and(eq(prospeccionEnvios.casillaId, c.id), eq(prospeccionEnvios.estado, "Enviado"), eq(prospeccionEnvios.paso, 0), gte(prospeccionEnvios.enviadoEn, desde)));
+  const [{ rebotes }] = await app.db
+    .select({ rebotes: sql<number>`count(*)::int` })
+    .from(prospectos)
+    .innerJoin(prospeccionCampanas, eq(prospeccionCampanas.id, prospectos.campanaId))
+    .where(and(eq(prospectos.estado, "Rebotó"), inArray(prospeccionCampanas.producto, productos), gte(prospectos.ultimoEnvio, desde)));
+  return { primeros: Number(primeros), rebotes: Number(rebotes), proporcion: Number(primeros) >= 20 ? Number(rebotes) / Number(primeros) : 0 };
+}
+
+/**
+ * El tope de hoy de una casilla: el calentamiento inicial, sin pasar el máximo configurado, y como mucho
+ * SUBA_DIARIA por encima del mejor día de la última semana (si rebota mucho, no sube nada).
+ */
+export async function topeDeHoy(app: FastifyInstance, c: Config, ahora = new Date()) {
+  const rampa = topeDelDia(c.maxPorDia, c.primerEnvioEn, ahora);
+  const hoy = ahoraAr(ahora.getTime()).slice(0, 10);
+  const [{ mejor }] = await app.db
+    .select({ mejor: sql<number>`coalesce(max(n), 0)::int` })
+    .from(
+      app.db
+        .select({ n: sql<number>`count(*)`.as("n") })
+        .from(prospeccionEnvios)
+        .where(and(eq(prospeccionEnvios.casillaId, c.id), eq(prospeccionEnvios.estado, "Enviado"), gte(prospeccionEnvios.enviadoEn, new Date(ahora.getTime() - 8 * 86_400_000)), lt(prospeccionEnvios.enviadoEn, new Date(`${hoy}T03:00:00Z`))))
+        .groupBy(sql`(${prospeccionEnvios.enviadoEn} at time zone 'America/Argentina/Buenos_Aires')::date`)
+        .as("dias"),
+    );
+  const { proporcion } = await rebotesSemana(app, c, ahora);
+  const suba = proporcion > REBOTE_MAXIMO ? 0 : SUBA_DIARIA;
+  return Math.min(rampa, Math.max(10, Number(mejor) + suba));
 }
 
 const LANDING = { dental: "https://coredental.com.ar", gestion: "https://productos.prexacode.com" } as const;
@@ -151,6 +194,11 @@ const lista = (c: Config) => !!c.passwordCifrada && !!c.remitenteEmail;
  * De qué casilla sale cada producto. CoreDental usa la suya si está configurada; si no, la de Prexacode
  * (así nada se frena mientras se prepara el dominio nuevo).
  */
+/** Los productos cuyas campañas salen de esta casilla */
+export async function productosDeCasilla(app: FastifyInstance, c: Config) {
+  return (await casillasEnUso(app)).find((x) => x.c.id === c.id)?.productos ?? [c.producto];
+}
+
 export async function casillasEnUso(app: FastifyInstance) {
   const gestion = await configProspeccion(app, "gestion");
   const dental = await configProspeccion(app, "dental");
@@ -324,8 +372,8 @@ async function tickCasilla(app: FastifyInstance, c: Config, productos: string[],
     }
   }
 
-  if (!enHorario(c.horaDesde, c.horaHasta, ahora)) return "fuera-de-horario";
-  const tope = topeDelDia(c.maxPorDia, c.primerEnvioEn, ahora);
+  if (!enHorario(c.horaDesde, c.horaHasta, ahora, c.finesDeSemana)) return "fuera-de-horario";
+  const tope = await topeDeHoy(app, c, ahora);
   const hoy = ahoraAr(ahora.getTime()).slice(0, 10);
   const inicioDia = new Date(`${hoy}T03:00:00Z`);
   const [{ n }] = await app.db

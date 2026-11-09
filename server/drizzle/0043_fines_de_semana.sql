@@ -1,0 +1,1 @@
+ALTER TABLE "prospeccion_config" ADD COLUMN "fines_de_semana" boolean DEFAULT false NOT NULL;

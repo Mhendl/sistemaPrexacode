@@ -1658,6 +1658,8 @@ export const prospeccionConfig = pgTable("prospeccion_config", {
   /** Horario de envío (hora de Argentina, de lunes a viernes) */
   horaDesde: integer("hora_desde").notNull().default(9),
   horaHasta: integer("hora_hasta").notNull().default(18),
+  /** También sábados y domingos (si no, de lunes a viernes) */
+  finesDeSemana: boolean("fines_de_semana").notNull().default(false),
   activa: boolean("activa").notNull().default(false),
   /** Último error (ej.: contraseña incorrecta): pausa el envío */
   ultimoError: text("ultimo_error"),
