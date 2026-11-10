@@ -40,3 +40,9 @@ export function formatCuit(value: string): string {
   if (digits.length !== 11) return value;
   return `${digits.slice(0, 2)}-${digits.slice(2, 10)}-${digits.slice(10)}`;
 }
+
+/** Cómo saludar a alguien: su primer nombre, con el título si lo puso ("Dra. Laura Pérez" → "Dra. Laura") */
+export function nombreParaSaludo(nombre: string) {
+  const partes = nombre.trim().split(/\s+/);
+  return /^(dr|dra|lic|ing|sr|sra|od|prof)\.?$/i.test(partes[0] ?? "") && partes[1] ? `${partes[0]} ${partes[1]}` : (partes[0] ?? "");
+}

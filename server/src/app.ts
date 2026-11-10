@@ -73,6 +73,8 @@ declare module "fastify" {
     buzon: Buzon;
     /** Buscador de contactos (Google Places + la web de cada negocio); en pruebas, uno falso */
     rastreador: Rastreador;
+    /** ¿El dominio recibe correo? Para no escribirle a emails que van a rebotar (en las pruebas no se consulta) */
+    dominioRecibeCorreo?: (dominio: string) => Promise<boolean>;
     /** Actividad de los usuarios todavía sin guardar (ver lib/actividad.ts) */
     actividad: BufferActividad;
     cifrador: Cifrador;
@@ -127,6 +129,7 @@ export interface AppOptions {
   /** Buscador de contactos de Prospección (si no, Google Places con googlePlacesKey) */
   rastreador?: Rastreador;
   googlePlacesKey?: string;
+  dominioRecibeCorreo?: (dominio: string) => Promise<boolean>;
   /** Carpeta con la web compilada (dist/): si viene, la API también sirve la web (una sola pieza para desplegar) */
   web?: string;
   /** Detrás de un proxy (nginx, Caddy, la plataforma de hosting): toma la IP real del cliente */
@@ -135,7 +138,7 @@ export interface AppOptions {
   tareas?: boolean;
 }
 
-export async function buildApp({ db, jwtSecret, logger = false, conectorArca, cartero, appUrl = "http://localhost:5173", appUrlDental, medicion, smtpUrl, emailRemitente = "notificaciones@prexacode.com.ar", secretsKey, arca = {}, pagos, cotizacion, mpWebhookSecret, urlApi, modoPruebas = false, adminInicial, limitarIntentos = true, produccion = false, web, trustProxy = false, tareas = false, buzon, rastreador, googlePlacesKey }: AppOptions) {
+export async function buildApp({ db, jwtSecret, logger = false, conectorArca, cartero, appUrl = "http://localhost:5173", appUrlDental, medicion, smtpUrl, emailRemitente = "notificaciones@prexacode.com.ar", secretsKey, arca = {}, pagos, cotizacion, mpWebhookSecret, urlApi, modoPruebas = false, adminInicial, limitarIntentos = true, produccion = false, web, trustProxy = false, tareas = false, buzon, rastreador, googlePlacesKey, dominioRecibeCorreo }: AppOptions) {
   // Al apagar, cortar también las conexiones keep-alive activas (si no, close() puede esperar indefinidamente)
   const app = Fastify({ logger, forceCloseConnections: true, trustProxy, bodyLimit: 5 * 1024 * 1024 });
 
@@ -144,6 +147,7 @@ export async function buildApp({ db, jwtSecret, logger = false, conectorArca, ca
   app.decorate("cartero", cartero ?? carteroSmtp(smtpUrl));
   app.decorate("buzon", buzon ?? buzonImap());
   app.decorate("rastreador", rastreador ?? rastreadorGoogle(googlePlacesKey));
+  app.decorate("dominioRecibeCorreo", dominioRecibeCorreo);
   app.decorate("actividad", new Map() as BufferActividad);
   app.addHook("onResponse", async (req, reply) => anotarActividad(req, reply));
   const guardarCadaMinuto = setInterval(() => void guardarActividad(app), 60_000);

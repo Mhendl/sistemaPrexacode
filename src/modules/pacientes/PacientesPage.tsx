@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Contact, Plus } from "lucide-react";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { DataTable, type Column } from "@/components/shared/DataTable";
@@ -68,9 +68,14 @@ export function PacientesPage() {
             <div className="text-lg font-semibold">Todavía no cargaste pacientes</div>
             <p className="max-w-sm text-sm text-muted-foreground">Cargá tu primer paciente, o dale un turno a alguien nuevo desde Turnos y se da de alta solo.</p>
             <Si permiso="pacientes.editar">
-              <Button onClick={() => setNuevo(true)}>
-                <Plus className="size-4" /> Cargar el primero
-              </Button>
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button onClick={() => setNuevo(true)}>
+                  <Plus className="size-4" /> Cargar el primero
+                </Button>
+                <Button variant="outline" asChild>
+                  <Link to="/importar-exportar">Importarlos desde Excel</Link>
+                </Button>
+              </div>
             </Si>
           </Card>
         ) : (

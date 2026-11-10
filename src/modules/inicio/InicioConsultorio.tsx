@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Si, useRole } from "@/context/AuthProvider";
-import { formatMoneyShort } from "@/lib/format";
+import { nombreParaSaludo, formatMoneyShort } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { EstadoEvento } from "@/api/types";
 
@@ -33,7 +33,7 @@ function PrimerosPasos({ pasos }: { pasos: InicioConsultorioApi["primerosPasos"]
   const { puede, esAdmin } = useRole();
   const lista = [
     { hecho: pasos.logo, titulo: "Completá los datos del consultorio y subí el logo", link: "/configuracion?tab=empresa", ok: puede("configuracion") },
-    { hecho: pasos.pacientes, titulo: "Cargá tu primer paciente", link: "/pacientes", ok: puede("pacientes.editar") },
+    { hecho: pasos.pacientes, titulo: "Cargá tu primer paciente (o importalos desde Excel)", link: "/pacientes", ok: puede("pacientes.editar") },
     { hecho: pasos.turno, titulo: "Dale un turno", link: "/agenda", ok: puede("agenda.editar") },
     { hecho: pasos.equipo, titulo: "Sumá a tu equipo (profesionales y recepción)", link: "/configuracion?tab=usuarios", ok: esAdmin },
   ].filter((p) => p.ok);
@@ -74,7 +74,7 @@ export function InicioConsultorio() {
   return (
     <>
       <PageHeader
-        title={`Hola, ${usuario.nombre.split(" ")[0]}`}
+        title={`Hola, ${nombreParaSaludo(usuario.nombre)}`}
         description={fechaLarga()}
         actions={
           <>

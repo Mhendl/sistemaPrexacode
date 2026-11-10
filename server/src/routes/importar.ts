@@ -1,11 +1,14 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { FastifyPluginAsync } from "fastify";
 import { z, ZodError, type ZodTypeAny } from "zod";
-import { clientes, movimientosStock, productos } from "../db/schema.js";
+import { clientes, movimientosStock, obrasSociales, pacientes, productos } from "../db/schema.js";
 import { requirePermiso } from "../lib/auth.js";
 import { badRequest, parse } from "../lib/errors.js";
 import { clienteInputSchema } from "../lib/validation.js";
 import { productoSchema } from "./productos.js";
+import { pacienteSchema } from "./pacientes.js";
+import { productoDeEmpresa } from "../lib/productos.js";
+import { notFound } from "../lib/errors.js";
 
 export const MAX_FILAS = 5000;
 
@@ -69,8 +72,104 @@ const r3 = (n: number) => Math.round(n * 1000) / 1000;
 /** CUIT del archivo, solo dígitos (para buscar el cliente existente) */
 const cuitDe = (v: unknown) => (typeof v === "string" || typeof v === "number" ? String(v).replace(/\D/g, "") || null : null);
 
+/** Paciente del archivo: la obra social viene por nombre (si no existe, se crea) */
+const importarPacienteSchema = pacienteSchema.omit({ obraSocialId: true, recibeCampanas: true }).extend({
+  obraSocial: z
+    .union([z.string().trim().max(100, "Nombre de obra social demasiado largo"), z.null()])
+    .optional()
+    .transform((v) => v || null),
+});
+type PacienteImportado = z.infer<typeof importarPacienteSchema>;
+const sinAcentos = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+const claveNombre = (apellido: string, nombre: string) => `${sinAcentos(apellido)}|${sinAcentos(nombre)}`;
+const SIN_COBERTURA = /^(particular|sin (obra social|cobertura)|no tiene|ninguna|-+)$/i;
+
+/** "Pérez, Juan" o "PEREZ JUAN CARLOS" → apellido y nombre (si la planilla los trae en una sola columna) */
+function separarNombre(f: Record<string, unknown>): Record<string, unknown> {
+  const completo = typeof f.nombreCompleto === "string" ? f.nombreCompleto.trim() : "";
+  const { nombreCompleto: _n, ...resto } = f;
+  if (!completo || resto.apellido) return resto;
+  const [a, ...n] = completo.includes(",") ? completo.split(",") : completo.split(/\s+/);
+  return { ...resto, apellido: a!.trim(), nombre: n.join(" ").trim() };
+}
+
 export const importarRoutes: FastifyPluginAsync = async (app) => {
   const opciones = { bodyLimit: 15 * 1024 * 1024 };
+
+  /** Pacientes (CoreDental): se identifican por DNI; los que no tienen, por apellido y nombre */
+  app.post("/pacientes", { ...opciones, preHandler: requirePermiso("pacientes.editar") }, async (req) => {
+    const { filas, siExiste, simular } = parse(pedidoSchema, req.body);
+    const empresaId = req.user.empresaId;
+    if ((await productoDeEmpresa(app.db, empresaId)) !== "dental") throw notFound("Esta sección es de CoreDental");
+    const errores: ErrorFila[] = [];
+
+    const existentes = await app.db.select().from(pacientes).where(eq(pacientes.empresaId, empresaId));
+    const porDni = new Map(existentes.filter((p) => p.dni).map((p) => [p.dni!, p]));
+    const porNombre = new Map(existentes.map((p) => [claveNombre(p.apellido, p.nombre), p]));
+    const dniDe = (v: unknown) => (typeof v === "string" || typeof v === "number" ? String(v).replace(/\D/g, "") : "");
+    /** El paciente ya cargado que corresponde a la fila: por DNI; sin DNI (o si el cargado no lo tiene), por apellido y nombre */
+    const previoDe = (f: { dni?: unknown; apellido?: unknown; nombre?: unknown }) => {
+      const dni = dniDe(f.dni);
+      if (dni && porDni.has(dni)) return porDni.get(dni)!;
+      const p = porNombre.get(claveNombre(String(f.apellido ?? ""), String(f.nombre ?? "")));
+      return p && (!dni || !p.dni) ? p : undefined;
+    };
+
+    let validas: { i: number; datos: PacienteImportado }[] = [];
+    filas.forEach((cruda, i) => {
+      const f = separarNombre(cruda);
+      const previo = siExiste === "actualizar" ? previoDe(f) : undefined;
+      // Para actualizar alcanza con identificar al paciente y las columnas a cambiar: lo que no viene queda como estaba
+      const base = previo
+        ? { nombre: previo.nombre, apellido: previo.apellido, dni: previo.dni, fechaNacimiento: previo.fechaNacimiento, sexo: previo.sexo, telefono: previo.telefono, email: previo.email, domicilio: previo.domicilio, localidad: previo.localidad, plan: previo.plan, numeroAfiliado: previo.numeroAfiliado, alergias: previo.alergias, medicacion: previo.medicacion, antecedentes: previo.antecedentes, intervenciones: previo.intervenciones, notas: previo.notas, estado: previo.estado }
+        : {};
+      const r = validar(importarPacienteSchema, { ...base, ...f });
+      if (r.ok) validas.push({ i, datos: r.datos });
+      else errores.push({ fila: filaExcel(i), errores: r.errores });
+    });
+    validas = marcarRepetidos(validas, (d) => (d.dni ? `d:${d.dni}` : `n:${claveNombre(d.apellido, d.nombre)}`), "dni", errores);
+
+    const nuevos = validas.filter((v) => !previoDe(v.datos));
+    const repetidos = validas.filter((v) => previoDe(v.datos));
+    const resumen: Resumen = {
+      total: filas.length,
+      crear: nuevos.length,
+      actualizar: siExiste === "actualizar" ? repetidos.length : 0,
+      omitir: siExiste === "omitir" ? repetidos.length : 0,
+      errores: errores.sort((a, b) => a.fila - b.fila),
+      aplicado: false,
+    };
+    if (simular) return resumen;
+
+    await app.db.transaction(async (tx) => {
+      // Las obras sociales del archivo que todavía no están se crean
+      const obras = await tx.select({ id: obrasSociales.id, nombre: obrasSociales.nombre }).from(obrasSociales).where(eq(obrasSociales.empresaId, empresaId));
+      const obraPorNombre = new Map(obras.map((o) => [sinAcentos(o.nombre), o.id]));
+      const aGuardar = siExiste === "actualizar" ? validas : nuevos;
+      for (const { datos } of aGuardar) {
+        const nombre = datos.obraSocial?.trim();
+        if (!nombre || SIN_COBERTURA.test(nombre) || obraPorNombre.has(sinAcentos(nombre))) continue;
+        const [o] = await tx.insert(obrasSociales).values({ empresaId, nombre }).returning({ id: obrasSociales.id });
+        obraPorNombre.set(sinAcentos(nombre), o!.id);
+      }
+      const fila = ({ obraSocial, ...d }: PacienteImportado) => ({ ...d, obraSocialId: obraSocial && !SIN_COBERTURA.test(obraSocial) ? (obraPorNombre.get(sinAcentos(obraSocial)) ?? null) : null });
+      for (let i = 0; i < nuevos.length; i += 500) {
+        await tx.insert(pacientes).values(nuevos.slice(i, i + 500).map((v) => ({ ...fila(v.datos), empresaId, datosPendientes: !v.datos.dni })));
+      }
+      if (siExiste === "actualizar") {
+        for (const v of repetidos) {
+          const previo = previoDe(v.datos)!;
+          const { obraSocialId, ...d } = fila(v.datos);
+          await tx
+            .update(pacientes)
+            // Si la planilla no trae la columna de obra social, la que tenía no se toca
+            .set({ ...d, ...(v.datos.obraSocial ? { obraSocialId } : {}), datosPendientes: !d.dni, version: sql`${pacientes.version} + 1` })
+            .where(and(eq(pacientes.id, previo.id), eq(pacientes.empresaId, empresaId)));
+        }
+      }
+    });
+    return { ...resumen, aplicado: true };
+  });
 
   app.post("/clientes", { ...opciones, preHandler: requirePermiso("importar.clientes") }, async (req) => {
     const { filas, siExiste, simular } = parse(pedidoSchema, req.body);

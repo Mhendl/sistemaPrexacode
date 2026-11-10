@@ -4,7 +4,7 @@ import { z } from "zod";
 import { empresas, interesados, prospeccionBusquedas, prospeccionCampanas, prospeccionConfig, prospeccionEnvios, prospectos, usuarios } from "../db/schema.js";
 import { requirePlataforma } from "../lib/auth.js";
 import { badRequest, conflict, notFound, parse } from "../lib/errors.js";
-import { configProspeccion, enviarProspeccion, nuevoToken, PLANTILLAS, registrarVisita, topeDeHoy, type ProductoCasilla } from "../lib/prospeccion.js";
+import { configProspeccion, enviarProspeccion, nuevoToken, PLANTILLAS, registrarVisita, topeDeHoy, variante, type ProductoCasilla } from "../lib/prospeccion.js";
 import { ahoraAr } from "../lib/turnos.js";
 import { ejecutarBusqueda, MAX_CONSULTAS, PEDIDOS_POR_MES, pedidosDelMes, ultimasBusquedas } from "../lib/buscador.js";
 
@@ -38,7 +38,7 @@ const configSchema = z
 
 const pasoSchema = z.object({
   dias: z.coerce.number().int().min(0).max(30),
-  asunto: z.string().trim().max(150),
+  asunto: z.string().trim().max(300),
   cuerpo: z.string().trim().min(20, "El email es muy corto").max(3000),
 });
 const campanaSchema = z.object({
@@ -161,6 +161,13 @@ export const prospeccionAdminRoutes: FastifyPluginAsync = async (app) => {
       .innerJoin(prospectos, eq(prospectos.id, prospeccionEnvios.prospectoId))
       .where(and(eq(prospeccionEnvios.estado, "Enviado"), gte(prospeccionEnvios.enviadoEn, new Date(`${hoy}T03:00:00Z`))))
       .groupBy(prospectos.campanaId);
+    // Los contactados desde que la campaña tiene más de un asunto (para compararlos)
+    const deAsuntos = await app.db
+      .select({ campanaId: prospectos.campanaId, token: prospectos.token, visitas: prospectos.visitas, registradoEn: prospectos.registradoEn })
+      .from(prospectos)
+      .innerJoin(prospeccionEnvios, and(eq(prospeccionEnvios.prospectoId, prospectos.id), eq(prospeccionEnvios.paso, 0), eq(prospeccionEnvios.estado, "Enviado"), sql`${prospeccionEnvios.asunto} not like 'Re: %'`))
+      .innerJoin(prospeccionCampanas, eq(prospeccionCampanas.id, prospectos.campanaId))
+      .where(sql`${prospeccionEnvios.enviadoEn} >= coalesce(${prospeccionCampanas.asuntosDesde}, 'infinity'::timestamptz)`);
     return lista.map((c) => {
       const de = (e: string) => Number(conteos.find((x) => x.id === c.id && x.estado === e)?.n ?? 0);
       const total = conteos.filter((x) => x.id === c.id).reduce((a, x) => a + Number(x.n), 0);
@@ -168,21 +175,33 @@ export const prospeccionAdminRoutes: FastifyPluginAsync = async (app) => {
       const n = (xs: { id: string; n: number }[]) => Number(xs.find((x) => x.id === c.id)?.n ?? 0);
       // Por mandar: los que todavía no recibieron ningún email (no cuenta a los que esperan el recordatorio)
       const sinEmail = conteos.filter((x) => x.id === c.id && x.estado === "Pendiente").reduce((a, x) => a + Number(x.n), 0);
-      return { ...c, total, contactados: n(contactados), porMandar: sinEmail, enviadosHoy: n(deHoy), visitaron, registrados: de("Registrado"), pendientes: de("Pendiente") + de("En curso"), respondieron: de("Respondió"), bajas: de("Baja"), rebotes: de("Rebotó"), terminados: de("Terminado"), emailsEnviados: Number(enviados.find((x) => x.id === c.id)?.n ?? 0) };
+      // Prueba de asuntos: cuántos recibieron cada opción y cuántos entraron a la página
+      const opciones = (c.pasos[0]?.asunto ?? "").split("||").map((x) => x.trim()).filter(Boolean);
+      const asuntos =
+        opciones.length > 1
+          ? opciones.map((asunto) => {
+              const suyos = deAsuntos.filter((p) => p.campanaId === c.id && variante(c.pasos[0]!.asunto, p.token) === asunto);
+              return { asunto, enviados: suyos.length, visitaron: suyos.filter((p) => p.visitas > 0).length, registrados: suyos.filter((p) => p.registradoEn).length };
+            })
+          : [];
+      return { ...c, asuntos, total, contactados: n(contactados), porMandar: sinEmail, enviadosHoy: n(deHoy), visitaron, registrados: de("Registrado"), pendientes: de("Pendiente") + de("En curso"), respondieron: de("Respondió"), bajas: de("Baja"), rebotes: de("Rebotó"), terminados: de("Terminado"), emailsEnviados: Number(enviados.find((x) => x.id === c.id)?.n ?? 0) };
     });
   });
 
   app.post("/campanas", async (req, reply) => {
     const d = parse(campanaSchema, req.body);
-    const [c] = await app.db.insert(prospeccionCampanas).values(d).returning();
+    const [c] = await app.db.insert(prospeccionCampanas).values({ ...d, asuntosDesde: new Date() }).returning();
     return reply.status(201).send(c);
   });
 
   app.put("/campanas/:id", async (req) => {
     const { id } = parse(idSchema, req.params);
     const d = parse(campanaSchema, req.body);
-    const [c] = await app.db.update(prospeccionCampanas).set(d).where(eq(prospeccionCampanas.id, id)).returning();
-    if (!c) throw notFound("Campaña no encontrada");
+    const [antes] = await app.db.select({ pasos: prospeccionCampanas.pasos }).from(prospeccionCampanas).where(eq(prospeccionCampanas.id, id));
+    if (!antes) throw notFound("Campaña no encontrada");
+    // Si cambian los asuntos del primer email, la comparación entre ellos arranca de nuevo
+    const cambiaron = (antes.pasos[0]?.asunto ?? "") !== (d.pasos[0]?.asunto ?? "");
+    const [c] = await app.db.update(prospeccionCampanas).set({ ...d, ...(cambiaron ? { asuntosDesde: new Date() } : {}) }).where(eq(prospeccionCampanas.id, id)).returning();
     return c;
   });
 

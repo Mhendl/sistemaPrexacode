@@ -5,8 +5,26 @@
 import type { ClienteApi, ProductoApi } from "@/api/types";
 import { aNumero } from "@/lib/numeros";
 
-export type Entidad = "clientes" | "productos";
-type Tipo = "texto" | "numero" | "booleano" | "condicionIva" | "estado";
+export type Entidad = "clientes" | "productos" | "pacientes";
+type Tipo = "texto" | "numero" | "booleano" | "condicionIva" | "estado" | "fecha" | "sexo";
+
+/** Un paciente tal como se exporta */
+export interface PacienteExportado {
+  apellido: string;
+  nombre: string;
+  dni: string | null;
+  fechaNacimiento: string | null;
+  sexo: string | null;
+  telefono: string | null;
+  email: string | null;
+  domicilio: string | null;
+  localidad: string | null;
+  obraSocial: string | null;
+  plan: string | null;
+  numeroAfiliado: string | null;
+  notas: string | null;
+  estado: string;
+}
 
 interface Columna {
   campo: string;
@@ -44,6 +62,27 @@ export const COLUMNAS: Record<Entidad, Columna[]> = {
     { campo: "stockMinimo", encabezado: "Stock mínimo", sinonimos: ["minimo", "stock min", "punto de pedido"], tipo: "numero", ejemplo: 50 },
     { campo: "activo", encabezado: "Activo", sinonimos: ["habilitado"], tipo: "booleano", ejemplo: "Sí" },
   ],
+  pacientes: [
+    { campo: "apellido", encabezado: "Apellido", sinonimos: ["apellidos"], tipo: "texto", obligatoria: true, ejemplo: "Pérez" },
+    { campo: "nombre", encabezado: "Nombre", sinonimos: ["nombres"], tipo: "texto", obligatoria: true, ejemplo: "Juan Carlos" },
+    { campo: "dni", encabezado: "DNI", sinonimos: ["documento", "nro documento", "numero de documento", "nro doc", "doc", "d.n.i."], tipo: "texto", ejemplo: "30123456" },
+    { campo: "fechaNacimiento", encabezado: "Fecha de nacimiento", sinonimos: ["nacimiento", "fecha nac", "fecha nacimiento", "f. nacimiento", "fec nac", "fecha de nac"], tipo: "fecha", ejemplo: "15/03/1985" },
+    { campo: "sexo", encabezado: "Sexo", sinonimos: ["genero"], tipo: "sexo", ejemplo: "M" },
+    { campo: "telefono", encabezado: "Teléfono", sinonimos: ["tel", "celular", "whatsapp", "movil", "telefono celular", "cel"], tipo: "texto", ejemplo: "11 5555-1234" },
+    { campo: "email", encabezado: "Email", sinonimos: ["e-mail", "mail", "correo", "correo electronico"], tipo: "texto", ejemplo: "juan.perez@gmail.com" },
+    { campo: "domicilio", encabezado: "Domicilio", sinonimos: ["direccion", "calle"], tipo: "texto", ejemplo: "Av. Rivadavia 1234" },
+    { campo: "localidad", encabezado: "Localidad", sinonimos: ["ciudad", "partido", "barrio"], tipo: "texto", ejemplo: "CABA" },
+    { campo: "obraSocial", encabezado: "Obra social", sinonimos: ["cobertura", "prepaga", "os", "obra social / prepaga", "obra social o prepaga"], tipo: "texto", ejemplo: "OSDE" },
+    { campo: "plan", encabezado: "Plan", sinonimos: ["plan obra social"], tipo: "texto", ejemplo: "210" },
+    { campo: "numeroAfiliado", encabezado: "N° de afiliado", sinonimos: ["nro afiliado", "numero de afiliado", "afiliado", "n afiliado", "credencial", "nro de afiliado", "numero afiliado"], tipo: "texto", ejemplo: "61-123456-01" },
+    { campo: "alergias", encabezado: "Alergias", sinonimos: ["alergia"], tipo: "texto", ejemplo: "" },
+    { campo: "medicacion", encabezado: "Medicación", sinonimos: ["medicamentos"], tipo: "texto", ejemplo: "" },
+    { campo: "antecedentes", encabezado: "Antecedentes", sinonimos: ["antecedentes medicos", "antecedentes de salud", "enfermedades"], tipo: "texto", ejemplo: "" },
+    { campo: "notas", encabezado: "Notas", sinonimos: ["observaciones", "comentarios"], tipo: "texto", ejemplo: "" },
+    { campo: "estado", encabezado: "Estado", sinonimos: [], tipo: "estado", ejemplo: "Activo" },
+    // Si la planilla trae todo junto ("Pérez, Juan"): se separa solo
+    { campo: "nombreCompleto", encabezado: "Apellido y nombre", sinonimos: ["paciente", "nombre y apellido", "nombre completo", "apellido, nombre", "apellidos y nombres"], tipo: "texto", ejemplo: "" },
+  ],
 };
 
 /** Minúsculas, sin acentos ni signos: "Condición  IVA:" → "condicion iva" */
@@ -65,6 +104,26 @@ function convertirCondicionIva(v: string): string {
   return v; // lo valida el servidor y muestra el error en la fila
 }
 
+/** "15/03/1985", "15-3-85" o "1985-03-15" → "1985-03-15" (si no se entiende, se deja como vino y el servidor marca el error) */
+function convertirFecha(v: string): string {
+  const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(v);
+  if (iso) return `${iso[1]}-${iso[2]!.padStart(2, "0")}-${iso[3]!.padStart(2, "0")}`;
+  const m = /^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2}|\d{4})$/.exec(v);
+  if (!m) return v;
+  const anio = m[3]!.length === 2 ? (Number(m[3]) > new Date().getFullYear() % 100 ? `19${m[3]}` : `20${m[3]}`) : m[3]!;
+  return `${anio}-${m[2]!.padStart(2, "0")}-${m[1]!.padStart(2, "0")}`;
+}
+/** Fecha guardada por Excel como número de serie (días desde 1900) */
+const fechaDeExcel = (n: number) => new Date(Math.round((n - 25569) * 86_400_000)).toISOString().slice(0, 10);
+
+function convertirSexo(v: string): string {
+  const n = normalizar(v);
+  if (["f", "femenino", "mujer", "fem"].includes(n)) return "F";
+  if (["m", "masculino", "hombre", "varon", "masc"].includes(n)) return "M";
+  if (["x", "otro", "no binario"].includes(n)) return "X";
+  return v;
+}
+
 function convertirBooleano(v: string): boolean | string {
   const n = normalizar(v);
   if (["si", "s", "x", "1", "true", "verdadero", "yes"].includes(n)) return true;
@@ -74,8 +133,10 @@ function convertirBooleano(v: string): boolean | string {
 
 function convertir(valor: unknown, tipo: Tipo): unknown {
   if (valor === null || valor === undefined) return undefined;
+  if (valor instanceof Date) return tipo === "fecha" ? valor.toISOString().slice(0, 10) : String(valor);
   if (typeof valor === "number") {
-    if (tipo === "texto") return String(valor);
+    if (tipo === "fecha") return valor > 1000 && valor < 80000 ? fechaDeExcel(valor) : String(valor);
+    if (tipo === "texto" || tipo === "sexo") return String(valor);
     if (tipo === "booleano") return valor !== 0;
     return valor;
   }
@@ -93,6 +154,10 @@ function convertir(valor: unknown, tipo: Tipo): unknown {
       return convertirCondicionIva(s);
     case "estado":
       return normalizar(s).startsWith("inac") ? "Inactivo" : "Activo";
+    case "fecha":
+      return convertirFecha(s);
+    case "sexo":
+      return convertirSexo(s);
     default:
       return s;
   }
@@ -110,7 +175,7 @@ export interface Mapeo {
 }
 
 /** Columna que identifica cada registro */
-const CLAVE: Record<Entidad, string> = { clientes: "cuit", productos: "codigo" };
+const CLAVE: Record<Entidad, string> = { clientes: "cuit", productos: "codigo", pacientes: "apellido" };
 
 /** Traduce las filas del archivo (claves = encabezados) a los campos que entiende la API */
 export function mapearFilas(entidad: Entidad, crudas: Record<string, unknown>[]): Mapeo {
@@ -139,7 +204,9 @@ export function mapearFilas(entidad: Entidad, crudas: Record<string, unknown>[])
     // Filas totalmente vacías (típicas al final de un Excel) no cuentan
     .filter((f) => Object.keys(f).length > 0);
 
-  const sinColumna = columnas.filter((c) => c.obligatoria && !reconocidas.some((r) => r.campo === c.campo));
+  // Pacientes: "Apellido y nombre" en una sola columna vale por las dos
+  const juntos = entidad === "pacientes" && reconocidas.some((r) => r.campo === "nombreCompleto");
+  const sinColumna = juntos ? [] : columnas.filter((c) => c.obligatoria && !reconocidas.some((r) => r.campo === c.campo));
   const faltantes = sinColumna.filter((c) => c.campo === CLAVE[entidad]).map((c) => c.encabezado);
   return { filas, reconocidas, ignoradas, faltantes, completo: sinColumna.length === 0 };
 }
@@ -169,7 +236,7 @@ export async function leerArchivo(archivo: File): Promise<Record<string, unknown
     // En CSV todo se lee como texto: los números con formato argentino se convierten después
     libro = XLSX.read(texto, { type: "string", FS: separador, raw: true });
   } else {
-    libro = XLSX.read(await archivo.arrayBuffer(), { type: "array" });
+    libro = XLSX.read(await archivo.arrayBuffer(), { type: "array", cellDates: true });
   }
   const hoja = libro.Sheets[libro.SheetNames[0]!];
   if (!hoja) throw new Error("El archivo no tiene hojas");
@@ -178,7 +245,27 @@ export async function leerArchivo(archivo: File): Promise<Record<string, unknown
 
 const siNo = (b: boolean) => (b ? "Sí" : "No");
 
-function filasExportacion(entidad: Entidad, datos: ClienteApi[] | ProductoApi[]) {
+const fechaAr = (iso: string | null) => (iso ? iso.split("-").reverse().join("/") : "");
+
+function filasExportacion(entidad: Entidad, datos: ClienteApi[] | ProductoApi[] | PacienteExportado[]) {
+  if (entidad === "pacientes") {
+    return (datos as PacienteExportado[]).map((p) => ({
+      Apellido: p.apellido,
+      Nombre: p.nombre,
+      DNI: p.dni ?? "",
+      "Fecha de nacimiento": fechaAr(p.fechaNacimiento),
+      Sexo: p.sexo ?? "",
+      Teléfono: p.telefono ?? "",
+      Email: p.email ?? "",
+      Domicilio: p.domicilio ?? "",
+      Localidad: p.localidad ?? "",
+      "Obra social": p.obraSocial ?? "",
+      Plan: p.plan ?? "",
+      "N° de afiliado": p.numeroAfiliado ?? "",
+      Notas: p.notas ?? "",
+      Estado: p.estado,
+    }));
+  }
   if (entidad === "clientes") {
     return (datos as ClienteApi[]).map((c) => ({
       "Razón social": c.razonSocial,
@@ -222,10 +309,10 @@ function descargar(contenido: BlobPart, nombre: string, tipo: string) {
 const hoy = () => new Date().toISOString().slice(0, 10);
 
 /** Exporta con las mismas columnas que la plantilla: se puede editar y volver a importar */
-export async function exportar(entidad: Entidad, datos: ClienteApi[] | ProductoApi[], formato: "xlsx" | "csv") {
+export async function exportar(entidad: Entidad, datos: ClienteApi[] | ProductoApi[] | PacienteExportado[], formato: "xlsx" | "csv") {
   const XLSX = await cargarXlsx();
   const filas = filasExportacion(entidad, datos);
-  const encabezados = COLUMNAS[entidad].map((c) => c.encabezado);
+  const encabezados = filas[0] ? Object.keys(filas[0]) : COLUMNAS[entidad].map((c) => c.encabezado);
   const hoja = XLSX.utils.json_to_sheet(filas, { header: encabezados });
   const nombre = `${entidad}-${hoy()}`;
   if (formato === "csv") {
@@ -234,14 +321,14 @@ export async function exportar(entidad: Entidad, datos: ClienteApi[] | ProductoA
     return;
   }
   const libro = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(libro, hoja, entidad === "clientes" ? "Clientes" : "Productos");
+  XLSX.utils.book_append_sheet(libro, hoja, entidad === "clientes" ? "Clientes" : entidad === "pacientes" ? "Pacientes" : "Productos");
   descargar(XLSX.write(libro, { bookType: "xlsx", type: "array" }), `${nombre}.xlsx`, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 }
 
 /** Planilla modelo con los encabezados y una fila de ejemplo */
 export async function descargarPlantilla(entidad: Entidad) {
   const XLSX = await cargarXlsx();
-  const columnas = COLUMNAS[entidad];
+  const columnas = COLUMNAS[entidad].filter((c) => c.campo !== "nombreCompleto");
   const hoja = XLSX.utils.aoa_to_sheet([columnas.map((c) => c.encabezado), columnas.map((c) => c.ejemplo)]);
   hoja["!cols"] = columnas.map((c) => ({ wch: Math.max(14, c.encabezado.length + 4) }));
   const libro = XLSX.utils.book_new();

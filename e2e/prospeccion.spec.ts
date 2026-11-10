@@ -19,7 +19,7 @@ test("prospección: se configura la casilla, se arma la campaña con la secuenci
   const nombre = `Consultorios de Rosario ${Date.now()}`;
   await page.getByRole("button", { name: "Nueva campaña" }).click();
   await page.getByLabel("Nombre (para vos)").fill(nombre);
-  await expect(page.getByLabel("Asunto del email 1")).toHaveValue("Turnos online para {empresa}");
+  await expect(page.getByLabel("Asunto del email 1")).toHaveValue(/^Turnos online para \{empresa\} \|\| /);
   await expect(page.getByLabel("Texto del email 3")).toHaveValue(/este es mi último email/);
   await page.getByRole("button", { name: "Guardar", exact: true }).click();
   await expect(page.getByText("Campaña creada: ahora importá la lista")).toBeVisible();
@@ -28,10 +28,10 @@ test("prospección: se configura la casilla, se arma la campaña con la secuenci
   const editar = page.getByTestId("campana-prospeccion").filter({ hasText: nombre });
   await editar.getByRole("button", { name: "Editar emails" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Prexacode" }).click();
-  await expect(page.getByLabel("Asunto del email 1")).toHaveValue("Facturación y stock de {empresa}");
+  await expect(page.getByLabel("Asunto del email 1")).toHaveValue(/^Facturación y stock de \{empresa\} \|\| /);
   await expect(page.getByLabel("Texto del email 1")).toHaveValue(/Prexacode/);
   await page.getByRole("dialog").getByRole("button", { name: "CoreDental" }).click();
-  await expect(page.getByLabel("Asunto del email 1")).toHaveValue("Turnos online para {empresa}");
+  await expect(page.getByLabel("Asunto del email 1")).toHaveValue(/^Turnos online para \{empresa\} \|\| /);
   await page.keyboard.press("Escape");
 
   // Lista en CSV con columnas como las escribiría cualquiera

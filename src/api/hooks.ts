@@ -235,12 +235,14 @@ export function useGuardarPreferencias() {
 export function useImportar() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ entidad, filas, siExiste, simular }: { entidad: "clientes" | "productos"; filas: Record<string, unknown>[]; siExiste: "actualizar" | "omitir"; simular: boolean }) =>
+    mutationFn: ({ entidad, filas, siExiste, simular }: { entidad: "clientes" | "productos" | "pacientes"; filas: Record<string, unknown>[]; siExiste: "actualizar" | "omitir"; simular: boolean }) =>
       api<ResumenImportacion>(`/importar/${entidad}`, { method: "POST", body: { filas, siExiste, simular } }),
     onSuccess: (r, v) => {
       if (!r.aplicado) return;
       qc.invalidateQueries({ queryKey: [v.entidad] });
       qc.invalidateQueries({ queryKey: ["movimientos"] });
+      qc.invalidateQueries({ queryKey: ["obras-sociales"] });
+      qc.invalidateQueries({ queryKey: ["inicio"] });
     },
   });
 }

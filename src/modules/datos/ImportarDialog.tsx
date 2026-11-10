@@ -12,6 +12,7 @@ import { COLUMNAS, leerArchivo, mapearFilas, type Entidad, type Mapeo } from "@/
 const nombreEntidad: Record<Entidad, { plural: string; clave: string }> = {
   clientes: { plural: "clientes", clave: "CUIT" },
   productos: { plural: "productos", clave: "código" },
+  pacientes: { plural: "pacientes", clave: "DNI; o apellido y nombre si no tiene DNI" },
 };
 
 type Paso = { tipo: "elegir" } | { tipo: "revisar"; archivo: string; mapeo: Mapeo; resumen: ResumenImportacion } | { tipo: "listo"; resumen: ResumenImportacion };
@@ -83,7 +84,9 @@ export function ImportarDialog({ entidad, open, onOpenChange }: { entidad: Entid
             Subí un Excel (.xlsx, .xls) o CSV. Antes de guardar vas a ver qué se crea, qué se actualiza y qué filas tienen errores.
             {entidad === "productos"
               ? " Para cambiar solo el stock o los precios, alcanza con una planilla de dos columnas: Código y Stock (o Código y Precio sin IVA)."
-              : " Para cambiar solo algunos datos, alcanza con el CUIT y las columnas a cambiar."}
+              : entidad === "pacientes"
+                ? " Alcanza con apellido y nombre (aunque vengan juntos en una columna): el resto de las columnas es opcional. Las obras sociales que no existan se crean solas."
+                : " Para cambiar solo algunos datos, alcanza con el CUIT y las columnas a cambiar."}
           </DialogDescription>
         </DialogHeader>
 

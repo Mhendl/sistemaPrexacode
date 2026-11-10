@@ -27,7 +27,7 @@ const texto = (max: number) =>
 /** Datos de salud del paciente: solo los ve y los carga quien tiene permiso de historia clínica */
 const ANTECEDENTES = ["alergias", "medicacion", "antecedentes", "intervenciones"] as const;
 
-const pacienteSchema = z.object({
+export const pacienteSchema = z.object({
   nombre: z.string().trim().min(1, "El nombre es obligatorio").max(80),
   apellido: z.string().trim().min(1, "El apellido es obligatorio").max(80),
   dni: z
@@ -195,6 +195,31 @@ export const pacientesRoutes: FastifyPluginAsync = async (app) => {
     const hoy = hoyAr();
     return filas.map((f) => ({ ...f, edad: edad(f.fechaNacimiento, hoy) }));
   });
+
+  /** Para exportar a Excel: los datos de contacto y cobertura de todos (la historia clínica no sale de acá) */
+  app.get("/exportar", { preHandler: ver }, async (req) =>
+    app.db
+      .select({
+        apellido: pacientes.apellido,
+        nombre: pacientes.nombre,
+        dni: pacientes.dni,
+        fechaNacimiento: pacientes.fechaNacimiento,
+        sexo: pacientes.sexo,
+        telefono: pacientes.telefono,
+        email: pacientes.email,
+        domicilio: pacientes.domicilio,
+        localidad: pacientes.localidad,
+        obraSocial: obrasSociales.nombre,
+        plan: pacientes.plan,
+        numeroAfiliado: pacientes.numeroAfiliado,
+        notas: pacientes.notas,
+        estado: pacientes.estado,
+      })
+      .from(pacientes)
+      .leftJoin(obrasSociales, eq(obrasSociales.id, pacientes.obraSocialId))
+      .where(eq(pacientes.empresaId, req.user.empresaId))
+      .orderBy(asc(pacientes.apellido), asc(pacientes.nombre)),
+  );
 
   app.get("/:id", { preHandler: ver }, async (req) => {
     const { id } = parse(idSchema, req.params);

@@ -1,0 +1,1 @@
+ALTER TABLE "prospeccion_campanas" ADD COLUMN "asuntos_desde" timestamp with time zone;

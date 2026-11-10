@@ -125,7 +125,8 @@ const seccionesDental: NavSection[] = [
     ],
   },
   { title: "Análisis", items: [item("/reportes")] },
-  sistema,
+  // En el consultorio lo que se importa y exporta son los pacientes
+  { ...sistema, items: sistema.items.map((i) => (i.path === "/importar-exportar" ? { ...i, permisos: ["pacientes.ver"], description: "Tus pacientes, desde y hacia Excel" } : i)) },
 ];
 
 const SECCIONES: Record<ProductoId, NavSection[]> = { gestion: navSections, dental: seccionesDental };

@@ -13,6 +13,8 @@ export interface Mensaje {
   asunto: string;
   html: string;
   texto: string;
+  /** Cabeceras extra (por ejemplo List-Unsubscribe) */
+  cabeceras?: Record<string, string>;
 }
 
 /** Quien entrega los emails. En las pruebas se reemplaza por uno que los guarda en memoria. */
@@ -53,7 +55,7 @@ export function carteroSmtp(smtpUrlPlataforma?: string): Cartero {
         tr = nodemailer.createTransport(opcionesSmtp(transporte));
       }
       try {
-        await tr.sendMail({ from: m.de, replyTo: m.responderA ?? undefined, to: m.para, subject: m.asunto, html: m.html, text: m.texto });
+        await tr.sendMail({ from: m.de, replyTo: m.responderA ?? undefined, to: m.para, subject: m.asunto, html: m.html, text: m.texto, headers: m.cabeceras });
       } finally {
         tr.close();
       }

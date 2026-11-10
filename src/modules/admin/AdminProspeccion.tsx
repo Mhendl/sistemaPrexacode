@@ -59,6 +59,8 @@ interface CampanaApi {
   rebotes: number;
   terminados: number;
   emailsEnviados: number;
+  /** Si el primer email tiene varios asuntos: cómo viene cada uno */
+  asuntos: { asunto: string; enviados: number; visitaron: number; registrados: number }[];
 }
 interface ProspectoApi {
   id: string;
@@ -379,6 +381,18 @@ function Campana({ c }: { c: CampanaApi }) {
           </div>
         ))}
       </div>
+      <div className={c.asuntos?.length ? "grid gap-1.5 rounded-lg border p-3 text-sm" : "hidden"} data-testid="prueba-asuntos">
+        <div className="text-xs font-medium text-muted-foreground">Prueba de asuntos: a cada contacto le toca uno. Gana el que más visitas trae.</div>
+        {c.asuntos?.map((a) => (
+          <div key={a.asunto} className="flex flex-wrap items-baseline justify-between gap-x-4">
+            <span className="min-w-0 break-words">«{a.asunto}»</span>
+            <span className="whitespace-nowrap tabular-nums text-muted-foreground">
+              {a.enviados} enviados · <b className="text-foreground">{a.visitaron} visitas{a.enviados >= 20 ? ` (${Math.round((a.visitaron / a.enviados) * 100)} %)` : ""}</b>
+              {a.registrados > 0 && ` · ${a.registrados} registrados`}
+            </span>
+          </div>
+        ))}
+      </div>
       {previa && (
         <div className="grid gap-2 rounded-lg border border-primary/40 p-3 text-sm" data-testid="previa-importacion">
           <p>
@@ -670,7 +684,7 @@ function CampanaDialog({ open, onOpenChange, campana }: { open: boolean; onOpenC
       <DialogContent className="max-h-[92svh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{campana ? "Editar campaña" : "Nueva campaña"}</DialogTitle>
-          <DialogDescription>Podés usar {"{nombre}"}, {"{empresa}"}, {"{ciudad}"}, {"{link}"} (la landing, con seguimiento) y {"{firma}"}. Al final de cada email se agrega solo el link de baja.</DialogDescription>
+          <DialogDescription>Podés usar {"{nombre}"}, {"{empresa}"}, {"{ciudad}"}, {"{link}"} (la landing, con seguimiento), {"{precio}"} (el plan básico) y {"{firma}"}. En el asunto del primer email podés poner dos opciones separadas por || y el sistema te muestra cuál trae más visitas. Al final de cada email se agrega solo el link de baja.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4">
           <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
@@ -701,7 +715,7 @@ function CampanaDialog({ open, onOpenChange, campana }: { open: boolean; onOpenC
                   </span>
                 )}
               </div>
-              <Input value={p.asunto} onChange={(e) => setPasos(pasos.map((x, j) => (j === i ? { ...x, asunto: e.target.value } : x)))} placeholder={i === 0 ? "Asunto" : "Vacío: sale como respuesta al primero (Re: …)"} aria-label={`Asunto del email ${i + 1}`} />
+              <Input value={p.asunto} onChange={(e) => setPasos(pasos.map((x, j) => (j === i ? { ...x, asunto: e.target.value } : x)))} placeholder={i === 0 ? "Asunto (para probar dos, separalos con ||)" : "Vacío: sale como respuesta al primero (Re: …)"} aria-label={`Asunto del email ${i + 1}`} />
               <Textarea rows={7} value={p.cuerpo} onChange={(e) => setPasos(pasos.map((x, j) => (j === i ? { ...x, cuerpo: e.target.value } : x)))} aria-label={`Texto del email ${i + 1}`} />
             </div>
           ))}

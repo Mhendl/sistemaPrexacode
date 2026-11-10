@@ -37,6 +37,18 @@ export const PEDIDOS_POR_MES = 900;
 export const MAX_CONSULTAS = 10;
 const PAGINAS_POR_CONSULTA = 3;
 
+/** ¿El dominio recibe correo? Falso solo si seguro que no (no existe o no tiene servidor de correo); ante la duda, sí */
+export async function dominioRecibeCorreo(dominio: string): Promise<boolean> {
+  const noExiste = (e: unknown) => ["ENOTFOUND", "ENODATA"].includes((e as { code?: string }).code ?? "");
+  try {
+    return (await dns.resolveMx(dominio)).length > 0;
+  } catch (e) {
+    if (!noExiste(e)) return true;
+    // Sin MX, el correo puede ir al registro A del dominio
+    return dns.resolve4(dominio).then((r) => r.length > 0, (e2) => !noExiste(e2));
+  }
+}
+
 export function rastreadorGoogle(clave: string | undefined): Rastreador {
   const mx = new Map<string, boolean>();
   return {

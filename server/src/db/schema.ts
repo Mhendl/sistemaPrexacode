@@ -1676,6 +1676,8 @@ export const prospeccionCampanas = pgTable("prospeccion_campanas", {
   producto: text("producto").notNull(),
   /** Los emails de la secuencia: a los cuántos días hábiles del anterior, asunto y texto */
   pasos: jsonb("pasos").$type<{ dias: number; asunto: string; cuerpo: string }[]>().notNull(),
+  /** Desde cuándo el primer email tiene sus asuntos actuales (para comparar cuál trae más visitas) */
+  asuntosDesde: timestamp("asuntos_desde", { withTimezone: true }),
   activa: boolean("activa").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

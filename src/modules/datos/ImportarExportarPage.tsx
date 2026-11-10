@@ -1,28 +1,33 @@
 import { useState } from "react";
-import { Boxes, Download, FileDown, FileUp, Users } from "lucide-react";
+import { Boxes, Contact, Download, FileDown, FileUp, Users } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/api/client";
 import { toast } from "sonner";
 import { useClientes, useProductos } from "@/api/hooks";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { useRole } from "@/context/AuthProvider";
-import { descargarPlantilla, exportar, type Entidad } from "@/lib/planillas";
+import { descargarPlantilla, exportar, type Entidad, type PacienteExportado } from "@/lib/planillas";
 import { ImportarDialog } from "./ImportarDialog";
 
 /** Quién puede importar y exportar cada cosa (igual que los permisos de edición de cada módulo) */
 const permisos: Record<Entidad, { ver: string; importar: string }> = {
   clientes: { ver: "clientes.ver", importar: "importar.clientes" },
   productos: { ver: "productos.ver", importar: "importar.productos" },
+  pacientes: { ver: "pacientes.ver", importar: "pacientes.editar" },
 };
 
 export function ImportarExportarPage() {
-  const { puede } = useRole();
+  const { puede, empresa } = useRole();
+  const dental = empresa.producto === "dental";
   const [importando, setImportando] = useState<Entidad | null>(null);
-  const clientes = useClientes(puede(permisos.clientes.ver));
+  const clientes = useClientes(!dental && puede(permisos.clientes.ver));
   const productos = useProductos();
+  const pacientes = useQuery({ queryKey: ["pacientes", "exportar"], queryFn: () => api<PacienteExportado[]>("/pacientes/exportar"), enabled: dental && puede(permisos.pacientes.ver) });
 
   const bajar = async (entidad: Entidad, formato: "xlsx" | "csv") => {
-    const datos = entidad === "clientes" ? clientes.data : productos.data;
+    const datos = entidad === "pacientes" ? pacientes.data : entidad === "clientes" ? clientes.data : productos.data;
     if (!datos) return;
     try {
       await exportar(entidad, datos, formato);
@@ -31,7 +36,9 @@ export function ImportarExportarPage() {
     }
   };
 
-  const tarjetas: { entidad: Entidad; titulo: string; icon: typeof Users; cantidad?: number; ayuda: string }[] = [
+  const tarjetas: { entidad: Entidad; titulo: string; icon: typeof Users; cantidad?: number; ayuda: string }[] = dental
+    ? [{ entidad: "pacientes", titulo: "Pacientes", icon: Contact, cantidad: pacientes.data?.length, ayuda: "Se identifican por DNI (los que no tienen, por apellido y nombre). Se exportan los datos de contacto y cobertura." }]
+    : [
     { entidad: "clientes", titulo: "Clientes", icon: Users, cantidad: clientes.data?.length, ayuda: "Se identifican por CUIT." },
     { entidad: "productos", titulo: "Productos y stock", icon: Boxes, cantidad: productos.data?.length, ayuda: "Se identifican por código. Si el archivo trae stock distinto al actual, queda registrado como ajuste." },
   ];

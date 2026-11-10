@@ -827,9 +827,23 @@ export const ARTICULOS: Articulo[] = [
 
   // ------------------------------------------------------------------ Importar y exportar
   {
+    id: "importar-pacientes",
+    titulo: "Traer tus pacientes desde Excel",
+    seccion: "Importar y exportar",
+    producto: "dental",
+    path: "/importar-exportar",
+    permisos: ["pacientes.ver"],
+    palabras: "importar excel csv planilla migrar pasar pacientes otro sistema cargar muchos listado exportar",
+    texto:
+      "Subís la planilla como la tengas: reconoce columnas como \"Paciente\", \"Documento\", \"Fecha Nac\", \"Celular\" o \"Cobertura\". Alcanza con apellido y nombre (aunque vengan juntos en una columna); el resto es opcional. Antes de guardar muestra cuántos se crean y qué filas tienen errores. Las obras sociales que no existan se crean solas. Los pacientes se identifican por DNI; los que no tienen, por apellido y nombre, así que volver a importar no duplica.",
+    pasos: ["Entrá a Importar y exportar.", "Tocá Importar pacientes y elegí el archivo (Excel o CSV).", "Revisá la vista previa y confirmá."],
+    consejo: "Desde la misma pantalla exportás tus pacientes a Excel cuando quieras: los datos son tuyos.",
+  },
+  {
     id: "importar",
     titulo: "Traer clientes o productos desde Excel",
     seccion: "Importar y exportar",
+    producto: "gestion",
     path: "/importar-exportar",
     permisos: ["clientes.ver", "productos.ver"],
     palabras: "importar excel csv planilla migrar pasar datos otro sistema cargar muchos",

@@ -13,6 +13,7 @@ import { ImapFlow } from "imapflow";
 import { simpleParser } from "mailparser";
 import { interesados, prospeccionCampanas, prospeccionConfig, prospeccionEnvios, prospectos } from "../db/schema.js";
 import { ahoraAr } from "./turnos.js";
+import { PLANES } from "./precios.js";
 
 export interface Respuesta {
   de: string;
@@ -135,6 +136,9 @@ export async function topeDeHoy(app: FastifyInstance, c: Config, ahora = new Dat
   return Math.min(rampa, Math.max(10, Number(mejor) + suba));
 }
 
+/** El link de baja de un clic (lo usa el botón "Anular suscripción" del programa de correo) */
+const bajaApi = (app: FastifyInstance, producto: string, token: string) => `${app.urlDe(producto === "dental" ? "dental" : "gestion")}/api/publico/baja-prospecto/${token}`;
+
 const LANDING = { dental: "https://coredental.com.ar", gestion: "https://productos.prexacode.com" } as const;
 const productoDe = (p: string) => (p === "dental" ? "dental" : "gestion");
 
@@ -152,6 +156,28 @@ export function linkLanding(producto: string, campana: string, token: string) {
 type Prospecto = typeof prospectos.$inferSelect;
 
 /** Reemplaza {nombre}, {empresa}, {ciudad}, {rubro}, {link} y {firma}; si falta un dato, la frase queda bien igual */
+/**
+ * Prueba de asuntos: si el asunto trae varias opciones separadas por "||", a cada contacto le toca siempre la misma
+ * (según su código), así después se compara cuál trae más visitas.
+ */
+export function variante(texto: string, token: string) {
+  const opciones = texto.split("||").map((x) => x.trim()).filter(Boolean);
+  if (opciones.length < 2) return texto.trim();
+  let h = 0;
+  for (const ch of token) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return opciones[h % opciones.length]!;
+}
+
+/** Una frase del primer email según el rubro (lo que más le sirve a ese tipo de negocio); si no se conoce, nada */
+const GANCHOS: [RegExp, string][] = [
+  [/corral|material|ferreter|pinturer|sanitari|electric|maderer/i, "Para un rubro como el tuyo: cuando aumenta el proveedor actualizás todos los precios de una vez con un porcentaje, y hacés el remito de cada entrega."],
+  [/librer|mayorista|distribuid|bazar|repuesto|papeler|jugueter/i, "Para un rubro como el tuyo: cuando aumenta el proveedor actualizás todos los precios de una vez con un porcentaje, y ves qué productos quedaron por debajo del stock mínimo."],
+];
+const ganchoDe = (rubro: string | null) => {
+  const g = GANCHOS.find(([r]) => r.test(rubro ?? ""));
+  return g ? ` ${g[1]}` : "";
+};
+
 export function personalizar(texto: string, p: Pick<Prospecto, "nombre" | "empresa" | "ciudad" | "rubro">, extra: { link: string; firma: string; producto: string }) {
   const primerNombre = (p.nombre ?? "").trim().split(/\s+/)[0] ?? "";
   return texto
@@ -160,6 +186,8 @@ export function personalizar(texto: string, p: Pick<Prospecto, "nombre" | "empre
     .replace(/ en \{ciudad\}/g, p.ciudad?.trim() ? ` en ${p.ciudad.trim()}` : "")
     .replace(/\{ciudad\}/g, p.ciudad?.trim() ?? "")
     .replace(/\{rubro\}/g, p.rubro?.trim() ?? "")
+    .replace(/ ?\{gancho\}/g, ganchoDe(p.rubro))
+    .replace(/\{precio\}/g, `USD ${PLANES.basico.precioUsd}`)
     .replace(/\{link\}/g, extra.link)
     .replace(/\{firma\}/g, extra.firma)
     .replace(/Hola ,/g, "Hola,")
@@ -238,7 +266,7 @@ export async function registrarAlta(app: FastifyInstance, token: string, empresa
 }
 
 /** Manda un email con la casilla de prospección */
-export async function enviarProspeccion(app: FastifyInstance, c: Config, para: string, asunto: string, texto: string) {
+export async function enviarProspeccion(app: FastifyInstance, c: Config, para: string, asunto: string, texto: string, bajaUrl?: string) {
   await app.cartero.enviar(transporteDe(app, c), {
     de: `"${(c.remitenteNombre || "Prexacode").replace(/["<>]/g, "")}" <${c.remitenteEmail}>`,
     responderA: c.remitenteEmail,
@@ -246,6 +274,8 @@ export async function enviarProspeccion(app: FastifyInstance, c: Config, para: s
     asunto,
     html: aHtml(texto),
     texto,
+    // Con esto Gmail y Outlook muestran su propio botón "Anular suscripción": menos gente lo marca como spam
+    ...(bajaUrl ? { cabeceras: { "List-Unsubscribe": `<${bajaUrl}>, <mailto:${c.remitenteEmail}?subject=BAJA>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" } } : {}),
   });
 }
 
@@ -255,7 +285,10 @@ export const PALABRAS_BAJA = /\b(baja|desuscrib\w*|no (me|nos|le|les) (int\w{0,4
 const ES_AUTOMATICA = (r: Respuesta, propio: string) =>
   !!r.automatica ||
   /respuesta autom|automatic reply|auto.?reply|autorespuesta|fuera de (la )?oficina|out of (the )?office|ausencia/i.test(r.asunto) ||
-  /(mensaje|respuesta|correo) (generad[oa] )?autom[aá]tic|gracias por (contactarnos|comunicarte|comunicarse|escribirnos|tu mensaje|su mensaje|su consulta|tu consulta)|recibimos (tu|su) (mensaje|consulta|correo|email)|si te comunicaste para|nuestro nuevo canal|estimados pacientes|no responda a este/i.test(propio);
+  /(mensaje|respuesta|correo) (generad[oa] )?autom[aá]tic|gracias por (contactarnos|comunicarte|comunicarse|escribirnos|tu mensaje|su mensaje|su consulta|tu consulta)|recibimos (tu|su) (mensaje|consulta|correo|email)|si te comunicaste para|nuestro nuevo canal|estimados pacientes|no responda a este|te solicitamos (por favor )?(que )?nos contactes|cont[aá]ctanos? por whatsapp|comunicate por whatsapp|(env[ií]o|reenv[ií]o|derivo) (los?|el|tu|su) (mails?|emails?|correos?|mensaje) al (sector|[aá]rea)/i.test(propio);
+/** "No, gracias", "ya tenemos un sistema": no es un interesado, es una baja (amable) */
+export const NO_LE_INTERESA =
+  /\b(no,? (muchas )?gracias|ya (contamos|tenemos|trabajamos|usamos|estamos) con|ya (tenemos|usamos|contamos) (un|otro|nuestro)|por (el momento|ahora) no|no (lo )?(necesitamos|necesito|requerimos)|no estamos buscando|no es de (nuestro|mi) inter[eé]s)\b/i;
 const ES_REBOTE = (r: Respuesta) => /mailer-daemon|postmaster/i.test(r.de) || /undeliver|delivery status|delivery failure|returned mail|no se pudo entregar|failure notice|rechazad/i.test(r.asunto);
 
 /** Lee la casilla: quien respondió sale de la secuencia (y queda como interesado); los rebotes y las bajas, también */
@@ -298,6 +331,11 @@ export async function revisarRespuestas(app: FastifyInstance, c: Config, ahora =
       bajas++;
       continue;
     }
+    if (NO_LE_INTERESA.test(propio.slice(0, 400))) {
+      await app.db.update(prospectos).set({ estado: "Baja", nota: `Respondió que no le interesa: ${propio.trim().slice(0, 300)}` }).where(eq(prospectos.id, x.p.id));
+      bajas++;
+      continue;
+    }
     await app.db.update(prospectos).set({ estado: "Respondió", nota: propio.trim().slice(0, 500) || null }).where(eq(prospectos.id, x.p.id));
     await app.db.insert(interesados).values({
       producto: productoDe(x.producto),
@@ -318,11 +356,11 @@ export async function revisarRespuestas(app: FastifyInstance, c: Config, ahora =
 async function enviarEmailDeVisita(app: FastifyInstance, c: Config, p: typeof prospectos.$inferSelect, campana: typeof prospeccionCampanas.$inferSelect, ahora: Date) {
   const producto = campana.producto === "dental" ? "dental" : "gestion";
   const extra = { link: linkLanding(campana.producto, campana.nombre, p.token), firma: c.remitenteNombre || "Prexacode", producto: campana.producto };
-  const asunto = `Re: ${personalizar(campana.pasos[0]!.asunto, p, extra)}`;
+  const asunto = `Re: ${personalizar(variante(campana.pasos[0]!.asunto, p.token), p, extra)}`;
   const baja = `${app.urlDe(productoDe(campana.producto))}/baja-prospecto/${p.token}`;
   const texto = `${personalizar(EMAIL_VISITA[producto], p, extra)}\n\n--\nSi no te interesa, respondé BAJA o entrá a ${baja} y no te escribo más.`;
   try {
-    await enviarProspeccion(app, c, p.email, asunto, texto);
+    await enviarProspeccion(app, c, p.email, asunto, texto, bajaApi(app, campana.producto, p.token));
   } catch (e) {
     const msg = (e as Error).message ?? "Error al enviar";
     await app.db.insert(prospeccionEnvios).values({ prospectoId: p.id, paso: -1, asunto, estado: "Error", error: msg, casillaId: c.id });
@@ -432,18 +470,23 @@ async function tickCasilla(app: FastifyInstance, c: Config, productos: string[],
     .limit(1);
   if (!siguiente) return "sin-pendientes";
   const { p, campana } = siguiente;
+  // Antes del primer email: si el dominio no existe o no recibe correo, no se manda (un rebote menos)
+  if (p.paso === 0 && app.dominioRecibeCorreo && !(await app.dominioRecibeCorreo(p.email.split("@")[1] ?? ""))) {
+    await app.db.update(prospectos).set({ estado: "Rebotó", nota: "El dominio del email no existe o no recibe correo (no se le escribió)" }).where(eq(prospectos.id, p.id));
+    return "dominio-invalido";
+  }
   const paso = campana.pasos[p.paso];
   if (!paso) {
     await app.db.update(prospectos).set({ estado: "Terminado" }).where(eq(prospectos.id, p.id));
     return "terminado";
   }
   const extra = { link: linkLanding(campana.producto, campana.nombre, p.token), firma: c.remitenteNombre || "Prexacode", producto: campana.producto };
-  const primerAsunto = personalizar(campana.pasos[0]!.asunto, p, extra);
-  const asunto = paso.asunto.trim() ? personalizar(paso.asunto, p, extra) : `Re: ${primerAsunto}`;
+  const primerAsunto = personalizar(variante(campana.pasos[0]!.asunto, p.token), p, extra);
+  const asunto = p.paso === 0 ? primerAsunto : paso.asunto.trim() ? personalizar(paso.asunto, p, extra) : `Re: ${primerAsunto}`;
   const baja = `${app.urlDe(productoDe(campana.producto))}/baja-prospecto/${p.token}`;
   const texto = `${personalizar(paso.cuerpo, p, extra)}\n\n--\nSi no te interesa, respondé BAJA o entrá a ${baja} y no te escribo más.`;
   try {
-    await enviarProspeccion(app, c, p.email, asunto, texto);
+    await enviarProspeccion(app, c, p.email, asunto, texto, bajaApi(app, campana.producto, p.token));
   } catch (e) {
     const err = e as { code?: string; responseCode?: number; command?: string; message?: string };
     const msg = err.code === "EAUTH" || err.responseCode === 535 ? "La casilla rechazó el usuario o la contraseña" : (err.message ?? "Error al enviar");
@@ -491,19 +534,19 @@ async function tickCasilla(app: FastifyInstance, c: Config, productos: string[],
  * Secuencias sugeridas: cortas y en primera persona. El pedido principal es mirar la página y probarlo gratis
  * (se vende solo); responder queda para quien tenga dudas.
  */
-/** El email a quien entró a la página y no se registró: personal, ofreciendo ayuda (sin decirle que vimos que entró) */
+/** El email a quien entró a la página y no se registró: que empezar es fácil (sube su Excel él mismo; nunca se le piden sus datos) */
 export const EMAIL_VISITA: Record<"dental" | "gestion", string> = {
   dental:
-    "Hola {nombre},\n\nTe escribo de nuevo, esta vez para ofrecerte una mano: si querés, te muestro CoreDental en 10 minutos por videollamada o por teléfono, con un ejemplo de cómo quedaría la agenda y las historias clínicas de {empresa}.\n\nRespondeme este email con un día y un horario que te queden cómodos (o un teléfono y te llamo yo).\n\nY si preferís probarlo por tu cuenta, creás la cuenta en 2 minutos y te ayudo a cargar los pacientes: {link}\n\nSaludos,\n{firma}",
+    "Hola {nombre},\n\nUna cosa más y no te molesto: para probar CoreDental no hace falta cargar todo a mano. Si tenés tus pacientes en un Excel, lo subís vos mismo y el sistema reconoce las columnas solo: en un minuto está todo adentro. Tus datos son tuyos: los exportás cuando quieras.\n\nSon 14 días gratis, sin tarjeta: {link}\n\nSi tenés alguna duda puntual sobre {empresa}, preguntame por acá.\n\nSaludos,\n{firma}",
   gestion:
-    "Hola {nombre},\n\nTe escribo de nuevo, esta vez para ofrecerte una mano: si querés, te muestro Prexacode en 10 minutos por videollamada o por teléfono, con un ejemplo de cómo quedaría la facturación, el stock y las cuentas de {empresa}.\n\nRespondeme este email con un día y un horario que te queden cómodos (o un teléfono y te llamo yo).\n\nY si preferís probarlo por tu cuenta, creás la cuenta en 2 minutos y te ayudo a pasar tus productos y clientes desde Excel: {link}\n\nSaludos,\n{firma}",
+    "Hola {nombre},\n\nUna cosa más y no te molesto: para probar Prexacode no hace falta cargar todo a mano. Si tenés tus productos o clientes en un Excel, lo subís vos mismo y el sistema reconoce las columnas solo: en un minuto está todo adentro. Tus datos son tuyos: los exportás cuando quieras.\n\nSon 14 días gratis, sin tarjeta: {link}\n\nSi tenés alguna duda puntual sobre {empresa}, preguntame por acá.\n\nSaludos,\n{firma}",
 };
 
 export const PLANTILLAS: Record<"dental" | "gestion", { dias: number; asunto: string; cuerpo: string }[]> = {
   dental: [
     {
       dias: 0,
-      asunto: "Turnos online para {empresa}",
+      asunto: "Turnos online para {empresa} || ¿Cuántos turnos se pierden por semana en {empresa}?",
       cuerpo:
         "Hola {nombre},\n\nVi {empresa} en {ciudad} y te escribo corto: armé CoreDental, un sistema para consultorios odontológicos hecho en Argentina. Los pacientes sacan turno online y les llega un recordatorio para confirmar (menos sillones vacíos), la historia clínica tiene odontograma, y a fin de mes la liquidación de obras sociales sale sola.\n\nLo mirás acá y, si te gusta, creás tu cuenta en 2 minutos y ya lo estás usando: 14 días gratis, sin tarjeta y sin tener que hablar con nadie. {link}\n\nSi te surge alguna duda, respondeme este email.\n\nSaludos,\n{firma}",
     },
@@ -517,15 +560,15 @@ export const PLANTILLAS: Record<"dental" | "gestion", { dias: number; asunto: st
       dias: 5,
       asunto: "",
       cuerpo:
-        "Hola {nombre}, este es mi último email, no quiero llenarte la casilla.\n\nSi en algún momento querés ordenar la agenda, las historias clínicas o las obras sociales del consultorio, lo probás 14 días gratis: {link}\n\nY si me contestás con una línea cómo manejan hoy los turnos, te digo con sinceridad si les sirve o no.\n\n¡Gracias por leer!\n{firma}",
+        "Hola {nombre}, este es mi último email, no quiero llenarte la casilla.\n\nSi en algún momento querés ordenar la agenda, las historias clínicas o las obras sociales del consultorio, lo probás 14 días gratis: {link}\n\nPara que tengas el número: después de la prueba, el plan para empezar sale {precio} por mes (se paga en pesos, al dólar oficial) y lo das de baja cuando quieras.\n\nY si me contestás con una línea cómo manejan hoy los turnos, te digo con sinceridad si les sirve o no.\n\n¡Gracias por leer!\n{firma}",
     },
   ],
   gestion: [
     {
       dias: 0,
-      asunto: "Facturación y stock de {empresa}",
+      asunto: "Facturación y stock de {empresa} || ¿Seguís haciendo las facturas desde la página de ARCA?",
       cuerpo:
-        "Hola {nombre},\n\nVi {empresa} en {ciudad} y te escribo corto: armé Prexacode, un sistema de gestión hecho en Argentina para comercios y PyMEs. Facturás con ARCA en segundos desde la compu o el celular, el stock se descuenta solo con cada venta y en los reportes ves cuánto vendiste cada día y cada mes. Si además vendés en cuenta corriente, te muestra quién te debe y desde cuándo.\n\nLo mirás acá y, si te gusta, creás tu cuenta en 2 minutos y ya lo estás usando: 14 días gratis, sin tarjeta y sin tener que hablar con nadie. {link}\n\nSi te surge alguna duda, respondeme este email.\n\nSaludos,\n{firma}",
+        "Hola {nombre},\n\nVi {empresa} en {ciudad} y te escribo corto: armé Prexacode, un sistema de gestión hecho en Argentina para comercios y PyMEs. Facturás con ARCA en segundos desde la compu o el celular, el stock se descuenta solo con cada venta y en los reportes ves cuánto vendiste cada día y cada mes. Si además vendés en cuenta corriente, te muestra quién te debe y desde cuándo. {gancho}\n\nLo mirás acá y, si te gusta, creás tu cuenta en 2 minutos y ya lo estás usando: 14 días gratis, sin tarjeta y sin tener que hablar con nadie. {link}\n\nSi te surge alguna duda, respondeme este email.\n\nSaludos,\n{firma}",
     },
     {
       dias: 3,
@@ -537,7 +580,7 @@ export const PLANTILLAS: Record<"dental" | "gestion", { dias: number; asunto: st
       dias: 5,
       asunto: "",
       cuerpo:
-        "Hola {nombre}, este es mi último email, no quiero llenarte la casilla.\n\nSi en algún momento querés tener la facturación, el stock y las cobranzas en un solo lugar, lo probás 14 días gratis: {link}\n\nY si me contestás con una línea a qué se dedica {empresa}, te digo con sinceridad si te sirve o no.\n\n¡Gracias por leer!\n{firma}",
+        "Hola {nombre}, este es mi último email, no quiero llenarte la casilla.\n\nSi en algún momento querés tener la facturación, el stock y las cobranzas en un solo lugar, lo probás 14 días gratis: {link}\n\nPara que tengas el número: después de la prueba, el plan para empezar sale {precio} por mes (se paga en pesos, al dólar oficial) y lo das de baja cuando quieras.\n\nY si me contestás con una línea a qué se dedica {empresa}, te digo con sinceridad si te sirve o no.\n\n¡Gracias por leer!\n{firma}",
     },
   ],
 };

@@ -1,7 +1,7 @@
 import { gte } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prospeccionEnvios } from "../src/db/schema.js";
-import { enHorario, PALABRAS_BAJA, personalizar, sumarDiasHabiles, tickProspeccion, topeDelDia, type Respuesta } from "../src/lib/prospeccion.js";
+import { enHorario, NO_LE_INTERESA, PALABRAS_BAJA, personalizar, variante, sumarDiasHabiles, tickProspeccion, topeDelDia, type Respuesta } from "../src/lib/prospeccion.js";
 import { auth, carteroDePrueba, crearApp, cuitValido, emailUnico, type TestApp } from "./helpers.js";
 
 let app: TestApp;
@@ -35,6 +35,29 @@ describe("prospección: reglas", () => {
   it("reconoce los pedidos de baja, aunque vengan con errores de tipeo", () => {
     for (const t of ["BAJA por favor", "no nos intreresa el servicio . gracias", "No me interesa, gracias", "no estamos interesados", "Por favor no nos escriban más"]) expect(PALABRAS_BAJA.test(t), t).toBe(true);
     for (const t of ["Hola, me interesa, ¿me llamás?", "¿Cuánto sale por mes?", "Nos interesa saber más"]) expect(PALABRAS_BAJA.test(t), t).toBe(false);
+  });
+
+  it("un 'no, gracias' o 'ya tenemos sistema' es una baja amable, no un interesado", () => {
+    for (const t of ["No, gracias. Muy amable de todos modos.", "gracias pero ya contamos con un sistema", "Te agradecemos el contacto pero ya contamos con un programa digital", "Por el momento no, gracias", "ya usamos otro sistema"]) expect(NO_LE_INTERESA.test(t), t).toBe(true);
+    for (const t of ["Hola, me interesa, ¿me llamás?", "¿Tiene facturación? Hoy no tenemos ningún sistema", "Gracias, ¿cuánto sale?"]) expect(NO_LE_INTERESA.test(t), t).toBe(false);
+  });
+  it("el primer email de PyMEs suma una frase según el rubro (y nada si no se conoce)", () => {
+    const extra = { link: "L", firma: "Martín", producto: "gestion" };
+    const base = { nombre: null, empresa: "X", ciudad: null };
+    expect(personalizar("Te debe. {gancho}\n\nChau", { ...base, rubro: "Corralón de Materiales" }, extra)).toBe("Te debe. Para un rubro como el tuyo: cuando aumenta el proveedor actualizás todos los precios de una vez con un porcentaje, y hacés el remito de cada entrega.\n\nChau");
+    expect(personalizar("Te debe. {gancho}\n\nChau", { ...base, rubro: "librería comercial" }, extra)).toContain("stock mínimo");
+    expect(personalizar("Te debe. {gancho}\n\nChau", { ...base, rubro: null }, extra)).toBe("Te debe.\n\nChau");
+  });
+
+  it("prueba de asuntos: a cada contacto le toca siempre la misma opción, repartidas parejo; el precio sale del plan básico", () => {
+    const asunto = "Turnos online para {empresa} || ¿Cuántos turnos se pierden?";
+    expect(variante(asunto, "abc123")).toBe(variante(asunto, "abc123"));
+    const reparto = Array.from({ length: 200 }, (_, i) => variante(asunto, `token-${i}`));
+    const primera = reparto.filter((x) => x === "Turnos online para {empresa}").length;
+    expect(primera).toBeGreaterThan(70);
+    expect(primera).toBeLessThan(130);
+    expect(variante("Un solo asunto", "x")).toBe("Un solo asunto");
+    expect(personalizar("Sale {precio} por mes", { nombre: null, empresa: null, ciudad: null, rubro: null }, { link: "L", firma: "M", producto: "gestion" })).toBe("Sale USD 45 por mes");
   });
 
   it("calentamiento, horario y días hábiles", () => {
@@ -116,7 +139,7 @@ describe("prospección de punta a punta", () => {
     expect(await tickProspeccion(app, mas(LUNES_10, 150))).toBe("sin-pendientes");
     const enviadosDia1 = correo.enviados.slice(antes).map((e) => e.mensaje.para).sort();
     expect(enviadosDia1).toEqual(["ana@sonrisas.com", "info@dentalnorte.com", "rebota@noexiste.com"]);
-    expect(correo.enviados.slice(antes).every((e) => e.mensaje.asunto.startsWith("Turnos online para "))).toBe(true);
+    expect(correo.enviados.slice(antes).every((e) => /^(Turnos online para |¿Cuántos turnos se pierden por semana en )/.test(e.mensaje.asunto))).toBe(true);
 
     // Llegan respuestas: Ana quiere saber más, Dental Norte pide la baja y el otro rebota
     bandeja.push({ de: "ana@sonrisas.com", asunto: "Re: Turnos online para Consultorio Sonrisas", texto: "Hola Martín, me interesa, ¿me llamás el jueves?\n\nEl lun, 5 oct 2026 a las 10:00, Martín escribió:\n> Hola Ana, si no te interesa respondé BAJA" });
@@ -175,7 +198,7 @@ describe("prospección de punta a punta", () => {
     expect(await tickProspeccion(app, viernes)).toBe("enviado");
     const segundo = correo.enviados.at(-1)!.mensaje;
     expect(segundo.para).toBe("compras@corralon.com");
-    expect(segundo.asunto).toBe("Re: Facturación y stock de tu empresa");
+    expect(["Re: Facturación y stock de tu empresa", "Re: ¿Seguís haciendo las facturas desde la página de ARCA?"]).toContain(segundo.asunto);
     expect(segundo.texto.startsWith("Hola, te escribo de nuevo")).toBe(true);
     expect(await tickProspeccion(app, mas(viernes, 60))).toBe("sin-pendientes");
 
@@ -370,7 +393,10 @@ describe("prospección de punta a punta", () => {
     expect(personal.para).toBe("lucia@visita.com");
     expect(personal.asunto).toBe(`Re: ${primero.asunto}`);
     expect(personal.texto.startsWith("Hola Lucía,")).toBe(true);
-    expect(personal.texto).toContain("te muestro Prexacode en 10 minutos");
+    expect(personal.texto).toContain("lo subís vos mismo");
+    expect(personal.texto).not.toMatch(/mandame|enviame|pasame/i); // nunca se le piden sus datos
+    // Lleva el botón de baja de un clic para el programa de correo
+    expect(correo.enviados.at(-1)!.mensaje.cabeceras?.["List-Unsubscribe"]).toMatch(/^<http.*\/api\/publico\/baja-prospecto\/[\w-]+>, <mailto:.*\?subject=BAJA>$/);
     expect(personal.texto).toContain("Ferretería Lucía");
     expect(personal.texto).toContain(`r=${t}`);
     expect(personal.texto).toContain("/baja-prospecto/");
@@ -460,5 +486,53 @@ describe("prospección de punta a punta", () => {
     const mejor = Math.max(s1, await Promise.resolve(0));
     expect(await tope(lunes)).toBeLessThanOrEqual(Math.max(mejor, s1 + 5));
     await api("POST", "/config", { ...cfg, password: null, maxPorDia: 30, finesDeSemana: false });
+  });
+
+  it("un 'no, gracias' sale de la secuencia como baja; un dominio que no recibe correo no se escribe", async () => {
+    bandeja.length = 0;
+    const plantillas = (await api("GET", "/plantillas")).json();
+    for (const c of (await api("GET", "/campanas")).json()) await api("PUT", `/campanas/${c.id}`, { nombre: c.nombre, producto: c.producto, pasos: c.pasos, activa: false });
+    const id = (await api("POST", "/campanas", { nombre: "Respuestas pymes", producto: "gestion", pasos: plantillas.gestion })).json().id;
+    await api("POST", `/campanas/${id}/importar`, { confirmar: true, filas: [{ email: "amable@respuestas.com", empresa: "Corralón Amable", rubro: "Corralón de materiales" }, { email: "nadie@dominio-que-no-existe.com" }] });
+    app.dominioRecibeCorreo = async (d) => d !== "dominio-que-no-existe.com";
+    await api("POST", "/config/activa", { activa: true });
+    const martes = enSemanas("2027-01-05T13:00:00Z");
+    const resultados = [await tickProspeccion(app, martes), await tickProspeccion(app, mas(martes, 90))].sort();
+    expect(resultados).toEqual(["dominio-invalido", "enviado"]);
+    app.dominioRecibeCorreo = undefined;
+    const primero = correo.enviados.at(-1)!.mensaje;
+    expect(primero.para).toBe("amable@respuestas.com");
+    expect(primero.texto).toContain("hacés el remito de cada entrega");
+    const antes = (await app.inject({ method: "GET", url: "/api/plataforma/interesados", headers: auth(token) })).json().length;
+    bandeja.push({ de: "amable@respuestas.com", asunto: `Re: ${primero.asunto}`, texto: "Hola, gracias pero ya contamos con un sistema. Saludos" });
+    await tickProspeccion(app, mas(martes, 200));
+    const lista = (await api("GET", `/prospectos?campanaId=${id}`)).json() as { email: string; estado: string; nota: string }[];
+    expect(lista.find((p) => p.email === "amable@respuestas.com")).toMatchObject({ estado: "Baja" });
+    expect(lista.find((p) => p.email === "amable@respuestas.com")!.nota).toContain("Respondió que no le interesa");
+    expect(lista.find((p) => p.email === "nadie@dominio-que-no-existe.com")).toMatchObject({ estado: "Rebotó" });
+    expect((await app.inject({ method: "GET", url: "/api/plataforma/interesados", headers: auth(token) })).json().length).toBe(antes);
+  });
+
+  it("la campaña muestra cuántos recibieron cada asunto y cuántos entraron (desde que se pusieron esos asuntos)", async () => {
+    bandeja.length = 0;
+    for (const c of (await api("GET", "/campanas")).json()) await api("PUT", `/campanas/${c.id}`, { nombre: c.nombre, producto: c.producto, pasos: c.pasos, activa: false });
+    const plantillas = (await api("GET", "/plantillas")).json();
+    expect(plantillas.gestion[0].asunto).toContain(" || ");
+    expect(plantillas.gestion[2].cuerpo).toContain("{precio}");
+    const id = (await api("POST", "/campanas", { nombre: "Asuntos pymes", producto: "gestion", pasos: plantillas.gestion })).json().id;
+    await api("POST", `/campanas/${id}/importar`, { confirmar: true, filas: Array.from({ length: 8 }, (_, i) => ({ email: `asunto${i}@prueba${i}.com`, empresa: `Empresa ${i}` })) });
+    await api("POST", "/config/activa", { activa: true });
+    const lunes = enSemanas("2027-01-11T12:00:00Z");
+    const n = correo.enviados.length;
+    for (let i = 0; i < 8; i++) expect(await tickProspeccion(app, mas(lunes, i * 60))).toBe("enviado");
+    const mandados = correo.enviados.slice(n).map((e) => e.mensaje);
+    expect(new Set(mandados.map((m) => m.asunto.replace(/Empresa \d/, "X"))).size).toBe(2);
+    // Uno entra a la página
+    const t = /r=([A-Za-z0-9_-]+)/.exec(mandados[0]!.texto)![1]!;
+    await app.inject({ method: "POST", url: `/api/publico/baja-prospecto/visita/${t}` });
+    const c = (await api("GET", "/campanas")).json().find((x: { id: string }) => x.id === id);
+    expect(c.asuntos).toHaveLength(2);
+    expect(c.asuntos.reduce((a: number, x: { enviados: number }) => a + x.enviados, 0)).toBe(8);
+    expect(c.asuntos.reduce((a: number, x: { visitaron: number }) => a + x.visitaron, 0)).toBe(1);
   });
 });

@@ -8,7 +8,7 @@ import { KpiCard } from "@/components/shared/KpiCard";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { QueryState } from "@/components/shared/QueryState";
 import { useRole, Si } from "@/context/AuthProvider";
-import { formatDate, formatMoney, formatMoneyShort } from "@/lib/format";
+import { nombreParaSaludo, formatDate, formatMoney, formatMoneyShort } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { AgendaHoy } from "@/modules/agenda/AgendaHoy";
 import { formatCantidad } from "@/modules/productos/stock";
@@ -92,7 +92,7 @@ function InicioGestion() {
   return (
     <>
       <PageHeader
-        title={`Hola, ${usuario.nombre.split(" ")[0]}`}
+        title={`Hola, ${nombreParaSaludo(usuario.nombre)}`}
         description={fechaLarga()}
         actions={
           verVentas ? (
