@@ -294,6 +294,7 @@
         <div class="titulo-seccion">
           <h2>Precios simples, todo incluido</h2>
           <p>En dólares, que se cobran en pesos al dólar oficial del día. Pagando el año, 12 meses por el precio de <span data-precio="meses">10</span>.</p>
+          <p data-promo hidden style="margin:14px auto 0;display:inline-block;padding:8px 16px;border-radius:999px;background:#dcfce7;color:#166534;font-weight:600;font-size:15px"></p>
         </div>
         <div class="precios">
           <div class="plan">
@@ -422,6 +423,10 @@
             });
             document.querySelectorAll('[data-precio="adicional"]').forEach(function (el) { el.textContent = String(p.usuarioAdicionalUsd); });
             document.querySelectorAll('[data-precio="meses"]').forEach(function (el) { el.textContent = String(p.mesesCobradosAnual); });
+            if (p.promo) document.querySelectorAll('[data-promo]').forEach(function (el) {
+                el.textContent = '🎉 Lanzamiento: ' + p.promo.descuentoPct + ' % de descuento ' + (p.promo.pagos === 1 ? 'el primer mes' : 'los primeros ' + p.promo.pagos + ' meses') + ' (quedan ' + p.promo.quedan + (p.promo.quedan === 1 ? ' lugar)' : ' lugares)');
+                el.hidden = false;
+            });
         }).catch(function () {});
     })();
     // Pedido de demo: se guarda en Prexacode y nos llega el aviso
@@ -451,5 +456,6 @@
       }
     });
   </script>
+  <script src="https://sistema.prexacode.com/chat-widget.js" data-producto="gestion" defer></script>
 </body>
 </html>

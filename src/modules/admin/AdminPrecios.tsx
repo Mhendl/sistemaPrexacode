@@ -27,6 +27,7 @@ interface CobrosApi {
   usuarioAdicionalUsd: number;
   mesesCobradosAnual: number;
   transferencia: Transferencia | null;
+  promo: { activa: boolean; descuentoPct: number; pagos: number; cupos: number; usadas: number; quedan: number };
   transferencias: { id: string; referencia: string; empresa: string; producto: string; periodo: string; plan: string; importeArs: number; importeUsd: number; estado: string; proveedorPagoId: string | null; createdAt: string; aprobadoAt: string | null }[];
 }
 
@@ -44,6 +45,7 @@ export function AdminPrecios() {
           <div className="grid gap-6">
             <Transferencias d={data} />
             <Precios d={data} />
+            <Promo d={data} />
             <DatosTransferencia d={data} />
           </div>
         )}
@@ -104,6 +106,63 @@ function Precios({ d }: { d: CobrosApi }) {
         <Button onClick={guardar} disabled={guardando}>
           {guardando && <Loader2 className="size-4 animate-spin" />} Guardar precios
         </Button>
+      </div>
+    </Card>
+  );
+}
+
+/** Promo de lanzamiento: descuento en los primeros pagos mensuales, para una cantidad limitada de empresas */
+function Promo({ d }: { d: CobrosApi }) {
+  const qc = useQueryClient();
+  const [v, setV] = useState({ descuentoPct: "", pagos: "", cupos: "" });
+  useEffect(() => {
+    setV({ descuentoPct: String(d.promo.descuentoPct), pagos: String(d.promo.pagos), cupos: String(d.promo.cupos) });
+  }, [d]);
+  const guardar = async (activa: boolean) => {
+    try {
+      const r = await apiAdmin<CobrosApi>("/plataforma/cobros/promo", { method: "PUT", body: { activa, descuentoPct: Number(v.descuentoPct), pagos: Number(v.pagos), cupos: Number(v.cupos) } });
+      qc.setQueryData(["admin", "cobros"], r);
+      toast.success(activa ? "Promo activa: ya se ve en las páginas y en la pantalla de Plan" : "Promo apagada (los que ya la tomaron la conservan)");
+    } catch (e) {
+      toast.error(mensaje(e));
+    }
+  };
+  const campo = (k: keyof typeof v, label: string, sufijo: string) => (
+    <div className="grid gap-1.5">
+      <Label htmlFor={`promo-${k}`}>{label}</Label>
+      <div className="flex items-center gap-2">
+        <Input id={`promo-${k}`} inputMode="numeric" className="w-24" value={v[k]} onChange={(e) => setV({ ...v, [k]: e.target.value.replace(/\D/g, "") })} />
+        <span className="text-sm text-muted-foreground">{sufijo}</span>
+      </div>
+    </div>
+  );
+  const vigente = d.promo.activa && d.promo.quedan > 0;
+  return (
+    <Card className="gap-4 p-4 shadow-none" data-testid="promo-panel">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Tags className="size-4 text-primary" />
+          <h3 className="font-semibold">Promo de lanzamiento</h3>
+        </div>
+        <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-medium", vigente ? "bg-success/12 text-success" : "bg-muted text-muted-foreground")}>
+          {vigente ? `Activa · quedan ${d.promo.quedan} de ${d.promo.cupos} lugares` : d.promo.activa ? "Sin lugares: ya no se ofrece" : "Apagada"}
+        </span>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        Un descuento en los primeros pagos mensuales de las empresas nuevas. Se anuncia sola en las páginas, en la pantalla de Plan y en el último email de prospección. Pagando el año no aplica (ya tiene meses gratis). {d.promo.usadas > 0 && `Ya la tomaron ${d.promo.usadas}.`}
+      </p>
+      <div className="grid gap-4 sm:grid-cols-3">
+        {campo("descuentoPct", "Descuento", "%")}
+        {campo("pagos", "Durante los primeros", "pagos mensuales")}
+        {campo("cupos", "Para las primeras", "empresas")}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button onClick={() => guardar(true)}>{d.promo.activa ? "Guardar" : "Activar la promo"}</Button>
+        {d.promo.activa && (
+          <Button variant="outline" onClick={() => guardar(false)}>
+            Apagar
+          </Button>
+        )}
       </div>
     </Card>
   );

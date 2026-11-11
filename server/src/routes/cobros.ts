@@ -1,4 +1,5 @@
 import { adminDe } from "./admin.js";
+import { refrescarPromo } from "../lib/promo.js";
 import { and, desc, eq } from "drizzle-orm";
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import { z } from "zod";
@@ -42,6 +43,10 @@ export const cobrosRoutes: FastifyPluginAsync = async (app) => {
       usuarioAdicionalUsd: preciosVigentes().usuarioAdicionalUsd,
       mesesCobradosAnual: preciosVigentes().mesesCobradosAnual,
       transferencia: c.transferencia ?? null,
+      promo: await (async () => {
+        const e = await refrescarPromo(app);
+        return { ...(e.promo ?? { activa: false, descuentoPct: 50, pagos: 3, cupos: 20 }), usadas: e.usadas, quedan: e.quedan };
+      })(),
       transferencias: (await pendientes()).map((x) => ({ ...x.pago, empresa: x.empresa, producto: x.producto })),
     };
   };
@@ -63,6 +68,23 @@ export const cobrosRoutes: FastifyPluginAsync = async (app) => {
     await app.db.update(plataformaConfig).set({ precios: d }).where(eq(plataformaConfig.id, 1));
     aplicarPrecios(d);
     await auditar(req, null, "precios", { antes, despues: d });
+    return estado();
+  });
+
+  /** Promo de lanzamiento: descuento en los primeros pagos mensuales, para una cantidad limitada de empresas */
+  app.put("/promo", async (req) => {
+    const d = parse(
+      z.object({
+        activa: z.boolean(),
+        descuentoPct: z.coerce.number().int().min(1, "Entre 1 y 90 %").max(90, "Entre 1 y 90 %"),
+        pagos: z.coerce.number().int().min(1, "Entre 1 y 12 meses").max(12, "Entre 1 y 12 meses"),
+        cupos: z.coerce.number().int().min(1, "Al menos 1").max(10000),
+      }),
+      req.body,
+    );
+    const antes = (await configPlataforma(app)).promo ?? null;
+    await app.db.update(plataformaConfig).set({ promo: d }).where(eq(plataformaConfig.id, 1));
+    await auditar(req, null, "promo", { antes, despues: d });
     return estado();
   });
 

@@ -14,6 +14,7 @@ import { simpleParser } from "mailparser";
 import { interesados, prospeccionCampanas, prospeccionConfig, prospeccionEnvios, prospectos } from "../db/schema.js";
 import { ahoraAr } from "./turnos.js";
 import { PLANES } from "./precios.js";
+import { promoPublica } from "./promo.js";
 
 export interface Respuesta {
   de: string;
@@ -188,6 +189,7 @@ export function personalizar(texto: string, p: Pick<Prospecto, "nombre" | "empre
     .replace(/\{rubro\}/g, p.rubro?.trim() ?? "")
     .replace(/ ?\{gancho\}/g, ganchoDe(p.rubro))
     .replace(/\{precio\}/g, `USD ${PLANES.basico.precioUsd}`)
+    .replace(/ ?\{promo\}/g, promoPublica.vigente ? ` Y por el lanzamiento, los primeros ${promoPublica.vigente.pagos === 1 ? "30 días" : `${promoPublica.vigente.pagos} meses`} tienen ${promoPublica.vigente.descuentoPct} % de descuento.` : "")
     .replace(/\{link\}/g, extra.link)
     .replace(/\{firma\}/g, extra.firma)
     .replace(/Hola ,/g, "Hola,")
@@ -560,7 +562,7 @@ export const PLANTILLAS: Record<"dental" | "gestion", { dias: number; asunto: st
       dias: 5,
       asunto: "",
       cuerpo:
-        "Hola {nombre}, este es mi último email, no quiero llenarte la casilla.\n\nSi en algún momento querés ordenar la agenda, las historias clínicas o las obras sociales del consultorio, lo probás 14 días gratis: {link}\n\nPara que tengas el número: después de la prueba, el plan para empezar sale {precio} por mes (se paga en pesos, al dólar oficial) y lo das de baja cuando quieras.\n\nY si me contestás con una línea cómo manejan hoy los turnos, te digo con sinceridad si les sirve o no.\n\n¡Gracias por leer!\n{firma}",
+        "Hola {nombre}, este es mi último email, no quiero llenarte la casilla.\n\nSi en algún momento querés ordenar la agenda, las historias clínicas o las obras sociales del consultorio, lo probás 14 días gratis: {link}\n\nPara que tengas el número: después de la prueba, el plan para empezar sale {precio} por mes (se paga en pesos, al dólar oficial) y lo das de baja cuando quieras. {promo}\n\nY si me contestás con una línea cómo manejan hoy los turnos, te digo con sinceridad si les sirve o no.\n\n¡Gracias por leer!\n{firma}",
     },
   ],
   gestion: [
@@ -580,7 +582,7 @@ export const PLANTILLAS: Record<"dental" | "gestion", { dias: number; asunto: st
       dias: 5,
       asunto: "",
       cuerpo:
-        "Hola {nombre}, este es mi último email, no quiero llenarte la casilla.\n\nSi en algún momento querés tener la facturación, el stock y las cobranzas en un solo lugar, lo probás 14 días gratis: {link}\n\nPara que tengas el número: después de la prueba, el plan para empezar sale {precio} por mes (se paga en pesos, al dólar oficial) y lo das de baja cuando quieras.\n\nY si me contestás con una línea a qué se dedica {empresa}, te digo con sinceridad si te sirve o no.\n\n¡Gracias por leer!\n{firma}",
+        "Hola {nombre}, este es mi último email, no quiero llenarte la casilla.\n\nSi en algún momento querés tener la facturación, el stock y las cobranzas en un solo lugar, lo probás 14 días gratis: {link}\n\nPara que tengas el número: después de la prueba, el plan para empezar sale {precio} por mes (se paga en pesos, al dólar oficial) y lo das de baja cuando quieras. {promo}\n\nY si me contestás con una línea a qué se dedica {empresa}, te digo con sinceridad si te sirve o no.\n\n¡Gracias por leer!\n{firma}",
     },
   ],
 };

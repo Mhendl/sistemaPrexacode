@@ -787,6 +787,8 @@ export interface PlanesApi {
   precioUsuarioAdicionalUsd: number;
   mesesCobradosAnual: number;
   dolar: number | null;
+  /** Promo de lanzamiento que le corresponde a la empresa en sus próximos pagos mensuales */
+  promo?: { descuentoPct: number; pagos: number } | null;
 }
 
 export interface LegalEstadoApi {

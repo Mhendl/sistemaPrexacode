@@ -731,6 +731,9 @@ export const suscripciones = pgTable("suscripciones", {
   /** Baja pedida (botón de baja): no se renueva; el acceso sigue hasta el vencimiento */
   bajaSolicitadaEn: timestamp("baja_solicitada_en", { withTimezone: true }),
   bajaCodigo: text("baja_codigo"),
+  /** Promo de lanzamiento: el descuento que tomó con su primer pago (null: nunca tuvo) y en cuántos pagos mensuales más le corre */
+  promoPct: integer("promo_pct"),
+  promoPagosRestantes: integer("promo_pagos_restantes").notNull().default(0),
   version: version(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -750,6 +753,8 @@ export const pagosSuscripcion = pgTable(
     /** periodo: paga un mes o un año | cambio: diferencia proporcional por subir de plan o sumar usuarios a mitad de período */
     tipo: text("tipo").notNull().default("periodo"),
     importeUsd: numeric("importe_usd", { precision: 10, scale: 2, mode: "number" }).notNull(),
+    /** Descuento de la promo de lanzamiento ya aplicado en importeUsd (0: sin promo) */
+    descuentoPct: integer("descuento_pct").notNull().default(0),
     tipoCambio: numeric("tipo_cambio", { precision: 10, scale: 2, mode: "number" }).notNull(),
     importeArs: numeric("importe_ars", { precision: 14, scale: 2, mode: "number" }).notNull(),
     /** Pendiente | Aprobado | Rechazado */
@@ -1772,6 +1777,8 @@ export const plataformaConfig = pgTable("plataforma_config", {
   precios: jsonb("precios").$type<{ planes: Record<string, number>; usuarioAdicionalUsd: number; mesesCobradosAnual: number }>(),
   /** Datos para que los clientes paguen por transferencia (si no hay, esa opción no aparece) */
   transferencia: jsonb("transferencia").$type<{ titular: string; cuit: string | null; banco: string | null; cbu: string | null; alias: string | null }>(),
+  /** Promo de lanzamiento (descuento en los primeros pagos mensuales, con cupo) */
+  promo: jsonb("promo").$type<{ activa: boolean; descuentoPct: number; pagos: number; cupos: number }>(),
   /** Último día en que corrió el control diario de producción (AAAA-MM-DD) */
   saludRevisada: text("salud_revisada"),
   version: integer("version").notNull().default(1),
@@ -1798,5 +1805,47 @@ export const actividadUsuarios = pgTable(
     ultimaVez: timestamp("ultima_vez", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.usuarioId, t.fecha] }), index("actividad_empresa_idx").on(t.empresaId, t.fecha)],
+);
+
+/* ---------------------------------------------------------------- Chat de las páginas (landings) */
+
+/** Una conversación del chat de las páginas: alguien que pregunta sin registrarse */
+export const chatConversaciones = pgTable(
+  "chat_conversaciones",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    /** gestion | dental: desde qué página escribe */
+    producto: text("producto").notNull(),
+    /** Clave de la conversación que guarda el navegador del visitante */
+    token: text("token").notNull().unique(),
+    email: text("email"),
+    nombre: text("nombre"),
+    origen: text("origen"),
+    ip: text("ip"),
+    /** Espera la respuesta de una persona */
+    pendiente: boolean("pendiente").notNull().default(false),
+    /** Último aviso por email al equipo */
+    avisadoEn: timestamp("avisado_en", { withTimezone: true }),
+    ultimoMensajeEn: timestamp("ultimo_mensaje_en", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("chat_conversaciones_pendiente_idx").on(t.pendiente, t.ultimoMensajeEn)],
+);
+
+export const chatMensajes = pgTable(
+  "chat_mensajes",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    /** Orden de carga (dos mensajes pueden tener la misma hora) */
+    n: bigserial("n", { mode: "number" }),
+    conversacionId: uuid("conversacion_id")
+      .notNull()
+      .references(() => chatConversaciones.id, { onDelete: "cascade" }),
+    /** visitante | equipo | auto (respuesta automática) */
+    de: text("de").notNull(),
+    texto: text("texto").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("chat_mensajes_conversacion_idx").on(t.conversacionId, t.createdAt)],
 );
 

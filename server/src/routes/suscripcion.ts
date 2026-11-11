@@ -1,4 +1,5 @@
 import { precios } from "../lib/precios.js";
+import { conDescuento, descuentoDe, refrescarPromo, type PromoGuardada } from "../lib/promo.js";
 import { alAprobarPago, configPlataforma } from "../lib/facturacionPropia.js";
 import { enviarDePlataforma } from "../lib/email/plataforma.js";
 import { randomBytes } from "node:crypto";
@@ -43,11 +44,14 @@ export async function aplicarPago(app: FastifyInstance, referencia: string, esta
     await recompensarReferido(app, r.empresaId);
     // Facturación propia: la Factura C del pago, si está activa (no frena la aprobación)
     void alAprobarPago(app, r.id);
+    if (r.descuentoPct > 0) await refrescarPromo(app);
   }
   return r;
 }
 
 async function aplicarPagoTx(app: FastifyInstance, referencia: string, estado: EstadoPago, proveedorPagoId?: string) {
+  // (se lee antes de abrir la transacción)
+  const pagosDePromo = ((await configPlataforma(app)).promo as PromoGuardada | null)?.pagos ?? 1;
   return app.db.transaction(async (tx) => {
     const [p] = await tx.select().from(pagosSuscripcion).where(eq(pagosSuscripcion.referencia, referencia)).for("update");
     if (!p) throw notFound("Pago no encontrado");
@@ -79,10 +83,17 @@ async function aplicarPagoTx(app: FastifyInstance, referencia: string, estado: E
       return r!;
     }
     const { desde, hasta } = periodoCubierto(s!, p.periodo as Periodo);
+    // Promo de lanzamiento: con el primer pago con descuento la empresa la toma; cada pago con descuento gasta uno
+    const promo =
+      p.descuentoPct > 0
+        ? s!.promoPct === null
+          ? { promoPct: p.descuentoPct, promoPagosRestantes: Math.max(0, pagosDePromo - 1) }
+          : { promoPagosRestantes: Math.max(0, s!.promoPagosRestantes - 1) }
+        : {};
     await tx
       .update(suscripciones)
       // Pagar anula una baja pedida: quiere seguir
-      .set({ plan: p.plan, periodo: p.periodo, usuariosAdicionales: p.usuariosAdicionales, pagoHasta: hasta, planProximo: null, adicionalesProximos: null, bajaSolicitadaEn: null, bajaCodigo: null, version: sql`${suscripciones.version} + 1`, updatedAt: new Date() })
+      .set({ ...promo, plan: p.plan, periodo: p.periodo, usuariosAdicionales: p.usuariosAdicionales, pagoHasta: hasta, planProximo: null, adicionalesProximos: null, bajaSolicitadaEn: null, bajaCodigo: null, version: sql`${suscripciones.version} + 1`, updatedAt: new Date() })
       .where(eq(suscripciones.empresaId, p.empresaId));
     const [r] = await tx.update(pagosSuscripcion).set({ estado, desde, hasta, aprobadoAt: new Date(), proveedorPagoId: proveedorPagoId ?? p.proveedorPagoId }).where(eq(pagosSuscripcion.id, p.id)).returning();
     return r!;
@@ -170,11 +181,16 @@ export const suscripcionRoutes: FastifyPluginAsync = async (app) => {
       precioUsuarioAdicionalUsd: precios.usuarioAdicionalUsd,
       mesesCobradosAnual: precios.mesesCobradosAnual,
       dolar,
+      // La promo de lanzamiento que le corresponde a esta empresa en su próximo pago mensual (si le corresponde)
+      promo: await (async () => {
+        const d = await descuentoDe(app, await obtenerSuscripcion(app.db, req.user.empresaId), "mensual");
+        return d.pct ? { descuentoPct: d.pct, pagos: d.pagos } : null;
+      })(),
     };
   });
 
   /** Arma el cobro (renovación o diferencia por cambio) en pesos al dólar del día y devuelve a dónde ir a pagar */
-  async function iniciarCobro(req: FastifyRequest, d: { tipo: "periodo" | "cambio"; plan: PlanId; adicionales: number; periodo: Periodo; usd: number; titulo: string }) {
+  async function iniciarCobro(req: FastifyRequest, d: { tipo: "periodo" | "cambio"; plan: PlanId; adicionales: number; periodo: Periodo; usd: number; titulo: string; descuentoPct?: number }) {
     let dolar: number;
     try {
       dolar = await app.cotizacion();
@@ -206,6 +222,7 @@ export const suscripcionRoutes: FastifyPluginAsync = async (app) => {
       periodo: d.periodo,
       usuariosAdicionales: d.adicionales,
       importeUsd: d.usd,
+      descuentoPct: d.descuentoPct ?? 0,
       tipoCambio: dolar,
       importeArs: ars,
       proveedor: app.pagos.nombre,
@@ -276,13 +293,15 @@ export const suscripcionRoutes: FastifyPluginAsync = async (app) => {
     const plan = (s.planProximo ?? s.plan) as PlanId;
     const adicionales = s.adicionalesProximos ?? s.usuariosAdicionales;
     const producto = await productoDeEmpresa(app.db, req.user.empresaId);
+    const { pct } = await descuentoDe(app, s, periodo);
     return iniciarCobro(req, {
       tipo: "periodo",
       plan,
       adicionales,
       periodo,
-      usd: precioUsd(plan, adicionales, periodo),
-      titulo: `${marcaDe(producto).nombre} plan ${nombrePlan(producto, plan)} ${periodo === "anual" ? "(12 meses)" : "(1 mes)"}${detalleUsuarios(adicionales)}`,
+      usd: conDescuento(precioUsd(plan, adicionales, periodo), pct),
+      descuentoPct: pct,
+      titulo: `${marcaDe(producto).nombre} plan ${nombrePlan(producto, plan)} ${periodo === "anual" ? "(12 meses)" : "(1 mes)"}${detalleUsuarios(adicionales)}${pct ? ` · promo lanzamiento ${pct} % off` : ""}`,
     });
   });
 
@@ -334,7 +353,8 @@ export const suscripcionRoutes: FastifyPluginAsync = async (app) => {
     const s = await obtenerSuscripcion(app.db, req.user.empresaId);
     const plan = (s.planProximo ?? s.plan) as PlanId;
     const adicionales = s.adicionalesProximos ?? s.usuariosAdicionales;
-    const usdTotal = precioUsd(plan, adicionales, d.periodo);
+    const { pct } = await descuentoDe(app, s, d.periodo);
+    const usdTotal = conDescuento(precioUsd(plan, adicionales, d.periodo), pct);
     const [p] = await app.db
       .insert(pagosSuscripcion)
       .values({
@@ -344,6 +364,7 @@ export const suscripcionRoutes: FastifyPluginAsync = async (app) => {
         periodo: d.periodo,
         usuariosAdicionales: adicionales,
         importeUsd: usdTotal,
+        descuentoPct: pct,
         tipoCambio: dolar,
         importeArs: r2(usdTotal * dolar),
         proveedor: "transferencia",

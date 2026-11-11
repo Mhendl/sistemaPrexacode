@@ -36,7 +36,9 @@ export function PagoTransferencia({ s, catalogo }: { s: SuscripcionApi; catalogo
   const plan = s.planProximo ?? s.plan;
   const adicionales = s.adicionalesProximos ?? s.usuariosAdicionales ?? 0;
   const mensualUsd = (catalogo?.planes.find((p) => p.id === plan)?.precioUsd ?? 0) + adicionales * (catalogo?.precioUsuarioAdicionalUsd ?? 0);
-  const usdTotal = periodo === "anual" ? mensualUsd * (catalogo?.mesesCobradosAnual ?? 10) : mensualUsd;
+  // La promo de lanzamiento corre en los pagos mensuales
+  const pct = periodo === "mensual" ? (catalogo?.promo?.descuentoPct ?? 0) : 0;
+  const usdTotal = periodo === "anual" ? mensualUsd * (catalogo?.mesesCobradosAnual ?? 10) : Math.round(mensualUsd * (100 - pct)) / 100;
   const ars = catalogo?.dolar ? Math.round(usdTotal * catalogo.dolar * 100) / 100 : null;
 
   const copiar = async (t: string) => {
@@ -98,6 +100,7 @@ export function PagoTransferencia({ s, catalogo }: { s: SuscripcionApi; catalogo
               <div className="text-muted-foreground">Importe a transferir</div>
               <div className="text-2xl font-semibold tabular-nums">{ars !== null ? formatMoney(ars) : `USD ${usdTotal}`}</div>
               {ars !== null && <div className="text-xs text-muted-foreground">USD {usdTotal.toLocaleString("es-AR")} al dólar oficial de hoy ({formatMoney(catalogo!.dolar!)})</div>}
+              {pct > 0 && <div className="text-xs font-medium text-success">Con la promo de lanzamiento: {pct} % de descuento</div>}
             </div>
             <div className="divide-y rounded-lg border px-3" data-testid="datos-cuenta">
               {fila("Titular", d.titular)}

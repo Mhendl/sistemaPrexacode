@@ -117,5 +117,9 @@ document.querySelectorAll('.feature-block, .benefit-card, .pricing-card, .faq-it
         });
         document.querySelectorAll('[data-precio="adicional"]').forEach(function (el) { el.textContent = String(p.usuarioAdicionalUsd); });
         document.querySelectorAll('[data-precio="meses"]').forEach(function (el) { el.textContent = String(p.mesesCobradosAnual); });
+        if (p.promo) document.querySelectorAll('[data-promo]').forEach(function (el) {
+            el.textContent = '🎉 Lanzamiento: ' + p.promo.descuentoPct + ' % de descuento ' + (p.promo.pagos === 1 ? 'el primer mes' : 'los primeros ' + p.promo.pagos + ' meses') + ' (quedan ' + p.promo.quedan + (p.promo.quedan === 1 ? ' lugar)' : ' lugares)');
+            el.hidden = false;
+        });
     }).catch(function () {});
 })();

@@ -6,6 +6,7 @@ test("pago por transferencia: el cliente ve los datos y el importe, avisa, y al 
   await entrarAlPanel(page);
   await page.getByRole("link", { name: "Precios y cobros" }).click();
   await expect(page.getByTestId("precios-planes")).toBeVisible();
+  await expect(page.getByTestId("promo-panel")).toContainText("Promo de lanzamiento");
   const datos = page.getByTestId("datos-transferencia");
   await datos.getByLabel("Titular de la cuenta").fill("Hendl Martín Ezequiel");
   await datos.getByLabel("Banco o billetera").fill("Banco Galicia");

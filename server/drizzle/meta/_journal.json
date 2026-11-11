@@ -316,6 +316,20 @@
       "when": 1794329053696,
       "tag": "0044_prueba_de_asuntos",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1794355556526,
+      "tag": "0045_promo_lanzamiento",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1794411341611,
+      "tag": "0046_chat_de_las_paginas",
+      "breakpoints": true
     }
   ]
 }

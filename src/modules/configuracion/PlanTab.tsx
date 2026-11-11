@@ -137,6 +137,13 @@ export function PlanTab() {
                 </div>
               )}
             </div>
+            {catalogo?.promo && (
+              <div className="mt-5 rounded-lg border border-success/40 bg-success/10 p-3 text-sm" data-testid="promo-lanzamiento">
+                <b>Promo de lanzamiento: {catalogo.promo.descuentoPct} % de descuento</b> en {catalogo.promo.pagos === 1 ? "tu próximo pago mensual" : `tus próximos ${catalogo.promo.pagos} pagos mensuales`}. Pagando 1 mes hoy son{" "}
+                <b>{usd(Math.round(((catalogo.planes.find((p) => p.id === (s.planProximo ?? s.plan))?.precioUsd ?? 0) + (s.adicionalesProximos ?? s.usuariosAdicionales ?? 0) * catalogo.precioUsuarioAdicionalUsd) * (100 - catalogo.promo.descuentoPct)) / 100)}</b> en vez de{" "}
+                {usd((catalogo.planes.find((p) => p.id === (s.planProximo ?? s.plan))?.precioUsd ?? 0) + (s.adicionalesProximos ?? s.usuariosAdicionales ?? 0) * catalogo.precioUsuarioAdicionalUsd)}.
+              </div>
+            )}
 
             <div className="mt-6 flex flex-wrap gap-2 border-t pt-5">
               <Button onClick={() => irAPagar("mensual")} disabled={pagar.isPending}>

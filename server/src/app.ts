@@ -4,9 +4,11 @@ import { aplicarPrecios, PLAN_IDS, PLANES, preciosVigentes, type PreciosGuardado
 import { facturacionPropiaRoutes } from "./routes/facturacionPropia.js";
 import { buzonImap, tickProspeccion, type Buzon } from "./lib/prospeccion.js";
 import { rastreadorGoogle, type Rastreador } from "./lib/buscador.js";
+import { promoPublica, refrescarPromo } from "./lib/promo.js";
 import { anotarActividad, guardarActividad, type BufferActividad } from "./lib/actividad.js";
 import { prospeccionAdminRoutes, prospeccionPublicaRoutes } from "./routes/prospeccion.js";
 import { interesadosAdminRoutes, interesadosPublicosRoutes } from "./routes/interesados.js";
+import { chatAdminRoutes, chatPublicoRoutes } from "./routes/chat.js";
 import { bajaCampanasRoutes, campanasRoutes } from "./routes/campanas.js";
 import { reservasRoutes } from "./routes/reservas.js";
 import { honorariosRoutes } from "./routes/honorarios.js";
@@ -295,10 +297,13 @@ export async function buildApp({ db, jwtSecret, logger = false, conectorArca, ca
   await app.register(facturacionPropiaRoutes, { prefix: "/api/plataforma/facturacion" });
   await app.register(cobrosRoutes, { prefix: "/api/plataforma/cobros" });
   // Precios vigentes para las landings (sin usuario)
-  app.get("/api/publico/precios", async () => ({ planes: PLAN_IDS.map((id) => ({ id, precioUsd: PLANES[id].precioUsd, usuarios: PLANES[id].usuarios })), usuarioAdicionalUsd: preciosVigentes().usuarioAdicionalUsd, mesesCobradosAnual: preciosVigentes().mesesCobradosAnual }));
+  app.get("/api/publico/precios", async () => ({ promo: promoPublica.vigente, planes: PLAN_IDS.map((id) => ({ id, precioUsd: PLANES[id].precioUsd, usuarios: PLANES[id].usuarios })), usuarioAdicionalUsd: preciosVigentes().usuarioAdicionalUsd, mesesCobradosAnual: preciosVigentes().mesesCobradosAnual }));
   // Los precios que se cambiaron desde el panel
   aplicarPrecios((await configPlataforma(app)).precios as PreciosGuardados | null);
+  await refrescarPromo(app);
   await app.register(interesadosPublicosRoutes, { prefix: "/api/publico/interesados" });
+  await app.register(chatPublicoRoutes, { prefix: "/api/publico/chat" });
+  await app.register(chatAdminRoutes, { prefix: "/api/plataforma/chat" });
   await app.register(prospeccionAdminRoutes, { prefix: "/api/plataforma/prospeccion" });
   await app.register(prospeccionPublicaRoutes, { prefix: "/api/publico/baja-prospecto" });
   await app.register(adminRoutes, { prefix: "/api/admin" });

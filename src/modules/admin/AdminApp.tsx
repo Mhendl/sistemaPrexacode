@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Building2, ClipboardList, CreditCard, Inbox, LayoutDashboard, LifeBuoy, Loader2, LogOut, Menu, Receipt, Send, ShieldCheck, Sparkles, Tags, Users } from "lucide-react";
+import { Building2, ClipboardList, CreditCard, Inbox, LayoutDashboard, LifeBuoy, Loader2, LogOut, Menu, MessageCircle, Receipt, Send, ShieldCheck, Sparkles, Tags, Users } from "lucide-react";
 import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "@/api/client";
@@ -14,6 +14,7 @@ import { apiAdmin, getAdminToken, setAdminToken, useAdminYo, type AdminApi } fro
 import { AdminAdministradores } from "./AdminAdministradores";
 import { AdminFacturacion } from "./AdminFacturacion";
 import { AdminPrecios } from "./AdminPrecios";
+import { AdminChat, useChatPendientes } from "./AdminChat";
 import { AdminInteresados } from "./AdminInteresados";
 import { AdminProspeccion } from "./AdminProspeccion";
 import { AdminAuditoria } from "./AdminAuditoria";
@@ -27,6 +28,7 @@ import { AdminSoporte, AdminTicket } from "./AdminSoporte";
 const menu = [
   { to: "/admin", label: "Resumen", icon: LayoutDashboard, fin: true },
   { to: "/admin/interesados", label: "Interesados", icon: Sparkles },
+  { to: "/admin/chat", label: "Chat", icon: MessageCircle },
   { to: "/admin/prospeccion", label: "Prospección", icon: Send },
   { to: "/admin/empresas", label: "Empresas", icon: Building2 },
   { to: "/admin/soporte", label: "Soporte", icon: LifeBuoy },
@@ -64,6 +66,7 @@ function Protegido() {
       <Routes>
         <Route index element={<AdminResumen />} />
         <Route path="interesados" element={<AdminInteresados />} />
+        <Route path="chat" element={<AdminChat />} />
         <Route path="prospeccion" element={<AdminProspeccion />} />
         <Route path="empresas" element={<AdminEmpresas />} />
         <Route path="empresas/:id" element={<AdminEmpresa />} />
@@ -82,6 +85,7 @@ function Protegido() {
 }
 
 function Navegacion({ onNavegar }: { onNavegar?: () => void }) {
+  const chat = useChatPendientes();
   return (
     <nav className="grid gap-1 p-3" aria-label="Panel de administración">
       {menu.map((m) => (
@@ -95,6 +99,11 @@ function Navegacion({ onNavegar }: { onNavegar?: () => void }) {
           }
         >
           <m.icon className="size-4" /> {m.label}
+          {m.to === "/admin/chat" && !!chat.data?.pendientes && (
+            <span className="ml-auto rounded-full bg-amber-400 px-1.5 text-xs font-semibold text-slate-900" data-testid="chat-pendientes">
+              {chat.data.pendientes}
+            </span>
+          )}
         </NavLink>
       ))}
     </nav>
