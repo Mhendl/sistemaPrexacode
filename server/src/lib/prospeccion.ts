@@ -290,7 +290,7 @@ const ES_AUTOMATICA = (r: Respuesta, propio: string) =>
   /(mensaje|respuesta|correo) (generad[oa] )?autom[aá]tic|gracias por (contactarnos|comunicarte|comunicarse|escribirnos|tu mensaje|su mensaje|su consulta|tu consulta)|recibimos (tu|su) (mensaje|consulta|correo|email)|si te comunicaste para|nuestro nuevo canal|estimados pacientes|no responda a este|te solicitamos (por favor )?(que )?nos contactes|cont[aá]ctanos? por whatsapp|comunicate por whatsapp|(env[ií]o|reenv[ií]o|derivo) (los?|el|tu|su) (mails?|emails?|correos?|mensaje) al (sector|[aá]rea)/i.test(propio);
 /** "No, gracias", "ya tenemos un sistema": no es un interesado, es una baja (amable) */
 export const NO_LE_INTERESA =
-  /\b(no,? (muchas )?gracias|ya (contamos|tenemos|trabajamos|usamos|estamos) con|ya (tenemos|usamos|contamos) (un|otro|nuestro)|por (el momento|ahora) no|no (lo )?(necesitamos|necesito|requerimos)|no estamos buscando|no es de (nuestro|mi) inter[eé]s)\b/i;
+  /\b(no,? (muchas )?gracias|ya (contamos|tenemos|trabajamos|usamos|estamos) con|ya (tenemos|usamos|contamos) (un|otro|nuestro)|por (el momento|ahora) no|no (lo )?(necesitamos|necesito|requerimos)|no estamos buscando|no es de (nuestro|mi) inter[eé]s|no (soy|somos) (un |una )?(dentista|odont[oó]log[oa]s?|consultorio|cl[ií]nica)|se equivoc(ó|aron|aste) de)\b/i;
 const ES_REBOTE = (r: Respuesta) => /mailer-daemon|postmaster/i.test(r.de) || /undeliver|delivery status|delivery failure|returned mail|no se pudo entregar|failure notice|rechazad/i.test(r.asunto);
 
 /** Lee la casilla: quien respondió sale de la secuencia (y queda como interesado); los rebotes y las bajas, también */
@@ -325,8 +325,8 @@ export async function revisarRespuestas(app: FastifyInstance, c: Config, ahora =
     if (!x) continue;
     // Solo lo que escribió (sin el email citado de abajo)
     const propio = r.texto.split(/\n\s*(>|El .{5,80} escribió:|On .{5,80} wrote:)/)[0] ?? r.texto;
-    // Un contestador automático no cuenta: sigue en la secuencia
-    if (ES_AUTOMATICA(r, propio)) continue;
+    // Un contestador automático no cuenta: sigue en la secuencia. Tampoco una respuesta vacía (una reacción, solo una firma o una imagen)
+    if (ES_AUTOMATICA(r, propio) || !propio.replace(/[\s>]/g, "")) continue;
     porEmail.delete(r.de.toLowerCase());
     if (PALABRAS_BAJA.test(propio) || PALABRAS_BAJA.test(r.asunto)) {
       await app.db.update(prospectos).set({ estado: "Baja", nota: "Pidió no recibir más emails" }).where(eq(prospectos.id, x.p.id));

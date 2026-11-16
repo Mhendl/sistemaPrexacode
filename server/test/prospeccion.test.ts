@@ -38,7 +38,7 @@ describe("prospección: reglas", () => {
   });
 
   it("un 'no, gracias' o 'ya tenemos sistema' es una baja amable, no un interesado", () => {
-    for (const t of ["No, gracias. Muy amable de todos modos.", "gracias pero ya contamos con un sistema", "Te agradecemos el contacto pero ya contamos con un programa digital", "Por el momento no, gracias", "ya usamos otro sistema"]) expect(NO_LE_INTERESA.test(t), t).toBe(true);
+    for (const t of ["No, gracias. Muy amable de todos modos.", "gracias pero ya contamos con un sistema", "Te agradecemos el contacto pero ya contamos con un programa digital", "Por el momento no, gracias", "ya usamos otro sistema", "No soy dentista."]) expect(NO_LE_INTERESA.test(t), t).toBe(true);
     for (const t of ["Hola, me interesa, ¿me llamás?", "¿Tiene facturación? Hoy no tenemos ningún sistema", "Gracias, ¿cuánto sale?"]) expect(NO_LE_INTERESA.test(t), t).toBe(false);
   });
   it("el primer email de PyMEs suma una frase según el rubro (y nada si no se conoce)", () => {

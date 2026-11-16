@@ -17,13 +17,13 @@ export const COLOR_DENTAL = "#0e8fae";
  */
 export async function enviarDePlataforma(
   app: FastifyInstance,
-  e: { para: string; asunto: string; saludo: string; parrafos: string[]; boton?: { texto: string; url: string }; pie?: string; producto?: string | null },
+  e: { para: string; asunto: string; saludo: string; parrafos: string[]; boton?: { texto: string; url: string }; pie?: string; producto?: string | null; responderA?: string },
 ): Promise<boolean> {
   if (SIN_CASILLA.test(e.para.trim())) return true;
   const marca = marcaDe(e.producto);
   const { html, texto } = armarEmail({ color: e.producto === "dental" ? COLOR_DENTAL : undefined, empresa: marca.nombre, saludo: e.saludo, parrafos: e.parrafos, boton: e.boton, pie: e.pie ?? `${marca.nombre} · ${marca.bajada} · Si tenés dudas, escribinos desde Soporte.` });
   try {
-    await app.cartero.enviar({ tipo: "plataforma" }, { de: `"${marca.nombre}" <${app.emailRemitente}>`, para: e.para, asunto: e.asunto, html, texto });
+    await app.cartero.enviar({ tipo: "plataforma" }, { de: `"${marca.nombre}" <${app.emailRemitente}>`, responderA: e.responderA, para: e.para, asunto: e.asunto, html, texto });
     return true;
   } catch (err) {
     app.log.warn({ err, para: e.para, asunto: e.asunto }, "No se pudo enviar un email de la plataforma");

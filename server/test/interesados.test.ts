@@ -22,6 +22,14 @@ describe("interesados desde las landings", () => {
     const aviso = correo.enviados.find((e) => e.mensaje.para === ADMIN);
     expect(aviso?.mensaje.asunto).toBe("Nuevo interesado en CoreDental: Dra. Ana Gómez (Consultorio Sonrisas)");
     expect(aviso?.mensaje.texto).toContain("utm_campaign=lanzamiento");
+    // A ella le llega en el momento la respuesta: cómo empezar, los precios y cómo consultarnos
+    const respuesta = correo.enviados.find((e) => e.mensaje.para === "ana@consultorio.com");
+    expect(respuesta?.mensaje).toMatchObject({ asunto: "Tu demo de CoreDental, Dra. Ana", responderA: "martin@coredental.com.ar" });
+    expect(respuesta?.mensaje.texto).toContain("Hola Dra. Ana,");
+    expect(respuesta?.mensaje.texto).toContain("para Consultorio Sonrisas");
+    expect(respuesta?.mensaje.texto).toContain("https://app.coredental.com.ar/registro");
+    expect(respuesta?.mensaje.texto).toContain("Consultorio (2 usuarios, USD 45 por mes)");
+    expect(respuesta?.mensaje.texto).toContain("historia clínica con odontograma");
 
     // Validaciones y robots
     expect((await pedir({ nombre: "A", email: "x@y.com", telefono: "11 5555-1234" })).statusCode).toBe(400);
@@ -38,6 +46,8 @@ describe("interesados desde las landings", () => {
     const ana = lista.find((i: { nombre: string }) => i.nombre === "Dra. Ana Gómez");
     expect(ana).toMatchObject({ producto: "dental", email: "ana@consultorio.com", estado: "Nuevo" });
     expect(lista.find((i: { nombre: string }) => i.nombre === "Juan Pérez").producto).toBe("gestion");
+    expect(ana.nota).toContain("Se le mandó sola la respuesta");
+    expect(correo.enviados.find((e) => e.mensaje.para === "juan@pyme.com")?.mensaje.texto).toContain("https://sistema.prexacode.com/registro");
     const upd = await app.inject({ method: "PUT", url: `/api/plataforma/interesados/${ana.id}`, headers: auth(token), payload: { estado: "Contactado", nota: "Demo el jueves 10 hs" } });
     expect(upd.statusCode, upd.body).toBe(200);
     expect(upd.json()).toMatchObject({ estado: "Contactado", nota: "Demo el jueves 10 hs" });
