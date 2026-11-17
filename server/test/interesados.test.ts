@@ -30,6 +30,8 @@ describe("interesados desde las landings", () => {
     expect(respuesta?.mensaje.texto).toContain("https://app.coredental.com.ar/registro");
     expect(respuesta?.mensaje.texto).toContain("Consultorio (2 usuarios, USD 45 por mes)");
     expect(respuesta?.mensaje.texto).toContain("historia clínica con odontograma");
+    expect(respuesta?.mensaje.texto).not.toMatch(/videollamada|te lo muestre/); // que se registre y lo vea
+    expect(respuesta?.mensaje.texto).toContain("respondé este email y te contesto yo");
 
     // Validaciones y robots
     expect((await pedir({ nombre: "A", email: "x@y.com", telefono: "11 5555-1234" })).statusCode).toBe(400);
